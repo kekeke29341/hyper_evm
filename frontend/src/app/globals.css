@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #09090b;
+  --foreground: #fafafa;
+  --neon-green: #39ff14;
+  --neon-cyan: #00f5ff;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: var(--font-geist-sans), Inter, system-ui, sans-serif;
+}
+
+.cyber-bg {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 245, 255, 0.12), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(57, 255, 20, 0.08), transparent),
+    #09090b;
+}
+
+.neon-text-green {
+  color: var(--neon-green);
+  text-shadow: 0 0 20px rgba(57, 255, 20, 0.4);
+}
+
+.neon-text-cyan {
+  color: var(--neon-cyan);
+  text-shadow: 0 0 20px rgba(0, 245, 255, 0.4);
+}
+
+.gradient-btn {
+  background: linear-gradient(135deg, #39ff14 0%, #00f5ff 100%);
+  color: #000;
+}
+
+.gradient-btn:hover {
+  opacity: 0.9;
+  box-shadow: 0 0 24px rgba(0, 245, 255, 0.35);
+}
+
+.card-glass {
+  background: rgba(24, 24, 27, 0.8);
+  border: 1px solid rgb(39 39 42);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+::-webkit-scrollbar {
+  height: 4px;
+}
+::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-radius: 4px;
+}

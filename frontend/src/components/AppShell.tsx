@@ -1,0 +1,63 @@
+"use client";
+
+import { useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Header, Footer } from "@/components/layout/Header";
+import { TabHero } from "@/components/layout/TabHero";
+import { SocialProofBar } from "@/components/layout/SocialProofBar";
+import { OnboardingModal } from "@/components/layout/OnboardingModal";
+import { WalletModal } from "@/components/layout/WalletModal";
+import { Toast } from "@/components/ui/shared";
+import { SwapTab } from "@/components/tabs/SwapTab";
+import { LiquidityTab } from "@/components/tabs/LiquidityTab";
+import { PortfolioTab } from "@/components/tabs/PortfolioTab";
+import { CashdropTab } from "@/components/tabs/CashdropTab";
+import { PointsTab } from "@/components/tabs/PointsTab";
+import { AffiliateTab } from "@/components/tabs/AffiliateTab";
+import type { TabId } from "@/lib/constants";
+
+const TAB_CONTENT: Record<TabId, React.ComponentType> = {
+  swap: SwapTab,
+  liquidity: LiquidityTab,
+  portfolio: PortfolioTab,
+  cashdrop: () => null,
+  points: PointsTab,
+  affiliate: AffiliateTab,
+};
+
+export default function AppShell() {
+  const [activeTab, setActiveTab] = useState<TabId>("swap");
+  const Active = TAB_CONTENT[activeTab];
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      <Header activeTab={activeTab} onTabChange={setActiveTab} />
+      <main className="flex-1 px-4 py-8">
+        <SocialProofBar />
+        <TabHero activeTab={activeTab} />
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, x: 8 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -8 }}
+            transition={{ duration: 0.2 }}
+          >
+            {activeTab === "cashdrop" ? (
+              <CashdropTab
+                onGoToPoints={() => setActiveTab("points")}
+                onGoToAffiliate={() => setActiveTab("affiliate")}
+              />
+            ) : (
+              <Active />
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </main>
+      <Footer />
+      <WalletModal />
+      <OnboardingModal />
+      <Toast />
+    </div>
+  );
+}

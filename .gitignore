@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+
+# Build outputs
+.next/
+out/
+frontend/.next/
+contracts/out/
+contracts/cache/
+
+# Broadcast logs (keep structure, ignore local anvil)
+contracts/broadcast/*/31337/
+contracts/broadcast/**/dry-run/
+
+# Local Anvil runtime
+contracts/anvil-state.json
+contracts/anvil-state.hex
+contracts/.anvil.pid
+
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+frontend/.env.local
+
+# Logs & OS
+*.log
+.DS_Store
+
+# Test artifacts
+frontend/playwright-report/
+frontend/test-results/
+frontend/coverage/
+frontend/blob-report/
+frontend/tsconfig.tsbuildinfo
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Foundry
+contracts/cache/
