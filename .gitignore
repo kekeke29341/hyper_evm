@@ -27,6 +27,7 @@ frontend/.env.local
 # Logs & OS
 *.log
 .DS_Store
+**/.DS_Store
 
 # Test artifacts
 frontend/playwright-report/
