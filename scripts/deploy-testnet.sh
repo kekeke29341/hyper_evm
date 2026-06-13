@@ -29,11 +29,13 @@ echo "==> Deploying Hyperpool to HyperEVM Testnet (998)..."
 echo "    RPC: $TESTNET_RPC"
 echo "    Ensure big blocks: {\"type\":\"evmUserModify\",\"usingBigBlocks\":true}"
 
-forge script script/DeployProjectX.s.sol:DeployProjectX \
-  --rpc-url "$TESTNET_RPC" \
-  --broadcast \
-  --slow \
-  -vvv
+FORGE_ARGS=(--rpc-url "$TESTNET_RPC" --broadcast --slow -vvv)
+if [[ -n "${GAS_PRICE:-}" ]]; then
+  FORGE_ARGS+=(--gas-price "$GAS_PRICE")
+  echo "    Gas price: $GAS_PRICE"
+fi
+
+forge script script/DeployProjectX.s.sol:DeployProjectX "${FORGE_ARGS[@]}"
 
 echo "==> Finalizing deployment JSON after on-chain code verification..."
 node "$ROOT/scripts/finalize-deployment.mjs" 998 "$TESTNET_RPC"

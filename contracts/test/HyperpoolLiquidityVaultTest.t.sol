@@ -36,7 +36,8 @@ contract HyperpoolLiquidityVaultTest is Test {
         usdc = new MockERC20("USDC", "USDC", 6);
         factory.createPair(address(khype), address(usdc));
         pair = ProjectXPair(factory.getPair(address(khype), address(usdc)));
-        vault = new HyperpoolLiquidityVault(address(router), address(pair), address(khype), address(usdc), owner, keeper);
+        vault =
+            new HyperpoolLiquidityVault(address(router), address(pair), address(khype), address(usdc), owner, keeper);
         vm.stopPrank();
         pointsDistributor.authorizePool(address(pair));
 
@@ -56,8 +57,7 @@ contract HyperpoolLiquidityVaultTest is Test {
         vm.startPrank(alice);
         khype.approve(address(vault), 10 ether);
         usdc.approve(address(vault), 20_000e6);
-        (,, uint256 liquidity, uint256 shares) =
-            vault.depositDual(10 ether, 20_000e6, 0, 0, alice, block.timestamp + 1);
+        (,, uint256 liquidity, uint256 shares) = vault.depositDual(10 ether, 20_000e6, 0, 0, alice, block.timestamp + 1);
         vm.stopPrank();
 
         assertGt(liquidity, 0);
@@ -146,8 +146,7 @@ contract HyperpoolLiquidityVaultTest is Test {
         vm.startPrank(bob);
         khype.approve(address(vault), 10 ether);
         usdc.approve(address(vault), 20_000e6);
-        (,, uint256 liquidityB, uint256 sharesB) =
-            vault.depositDual(10 ether, 20_000e6, 0, 0, bob, block.timestamp + 1);
+        (,, uint256 liquidityB, uint256 sharesB) = vault.depositDual(10 ether, 20_000e6, 0, 0, bob, block.timestamp + 1);
         vm.stopPrank();
 
         assertApproxEqAbs(liquidityA, liquidityB, 2);

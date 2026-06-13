@@ -27,8 +27,7 @@ contract FuzzTest is Test {
         FeeCollector feeCollector = new FeeCollector();
         ReferralRegistry referralRegistry = new ReferralRegistry();
         pointsDistributor = new PointsDistributor(address(referralRegistry));
-        ProjectXFactory factory =
-            new ProjectXFactory(address(feeCollector), address(pointsDistributor), address(this));
+        ProjectXFactory factory = new ProjectXFactory(address(feeCollector), address(pointsDistributor), address(this));
         router = new ProjectXRouter(address(factory));
         factory.setTrustedRouter(address(router));
 

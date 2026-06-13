@@ -130,18 +130,21 @@ jobs:
           NEXT_PUBLIC_DEFAULT_CHAIN_ID: "998"
           NEXT_PUBLIC_TESTNET_RPC: https://rpcs.chain.link/hyperevm/testnet
           NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ci-placeholder
+          NEXT_PUBLIC_ADMIN_ENABLED: "true"
 
       - name: Run Playwright smoke tests
         run: npm run test:e2e
         env:
           CI: "true"
           NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ci-placeholder
+          NEXT_PUBLIC_ADMIN_ENABLED: "true"
 
       - name: Run Playwright wallet-mock tests
         run: npm run test:e2e:wallet:mock
         env:
           CI: "true"
           NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ci-placeholder
+          NEXT_PUBLIC_ADMIN_ENABLED: "true"
 
   sync-abi:
     name: ABI sync check
