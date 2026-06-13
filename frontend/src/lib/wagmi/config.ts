@@ -88,9 +88,14 @@ export const wagmiConfig = createConfig({
 });
 
 export const SUPPORTED_CHAINS = [
-  { id: anvilLocal.id, label: "Anvil Local", description: "Local dev (31337)" },
-  { id: hyperEvmTestnet.id, label: "HyperEVM Testnet", description: "Chain 998" },
-  { id: hyperEvmMainnet.id, label: "HyperEVM", description: "Chain 999 (mainnet)" },
+  { id: anvilLocal.id, label: "Anvil Local", shortLabel: "Local", description: "Local dev (31337)" },
+  {
+    id: hyperEvmTestnet.id,
+    label: "HyperEVM Testnet",
+    shortLabel: "Testnet",
+    description: "Chain 998",
+  },
+  { id: hyperEvmMainnet.id, label: "HyperEVM", shortLabel: "Mainnet", description: "Chain 999 (mainnet)" },
 ] as const;
 
 export const hasWalletConnect = Boolean(walletConnectProjectId);

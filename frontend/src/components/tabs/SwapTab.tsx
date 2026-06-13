@@ -66,7 +66,7 @@ function TokenRow({
           readOnly={readOnly}
           onChange={(e) => onAmount(e.target.value.replace(/[^0-9.]/g, ""))}
           placeholder="0.0"
-          className="flex-1 bg-transparent text-3xl font-light text-white outline-none w-0 min-w-0"
+          className="flex-1 bg-transparent text-2xl sm:text-3xl font-light text-white outline-none w-0 min-w-0"
         />
         <button
           type="button"
@@ -217,12 +217,12 @@ export function SwapTab() {
       <p className="text-[11px] text-zinc-500 mb-4">{t("swap.noSpreads")}</p>
 
       {isBridge && (
-        <div className="flex items-center gap-2 p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-xs text-cyan-300 mb-4">
+        <div className="flex flex-wrap items-center gap-2 p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-xs text-cyan-300 mb-4">
           <ArrowRightLeft className="w-4 h-4 shrink-0" />
           {t("swap.bridge")}: {BRIDGE_CHAINS.find((c) => c.id === fromChain)?.label} →{" "}
           {BRIDGE_CHAINS.find((c) => c.id === toChain)?.label}
           {lifiQuote.data?.toolDetails?.name && (
-            <span className="ml-auto text-zinc-400">
+            <span className="text-zinc-400 sm:ml-auto">
               {t("swap.bridgeVia")} {lifiQuote.data.toolDetails.name}
             </span>
           )}

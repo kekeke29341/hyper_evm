@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
@@ -12,6 +12,12 @@ const geistSans = localFont({
 export const metadata: Metadata = {
   title: "Hyperpool | HyperEVM DEX",
   description: "Hyperpool — HyperEVM community DEX. Swap, Liquidity, Points & Cross-chain Bridge",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

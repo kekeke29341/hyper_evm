@@ -8,30 +8,38 @@ import { SUPPORTED_CHAINS } from "@/lib/wagmi/config";
 import { getChainDeploymentMeta } from "@/lib/contracts";
 import { cn } from "@/lib/utils";
 
-export function NetworkSelector() {
+export function NetworkSelector({
+  compact = false,
+  className,
+}: {
+  compact?: boolean;
+  className?: string;
+}) {
   const chainId = useChainId();
   const { switchNetwork, isSwitching } = useWallet();
   const [open, setOpen] = useState(false);
 
   const current = SUPPORTED_CHAINS.find((c) => c.id === chainId) ?? SUPPORTED_CHAINS[0];
   const meta = getChainDeploymentMeta(chainId);
+  const displayLabel = compact ? current.shortLabel : current.label;
 
   return (
-    <div className="relative">
+    <div className={cn("relative", className)}>
       <button
         type="button"
         onClick={() => setOpen(!open)}
         disabled={isSwitching}
-        className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg bg-zinc-800/80 border border-zinc-700 text-zinc-300 hover:border-cyan-500/40 transition-colors"
+        aria-label={current.label}
+        className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg bg-zinc-800/80 border border-zinc-700 text-zinc-300 hover:border-cyan-500/40 transition-colors min-h-[36px]"
       >
         <span
           className={cn(
-            "w-1.5 h-1.5 rounded-full",
+            "w-1.5 h-1.5 rounded-full shrink-0",
             meta.live ? "bg-emerald-400" : meta.configured ? "bg-amber-400" : "bg-zinc-500"
           )}
         />
-        {current.label}
-        <ChevronDown className={cn("w-3 h-3 transition-transform", open && "rotate-180")} />
+        <span className="truncate max-w-[5.5rem] sm:max-w-none">{displayLabel}</span>
+        <ChevronDown className={cn("w-3 h-3 shrink-0 transition-transform", open && "rotate-180")} />
       </button>
       {open && (
         <>

@@ -13,7 +13,7 @@ export function Toast() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-sm text-white shadow-xl"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-sm text-white shadow-xl safe-bottom mb-[env(safe-area-inset-bottom)]"
         >
           {toast}
         </motion.div>
@@ -27,7 +27,7 @@ export function MainCard({ children, className }: { children: React.ReactNode; c
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className={cn("w-full max-w-md mx-auto card-glass rounded-2xl p-5", className)}
+      className={cn("w-full max-w-md mx-auto card-glass rounded-2xl p-4 sm:p-5", className)}
     >
       {children}
     </motion.div>

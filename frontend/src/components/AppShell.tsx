@@ -33,7 +33,7 @@ export default function AppShell() {
   return (
     <div className="min-h-screen flex flex-col">
       <Header activeTab={activeTab} onTabChange={setActiveTab} />
-      <main className="flex-1 px-4 py-8">
+      <main className="flex-1 px-3 sm:px-4 py-6 sm:py-8">
         <SocialProofBar />
         <TestnetGuideBanner />
         <TabHero activeTab={activeTab} />
