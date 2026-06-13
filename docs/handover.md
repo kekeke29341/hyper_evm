@@ -66,6 +66,7 @@
 | コントラクトテスト | `cd contracts && forge test` |
 | フロントテスト | `cd frontend && npm run test` |
 | Merkle 生成 | `frontend/src/lib/admin/merkle.ts` |
+| **Admin 運用** | [docs/admin-guide.md](./admin-guide.md) |
 | Li.FI 設定 | `frontend/src/lib/lifi/config.ts` |
 | チェーン定数 | `contracts/src/libraries/HyperCoreConstants.sol` |
 | CI 定義 | `.github/workflows/ci.yml` |

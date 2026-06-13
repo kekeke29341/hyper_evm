@@ -1,5 +1,9 @@
 "use client";
 
+import { useState } from "react";
+import { Copy, Check, ExternalLink } from "lucide-react";
+import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
+import { explorerAddressUrl } from "@/lib/admin/explorer";
 import { cn } from "@/lib/utils";
 
 export function AdminCard({
@@ -91,11 +95,67 @@ export function AdminInput({
   );
 }
 
-export function AddressChip({ label, address }: { label: string; address: string }) {
+export function AdminTextarea({
+  label,
+  value,
+  onChange,
+  rows = 4,
+  hint,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  rows?: number;
+  hint?: string;
+}) {
   return (
-    <div className="flex flex-wrap items-center gap-2 text-xs">
-      <span className="text-zinc-500">{label}</span>
-      <code className="px-2 py-0.5 rounded bg-zinc-900 text-cyan-400 font-mono">{address.slice(0, 10)}…{address.slice(-8)}</code>
+    <label className="block">
+      <span className="text-xs text-zinc-500 mb-1 block">{label}</span>
+      {hint && <p className="text-[10px] text-zinc-600 mb-1">{hint}</p>}
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={rows}
+        className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-700 text-xs font-mono text-white focus:outline-none focus:border-cyan-500/50"
+      />
+    </label>
+  );
+}
+
+export function AddressRow({ label, address }: { label: string; address: string }) {
+  const chainId = useEffectiveChainId();
+  const [copied, setCopied] = useState(false);
+  const explorer = address.startsWith("0x") ? explorerAddressUrl(chainId, address) : null;
+
+  const copy = async () => {
+    await navigator.clipboard.writeText(address);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs py-1">
+      <span className="text-zinc-500 shrink-0">{label}</span>
+      <code className="px-2 py-0.5 rounded bg-zinc-900 text-cyan-400 font-mono text-[11px]">{address}</code>
+      <button type="button" onClick={copy} className="p-1 text-zinc-500 hover:text-white" aria-label="Copy">
+        {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+      </button>
+      {explorer && (
+        <a
+          href={explorer}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="p-1 text-zinc-500 hover:text-cyan-400"
+          aria-label="Open in explorer"
+        >
+          <ExternalLink className="w-3.5 h-3.5" />
+        </a>
+      )}
     </div>
   );
+}
+
+/** @deprecated use AddressRow */
+export function AddressChip({ label, address }: { label: string; address: string }) {
+  return <AddressRow label={label} address={address} />;
 }

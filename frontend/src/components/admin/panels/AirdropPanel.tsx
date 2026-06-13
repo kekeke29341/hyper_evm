@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { formatUnits, type Hex } from "viem";
 import { useReadContract } from "wagmi";
-import { useAdminActions, useAdminAuth } from "@/lib/hooks/useAdmin";
+import { useAdminAuth, useAdminAnalytics } from "@/lib/hooks/useAdmin";
+import { useAdminTx } from "@/lib/admin/AdminActionsContext";
 import MerkleAirdropAbi from "@/lib/contracts/abis/MerkleAirdrop.json";
 import { buildMerkleRoot, parseAirdropCsv } from "@/lib/admin/merkle";
 import { AdminCard, AdminButton, AdminInput } from "../AdminUi";
@@ -15,7 +16,16 @@ const SAMPLE_CSV = `0x70997970C51812dc3A010C7d01b50e0d17dc79C8,1000000000
 
 export function AirdropPanel() {
   const { deployment, isAirdropOwner, airdropOwner, address } = useAdminAuth();
-  const { setMerkleRoot, fundAirdrop, generateAndSetRoot, isPending } = useAdminActions();
+  const { airdropPaused } = useAdminAnalytics();
+  const {
+    setMerkleRoot,
+    fundAirdrop,
+    generateAndSetRoot,
+    pauseAirdrop,
+    unpauseAirdrop,
+    recoverAirdrop,
+    isPending,
+  } = useAdminTx();
   const { showToast } = useApp();
 
   const [csv, setCsv] = useState(SAMPLE_CSV);
@@ -23,6 +33,7 @@ export function AirdropPanel() {
   const [fundAmount, setFundAmount] = useState("1000");
   const [manualRoot, setManualRoot] = useState("");
   const [previewRoot, setPreviewRoot] = useState<Hex | "">("");
+  const [recoverTo, setRecoverTo] = useState("");
 
   const { data: merkleRoot } = useReadContract({
     address: deployment?.airdrop,
@@ -87,6 +98,16 @@ export function AirdropPanel() {
     }
   };
 
+  const handleRecover = async () => {
+    if (!recoverTo.trim()) return;
+    try {
+      await recoverAirdrop(recoverTo.trim() as `0x${string}`);
+      showToast("Unclaimed USDC recovered");
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "Recover failed");
+    }
+  };
+
   return (
     <div className="space-y-4">
       <AdminCard title="Cashdrop / Airdrop" subtitle="MerkleAirdrop owner controls">
@@ -106,7 +127,7 @@ export function AirdropPanel() {
             </p>
           </div>
           <div className="rounded-xl bg-zinc-900/60 border border-zinc-800 p-3">
-            <p className="text-xs text-zinc-500">Balance / Deadline</p>
+            <p className="text-xs text-zinc-500">Balance / Deadline / Status</p>
             <p className="text-sm text-white mt-1">
               {airdropBalance !== undefined ? formatUnits(airdropBalance as bigint, 6) : "—"} USDC
             </p>
@@ -115,7 +136,30 @@ export function AirdropPanel() {
                 ? new Date(Number(claimDeadline) * 1000).toLocaleString()
                 : "No deadline"}
             </p>
+            <p className="text-xs mt-1">
+              {airdropPaused ? (
+                <span className="text-amber-400">Paused</span>
+              ) : (
+                <span className="text-emerald-400">Claims open</span>
+              )}
+            </p>
           </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <AdminButton
+            variant="danger"
+            disabled={isPending || !isAirdropOwner || airdropPaused === true}
+            onClick={() => pauseAirdrop().then(() => showToast("Airdrop paused")).catch(() => showToast("Pause failed"))}
+          >
+            Pause claims
+          </AdminButton>
+          <AdminButton
+            variant="secondary"
+            disabled={isPending || !isAirdropOwner || airdropPaused === false}
+            onClick={() => unpauseAirdrop().then(() => showToast("Airdrop unpaused")).catch(() => showToast("Unpause failed"))}
+          >
+            Unpause
+          </AdminButton>
         </div>
       </AdminCard>
 
@@ -161,6 +205,19 @@ export function AirdropPanel() {
         <div className="mt-3">
           <AdminButton onClick={handleFund} disabled={isPending || !isAirdropOwner || !address}>
             Approve & Fund
+          </AdminButton>
+        </div>
+      </AdminCard>
+
+      <AdminCard title="Recover unclaimed" subtitle="After claim deadline expires">
+        <AdminInput label="Recipient address" value={recoverTo} onChange={setRecoverTo} placeholder={address ?? "0x…"} />
+        <div className="mt-3">
+          <AdminButton
+            variant="danger"
+            onClick={handleRecover}
+            disabled={isPending || !isAirdropOwner || !recoverTo.trim()}
+          >
+            Recover to wallet
           </AdminButton>
         </div>
       </AdminCard>

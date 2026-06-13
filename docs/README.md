@@ -14,6 +14,7 @@
 | [vercel.md](./vercel.md) | DevOps / 開発者 | Vercel フロント公開（GitHub 連携） |
 | [testing.md](./testing.md) | 開発者・QA | 単体・E2E テスト、CI パイプライン |
 | [handover.md](./handover.md) | **新規担当者** | 引き継ぎチェックリスト、既知の注意点 |
+| [admin-guide.md](./admin-guide.md) | **オーナー・運用者** | **Admin ダッシュボード・オンチェーン運用手順** |
 
 ## その他の参考資料
 

@@ -3,14 +3,15 @@
 import { useState } from "react";
 import { type Address, isAddress } from "viem";
 import { useReadContract } from "wagmi";
-import { useAdminActions, useAdminAuth } from "@/lib/hooks/useAdmin";
+import { useAdminAuth } from "@/lib/hooks/useAdmin";
+import { useAdminTx } from "@/lib/admin/AdminActionsContext";
 import { abis } from "@/lib/contracts";
-import { AdminCard, AdminButton, AdminInput, AddressChip } from "../AdminUi";
+import { AdminCard, AdminButton, AdminInput, AddressRow } from "../AdminUi";
 import { useApp } from "@/lib/store";
 
 export function PoolsPanel() {
   const { deployment, isFactoryAdmin, isPointsOwner } = useAdminAuth();
-  const { createPair, authorizePool, deauthorizePool, syncPairs, isPending } = useAdminActions();
+  const { createPair, authorizePool, deauthorizePool, syncPairs, isPending } = useAdminTx();
   const { showToast } = useApp();
 
   const [tokenA, setTokenA] = useState("");
@@ -117,8 +118,8 @@ export function PoolsPanel() {
 
       <AdminCard title="Primary Pair">
         <div className="space-y-3">
-          <AddressChip label="Pair" address={deployment.pair} />
-          <AddressChip label="Fee Collector" address={(feeCollector as string) ?? "—"} />
+          <AddressRow label="Pair" address={deployment.pair} />
+          <AddressRow label="Fee Collector" address={(feeCollector as string) ?? "—"} />
           <p className="text-xs text-zinc-500">
             Points authorized:{" "}
             <span className={isAuthorized ? "text-emerald-400" : "text-amber-400"}>
