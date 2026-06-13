@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { useChainId } from "wagmi";
 import { useWallet } from "@/lib/hooks/useWallet";
-import { SUPPORTED_CHAINS } from "@/lib/wagmi/config";
+import { defaultChain, SUPPORTED_CHAINS } from "@/lib/wagmi/config";
 import { getChainDeploymentMeta } from "@/lib/contracts";
 import { cn } from "@/lib/utils";
 
@@ -16,11 +16,12 @@ export function NetworkSelector({
   className?: string;
 }) {
   const chainId = useChainId();
-  const { switchNetwork, isSwitching } = useWallet();
+  const { isConnected, switchNetwork, isSwitching } = useWallet();
   const [open, setOpen] = useState(false);
 
-  const current = SUPPORTED_CHAINS.find((c) => c.id === chainId) ?? SUPPORTED_CHAINS[0];
-  const meta = getChainDeploymentMeta(chainId);
+  const displayChainId = isConnected ? chainId : defaultChain.id;
+  const current = SUPPORTED_CHAINS.find((c) => c.id === displayChainId) ?? SUPPORTED_CHAINS[0];
+  const meta = getChainDeploymentMeta(displayChainId);
   const displayLabel = compact ? current.shortLabel : current.label;
 
   return (

@@ -1,0 +1,317 @@
+"use client";
+
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { X, Loader2, ChevronRight } from "lucide-react";
+import { POOLS } from "@/lib/constants";
+import { useI18n } from "@/lib/i18n";
+import { useTokenBalance } from "@/lib/hooks/useDeFi";
+import {
+  formatUsd,
+  poolPriceUsdcPerKhype,
+  poolTvlUsd,
+  rangeBounds,
+  splitZapAmount,
+  type RangePreset,
+} from "@/lib/liquidity/metrics";
+import { cn } from "@/lib/utils";
+
+type FundingSource = "wallet-khype" | "wallet-usdc" | "vault";
+
+export function CreatePositionModal({
+  open,
+  onClose,
+  reserveKhype,
+  reserveUsdc,
+  onConfirmZap,
+  isPending,
+  mode = "create",
+}: {
+  open: boolean;
+  onClose: () => void;
+  reserveKhype: number;
+  reserveUsdc: number;
+  onConfirmZap: (source: "kHYPE" | "USDC", amount: string, rangePct: number) => Promise<void>;
+  isPending: boolean;
+  mode?: "create" | "add";
+}) {
+  const { t } = useI18n();
+  const khypeBal = useTokenBalance("kHYPE");
+  const usdcBal = useTokenBalance("USDC");
+
+  const [step, setStep] = useState<"form" | "confirm">("form");
+  const [selectedPoolId, setSelectedPoolId] = useState(POOLS[0].id);
+  const [funding, setFunding] = useState<FundingSource>("wallet-usdc");
+  const [amount, setAmount] = useState("2000");
+  const [rangePreset, setRangePreset] = useState<RangePreset>(3);
+
+  const selectedPool = POOLS.find((p) => p.id === selectedPoolId) ?? POOLS[0];
+  const price = poolPriceUsdcPerKhype(reserveKhype, reserveUsdc);
+  const bounds = rangeBounds(price, rangePreset);
+  const liveTvl = poolTvlUsd(reserveKhype, reserveUsdc);
+
+  const sourceToken: "kHYPE" | "USDC" = funding === "wallet-khype" ? "kHYPE" : "USDC";
+  const balance = funding === "wallet-khype" ? khypeBal.balance : usdcBal.balance;
+  const amountNum = parseFloat(amount) || 0;
+  const zapSplit = splitZapAmount(amountNum);
+
+  const canSubmit =
+    selectedPool.live &&
+    funding !== "vault" &&
+    amountNum > 0 &&
+    amountNum <= parseFloat(balance || "0");
+
+  const reset = () => {
+    setStep("form");
+    setAmount("2000");
+    setRangePreset(3);
+    setFunding("wallet-usdc");
+    setSelectedPoolId(POOLS[0].id);
+  };
+
+  const handleClose = () => {
+    reset();
+    onClose();
+  };
+
+  const handleConfirm = async () => {
+    await onConfirmZap(sourceToken, amount, bounds.widthPct);
+    reset();
+    onClose();
+  };
+
+  const fundingOptions: { id: FundingSource; label: string; disabled?: boolean }[] = [
+    { id: "wallet-khype", label: t("position.walletKhype") },
+    { id: "wallet-usdc", label: t("position.walletUsdc") },
+    { id: "vault", label: t("position.vaultBalance"), disabled: true },
+  ];
+
+  const pctButtons = [25, 50, 75, 100] as const;
+
+  const applyPct = (pct: number) => {
+    const bal = parseFloat(balance || "0");
+    if (!bal) return;
+    setAmount(String((bal * pct) / 100));
+  };
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm"
+            onClick={handleClose}
+          />
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 24 }}
+            className="fixed inset-x-0 bottom-0 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 z-50 w-full sm:w-[calc(100%-2rem)] sm:max-w-lg card-glass rounded-t-2xl sm:rounded-2xl border border-zinc-800 max-h-[92vh] overflow-y-auto safe-bottom"
+          >
+            <div className="sticky top-0 bg-zinc-900/95 backdrop-blur border-b border-zinc-800 px-4 py-3 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-white">
+                {mode === "add" ? t("position.addLiquidity") : t("position.createPosition")}
+              </h2>
+              <button type="button" onClick={handleClose} className="p-1 text-zinc-500 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {step === "form" ? (
+              <div className="p-4 space-y-5">
+                <section>
+                  <p className="text-xs text-zinc-500 mb-2">{t("position.poolSelect")}</p>
+                  <div className="space-y-2">
+                    {POOLS.map((pool) => (
+                      <button
+                        key={pool.id}
+                        type="button"
+                        disabled={!pool.live}
+                        onClick={() => setSelectedPoolId(pool.id)}
+                        className={cn(
+                          "w-full text-left p-3 rounded-xl border transition-colors",
+                          selectedPoolId === pool.id
+                            ? "border-cyan-500/40 bg-cyan-500/10"
+                            : "border-zinc-700 bg-zinc-800/40",
+                          !pool.live && "opacity-50 cursor-not-allowed"
+                        )}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-medium text-white text-sm">
+                              {pool.pair} <span className="text-zinc-500">{pool.feeTier}</span>
+                            </p>
+                            {!pool.live && (
+                              <span className="text-[10px] text-amber-400">{t("position.comingSoon")}</span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-zinc-500">{pool.feeTier}</span>
+                        </div>
+                        <div className="mt-2 grid grid-cols-3 gap-2 text-[10px]">
+                          <div>
+                            <p className="text-zinc-500">{t("position.apy")}</p>
+                            <p className="text-emerald-400 font-semibold">{pool.apr}</p>
+                          </div>
+                          <div>
+                            <p className="text-zinc-500">{t("position.tvl")}</p>
+                            <p className="text-zinc-300">
+                              {pool.live && reserveUsdc > 0 ? formatUsd(liveTvl) : pool.tvl}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-zinc-500">{t("position.volume24h")}</p>
+                            <p className="text-zinc-300">{pool.volume24h}</p>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-xs text-zinc-500">
+                    USDC/kHYPE {t("position.currentPrice")}:{" "}
+                    <span className="text-zinc-300 tabular-nums">{Math.round(price).toLocaleString()}</span>
+                  </p>
+                </section>
+
+                <section>
+                  <p className="text-xs text-zinc-500 mb-2">{t("position.fundingSource")}</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {fundingOptions.map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        disabled={opt.disabled}
+                        onClick={() => setFunding(opt.id)}
+                        className={cn(
+                          "py-2 px-2 text-xs rounded-lg border transition-colors",
+                          funding === opt.id
+                            ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-400"
+                            : "border-zinc-700 text-zinc-400",
+                          opt.disabled && "opacity-50 cursor-not-allowed"
+                        )}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+
+                <section>
+                  <p className="text-xs text-zinc-500 mb-2">{t("position.investmentAmount")}</p>
+                  <div className="bg-zinc-800/40 rounded-xl p-3 border border-zinc-700">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+                      className="w-full bg-transparent text-2xl font-light text-white outline-none"
+                    />
+                    <div className="flex gap-1 mt-2">
+                      {pctButtons.map((p) => (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => applyPct(p)}
+                          className="flex-1 py-1 text-[10px] rounded-md border border-zinc-600 text-zinc-400 hover:border-cyan-500/40"
+                        >
+                          {p === 100 ? "MAX" : `${p}%`}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-xs text-zinc-500">
+                      ≈ {formatUsd(sourceToken === "USDC" ? amountNum : amountNum * 0.42)} ·{" "}
+                      {t("common.balance")}: {balance} {sourceToken}
+                    </p>
+                  </div>
+                  <p className="mt-2 text-[11px] text-zinc-500">{t("position.zapHint")}</p>
+                </section>
+
+                <section>
+                  <p className="text-xs text-zinc-500 mb-2">{t("position.rangeWidth")}</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {([3, 6, 10] as RangePreset[]).map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setRangePreset(p)}
+                        className={cn(
+                          "px-3 py-1.5 text-xs rounded-lg border transition-colors",
+                          rangePreset === p
+                            ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-400"
+                            : "border-zinc-700 text-zinc-400"
+                        )}
+                      >
+                        ±{p}%
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-[10px] text-zinc-500">{t("position.rangeV2Note")}</p>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                    <div className="p-2 rounded-lg bg-zinc-900/60 border border-zinc-800">
+                      <p className="text-zinc-500">{t("position.lower")}</p>
+                      <p className="text-white tabular-nums">{bounds.lower.toLocaleString()}</p>
+                    </div>
+                    <div className="p-2 rounded-lg bg-zinc-900/60 border border-zinc-800">
+                      <p className="text-zinc-500">{t("position.upper")}</p>
+                      <p className="text-white tabular-nums">{bounds.upper.toLocaleString()}</p>
+                    </div>
+                  </div>
+                </section>
+
+                <button
+                  type="button"
+                  disabled={!canSubmit}
+                  onClick={() => setStep("confirm")}
+                  className="w-full py-3 rounded-xl gradient-btn text-sm font-semibold disabled:opacity-40 flex items-center justify-center gap-2"
+                >
+                  {t("position.toConfirm")} <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="p-4 space-y-4">
+                <div className="p-4 rounded-xl bg-zinc-900/60 border border-zinc-800 space-y-2 text-sm">
+                  <p className="text-white font-medium">{selectedPool.pair}</p>
+                  <p className="text-zinc-400">
+                    {amount} {sourceToken} → {t("position.zapSummary")}
+                  </p>
+                  <p className="text-zinc-500 text-xs">
+                    {t("position.swapHalf")}: {zapSplit.swap.toFixed(2)} {sourceToken}
+                  </p>
+                  <p className="text-zinc-500 text-xs">
+                    {t("position.rangeWidth")}: ±{bounds.widthPct / 2}% ({bounds.lower} – {bounds.upper})
+                  </p>
+                  <p className="text-[10px] text-amber-400/90">{t("position.onChainFullRange")}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setStep("form")}
+                    className="flex-1 py-3 rounded-xl border border-zinc-700 text-zinc-400 text-sm"
+                  >
+                    {t("position.back")}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={handleConfirm}
+                    className="flex-1 py-3 rounded-xl gradient-btn text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isPending ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" /> {t("position.confirming")}
+                      </>
+                    ) : (
+                      t("position.confirmCreate")
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}

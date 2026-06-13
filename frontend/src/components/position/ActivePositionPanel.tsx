@@ -1,0 +1,132 @@
+"use client";
+
+import { Loader2, Plus, Coins, X } from "lucide-react";
+import { useI18n } from "@/lib/i18n";
+import { PriceRangeBar } from "@/components/position/PriceRangeBar";
+import {
+  estimatedApyFromRange,
+  formatUsd,
+  isPriceInRange,
+  positionTokenAmounts,
+  positionValueUsd,
+  poolPriceUsdcPerKhype,
+} from "@/lib/liquidity/metrics";
+import { cn } from "@/lib/utils";
+
+export function ActivePositionPanel({
+  lpBalance,
+  totalSupply,
+  reserveKhype,
+  reserveUsdc,
+  poolApr,
+  rangeLower,
+  rangeUpper,
+  rangeWidthPct,
+  onAdd,
+  onCollectFees,
+  onClose,
+  adding,
+  closing,
+}: {
+  lpBalance: number;
+  totalSupply: number;
+  reserveKhype: number;
+  reserveUsdc: number;
+  poolApr: number;
+  rangeLower: number;
+  rangeUpper: number;
+  rangeWidthPct: number;
+  onAdd: () => void;
+  onCollectFees: () => void;
+  onClose: () => void;
+  adding: boolean;
+  closing: boolean;
+}) {
+  const { t } = useI18n();
+  const price = poolPriceUsdcPerKhype(reserveKhype, reserveUsdc);
+  const inRange = isPriceInRange(price, rangeLower, rangeUpper);
+  const { khype, usdc } = positionTokenAmounts(lpBalance, totalSupply, reserveKhype, reserveUsdc);
+  const valueUsd = positionValueUsd(lpBalance, totalSupply, reserveKhype, reserveUsdc);
+  const estApy = estimatedApyFromRange(poolApr, rangeWidthPct);
+
+  return (
+    <div className="card-glass rounded-2xl p-4 border border-cyan-500/20 bg-cyan-500/5">
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <div>
+          <p className="font-semibold text-white">kHYPE / USDC</p>
+          <p className="text-[10px] text-zinc-500 mt-0.5">0.3% · {t("position.fullRangeLp")}</p>
+        </div>
+        <span
+          className={cn(
+            "text-[10px] px-2 py-0.5 rounded-full font-medium",
+            inRange ? "bg-emerald-500/20 text-emerald-400" : "bg-amber-500/20 text-amber-400"
+          )}
+        >
+          {inRange ? t("position.inRange") : t("position.outOfRange")}
+        </span>
+      </div>
+
+      <PriceRangeBar lower={rangeLower} upper={rangeUpper} current={Math.round(price)} inRange={inRange} />
+
+      <div className="mt-4 space-y-2 text-xs">
+        <div className="flex justify-between">
+          <span className="text-zinc-500">{t("position.positionValue")}</span>
+          <span className="text-white font-semibold tabular-nums">{formatUsd(valueUsd)}</span>
+        </div>
+        <div className="flex justify-between text-zinc-400">
+          <span>{khype.toFixed(4)} kHYPE</span>
+          <span className="tabular-nums">{formatUsd(khype * 0.42)}</span>
+        </div>
+        <div className="flex justify-between text-zinc-400">
+          <span>{usdc.toFixed(2)} USDC</span>
+          <span className="tabular-nums">{formatUsd(usdc)}</span>
+        </div>
+        <div className="flex justify-between pt-2 border-t border-zinc-800">
+          <span className="text-zinc-500">{t("position.rangeWidth")}</span>
+          <span className="text-zinc-300 tabular-nums">{rangeWidthPct.toFixed(1)}%</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-zinc-500">{t("position.estimatedApy")}</span>
+          <span className="text-emerald-400 font-semibold tabular-nums">{estApy.toFixed(1)}%</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-zinc-500">{t("position.poolApy")}</span>
+          <span className="text-zinc-400 tabular-nums">{poolApr.toFixed(1)}%</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-zinc-500">{t("position.earnedFees")}</span>
+          <span className="text-amber-400 tabular-nums">{t("position.feesAutoCompound")}</span>
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <button
+          type="button"
+          onClick={onAdd}
+          disabled={adding}
+          className="flex items-center justify-center gap-1.5 py-2 rounded-lg border border-zinc-600 text-zinc-300 text-xs hover:border-cyan-500/40 transition-colors disabled:opacity-50"
+        >
+          {adding ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+          {t("position.addLiquidity")}
+        </button>
+        <button
+          type="button"
+          onClick={onCollectFees}
+          className="flex items-center justify-center gap-1.5 py-2 rounded-lg border border-zinc-600 text-zinc-300 text-xs hover:border-amber-500/40 transition-colors"
+        >
+          <Coins className="w-3 h-3" />
+          {t("position.collectFees")}
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={closing}
+          className="flex items-center justify-center gap-1.5 py-2 rounded-lg border border-red-500/40 bg-red-500/10 text-red-400 text-xs hover:bg-red-500/20 transition-colors disabled:opacity-50"
+        >
+          {closing ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
+          {t("position.closePair")}
+        </button>
+      </div>
+    </div>
+  );
+}

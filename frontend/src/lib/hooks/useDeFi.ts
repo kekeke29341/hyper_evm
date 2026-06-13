@@ -9,7 +9,7 @@ import {
   useWriteContract,
   useWaitForTransactionReceipt,
 } from "wagmi";
-import { parseUnits, formatUnits } from "viem";
+import { parseUnits, formatUnits, zeroAddress } from "viem";
 import {
   abis,
   getDeployment,
@@ -21,10 +21,12 @@ import { getMerkleProof } from "@/lib/admin/merkle";
 import MerkleAirdropAbi from "@/lib/contracts/abis/MerkleAirdrop.json";
 import { ensureExactAllowance } from "@/lib/erc20";
 import { getSlippageBps } from "@/components/layout/SettingsModal";
+import { defaultChain } from "@/lib/wagmi/config";
 
 export function useDeployment() {
   const chainId = useChainId();
-  return getDeployment(chainId);
+  const { address } = useConnection();
+  return getDeployment(address ? chainId : defaultChain.id) ?? getDeployment(defaultChain.id);
 }
 
 export function useTokenBalance(symbol: TokenSymbol) {
@@ -228,7 +230,7 @@ export function useRemoveLiquidity() {
         deployment.pair,
         abis.erc20,
         address,
-        deployment.pair,
+        deployment.router,
         liquidity
       );
 
@@ -319,6 +321,246 @@ export function usePoolReserves() {
   return {
     reserveKHYPE: formatUnits(data[0] as bigint, 18),
     reserveUSDC: formatUnits(data[1] as bigint, 6),
+    rawReserve0: data[0] as bigint,
+    rawReserve1: data[1] as bigint,
+  };
+}
+
+export function usePoolStats() {
+  const deployment = useDeployment();
+  const reserves = usePoolReserves();
+
+  const { data: totalSupply } = useReadContract({
+    address: deployment?.pair,
+    abi: abis.erc20,
+    functionName: "totalSupply",
+    query: { enabled: !!deployment, refetchInterval: 10000 },
+  });
+
+  const { data: token0 } = useReadContract({
+    address: deployment?.pair,
+    abi: abis.pair,
+    functionName: "token0",
+    query: { enabled: !!deployment },
+  });
+
+  const supply = totalSupply !== undefined ? formatUnits(totalSupply as bigint, 18) : "0";
+  const supplyRaw = totalSupply as bigint | undefined;
+
+  let reserveKhype = reserves ? parseFloat(reserves.reserveKHYPE) : 0;
+  let reserveUsdc = reserves ? parseFloat(reserves.reserveUSDC) : 0;
+
+  if (reserves && token0 && deployment) {
+    const t0 = token0 as string;
+    if (t0.toLowerCase() !== deployment.tokenKHYPE.toLowerCase()) {
+      reserveKhype = parseFloat(reserves.reserveUSDC);
+      reserveUsdc = parseFloat(reserves.reserveKHYPE);
+    }
+  }
+
+  return {
+    reserveKhype,
+    reserveUsdc,
+    totalSupply: parseFloat(supply),
+    totalSupplyRaw: supplyRaw,
+    hasDeployment: !!deployment,
+  };
+}
+
+export function useZapLiquidity() {
+  const { address } = useConnection();
+  const deployment = useDeployment();
+  const publicClient = usePublicClient();
+  const { writeContractAsync, data: hash, isPending } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const [error, setError] = useState<string | null>(null);
+
+  const zap = useCallback(
+    async (source: "kHYPE" | "USDC", totalAmount: string) => {
+      if (!deployment || !address || !publicClient) throw new Error("Wallet not connected");
+      setError(null);
+
+      const khype = deployment.tokenKHYPE;
+      const usdc = deployment.tokenUSDC;
+      const slippageBps = getSlippageBps();
+      const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
+      const total = parseFloat(totalAmount);
+      if (!total || total <= 0) throw new Error("Invalid amount");
+
+      try {
+        if (deployment.liquidityVault) {
+          const tokenIn = source === "USDC" ? usdc : khype;
+          const decimals = source === "USDC" ? 6 : 18;
+          const amountIn = parseUnits(totalAmount, decimals);
+          const swapAmount = amountIn / BigInt(2);
+          const path = source === "USDC" ? [usdc, khype] : [khype, usdc];
+          const amounts = (await publicClient.readContract({
+            address: deployment.router,
+            abi: abis.router,
+            functionName: "getAmountsOut",
+            args: [swapAmount, path],
+          })) as bigint[];
+          const amountOutMin = (amounts[1] * BigInt(10000 - slippageBps)) / BigInt(10000);
+
+          await ensureExactAllowance(
+            publicClient,
+            writeContractAsync,
+            tokenIn,
+            abis.erc20,
+            address,
+            deployment.liquidityVault,
+            amountIn
+          );
+
+          await writeContractAsync({
+            address: deployment.liquidityVault,
+            abi: abis.liquidityVault,
+            functionName: "depositSingle",
+            args: [tokenIn, amountIn, amountOutMin, BigInt(0), BigInt(0), address, deadline],
+          });
+          return;
+        }
+
+        if (source === "USDC") {
+          const swapAmount = total / 2;
+          const swapWei = parseUnits(String(swapAmount), 6);
+          const amounts = (await publicClient.readContract({
+            address: deployment.router,
+            abi: abis.router,
+            functionName: "getAmountsOut",
+            args: [swapWei, [usdc, khype]],
+          })) as bigint[];
+          const khypeOut = amounts[1];
+          const khypeOutMin = (khypeOut * BigInt(10000 - slippageBps)) / BigInt(10000);
+
+          await ensureExactAllowance(
+            publicClient,
+            writeContractAsync,
+            usdc,
+            abis.erc20,
+            address,
+            deployment.router,
+            swapWei
+          );
+
+          const swapHash = await writeContractAsync({
+            address: deployment.router,
+            abi: abis.router,
+            functionName: "swapExactTokensForTokens",
+            args: [swapWei, khypeOutMin, [usdc, khype], address, deadline],
+          });
+          await publicClient.waitForTransactionReceipt({ hash: swapHash });
+
+          const khypeAmount = formatUnits(khypeOut, 18);
+          const usdcKeep = String(swapAmount);
+          const a = parseUnits(khypeAmount, 18);
+          const b = parseUnits(usdcKeep, 6);
+          const aMin = (a * BigInt(10000 - slippageBps)) / BigInt(10000);
+          const bMin = (b * BigInt(10000 - slippageBps)) / BigInt(10000);
+
+          await ensureExactAllowance(
+            publicClient,
+            writeContractAsync,
+            khype,
+            abis.erc20,
+            address,
+            deployment.router,
+            a
+          );
+          await ensureExactAllowance(
+            publicClient,
+            writeContractAsync,
+            usdc,
+            abis.erc20,
+            address,
+            deployment.router,
+            b
+          );
+
+          await writeContractAsync({
+            address: deployment.router,
+            abi: abis.router,
+            functionName: "addLiquidity",
+            args: [khype, usdc, a, b, aMin, bMin, address, deadline],
+          });
+        } else {
+          const swapAmount = total / 2;
+          const swapWei = parseUnits(String(swapAmount), 18);
+          const amounts = (await publicClient.readContract({
+            address: deployment.router,
+            abi: abis.router,
+            functionName: "getAmountsOut",
+            args: [swapWei, [khype, usdc]],
+          })) as bigint[];
+          const usdcOut = amounts[1];
+          const usdcOutMin = (usdcOut * BigInt(10000 - slippageBps)) / BigInt(10000);
+
+          await ensureExactAllowance(
+            publicClient,
+            writeContractAsync,
+            khype,
+            abis.erc20,
+            address,
+            deployment.router,
+            swapWei
+          );
+
+          const swapHash = await writeContractAsync({
+            address: deployment.router,
+            abi: abis.router,
+            functionName: "swapExactTokensForTokens",
+            args: [swapWei, usdcOutMin, [khype, usdc], address, deadline],
+          });
+          await publicClient.waitForTransactionReceipt({ hash: swapHash });
+
+          const usdcAmount = formatUnits(usdcOut, 6);
+          const khypeKeep = String(swapAmount);
+          const a = parseUnits(khypeKeep, 18);
+          const b = parseUnits(usdcAmount, 6);
+          const aMin = (a * BigInt(10000 - slippageBps)) / BigInt(10000);
+          const bMin = (b * BigInt(10000 - slippageBps)) / BigInt(10000);
+
+          await ensureExactAllowance(
+            publicClient,
+            writeContractAsync,
+            khype,
+            abis.erc20,
+            address,
+            deployment.router,
+            a
+          );
+          await ensureExactAllowance(
+            publicClient,
+            writeContractAsync,
+            usdc,
+            abis.erc20,
+            address,
+            deployment.router,
+            b
+          );
+
+          await writeContractAsync({
+            address: deployment.router,
+            abi: abis.router,
+            functionName: "addLiquidity",
+            args: [khype, usdc, a, b, aMin, bMin, address, deadline],
+          });
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Zap failed";
+        setError(msg);
+        throw e;
+      }
+    },
+    [deployment, address, publicClient, writeContractAsync]
+  );
+
+  return {
+    zap,
+    isPending: isPending || isConfirming,
+    isSuccess,
+    error,
+    hash,
   };
 }
 
@@ -338,6 +580,159 @@ export function useLpBalance() {
   const hasPosition = data !== undefined && (data as bigint) > BigInt(0);
 
   return { balance, hasPosition, refetch };
+}
+
+export function useVaultStats() {
+  const deployment = useDeployment();
+  const { reserveKhype, reserveUsdc, totalSupply } = usePoolStats();
+
+  const { data: vaultLp, refetch: refetchVaultLp } = useReadContract({
+    address: deployment?.pair,
+    abi: abis.erc20,
+    functionName: "balanceOf",
+    args: deployment?.liquidityVault ? [deployment.liquidityVault] : undefined,
+    query: { enabled: !!deployment?.liquidityVault, refetchInterval: 10000 },
+  });
+
+  const { data: vaultShareSupply, refetch: refetchShareSupply } = useReadContract({
+    address: deployment?.liquidityVault,
+    abi: abis.liquidityVault,
+    functionName: "totalSupply",
+    query: { enabled: !!deployment?.liquidityVault, refetchInterval: 10000 },
+  });
+
+  const { data: targetRangeBps } = useReadContract({
+    address: deployment?.liquidityVault,
+    abi: abis.liquidityVault,
+    functionName: "targetRangeBps",
+    query: { enabled: !!deployment?.liquidityVault, refetchInterval: 30000 },
+  });
+
+  const vaultLpFloat = vaultLp !== undefined ? parseFloat(formatUnits(vaultLp as bigint, 18)) : 0;
+  const shareSupply = vaultShareSupply !== undefined ? formatUnits(vaultShareSupply as bigint, 18) : "0";
+  const shareSupplyFloat = parseFloat(shareSupply);
+  const lpShare = totalSupply > 0 ? vaultLpFloat / totalSupply : 0;
+  const vaultKhype = reserveKhype * lpShare;
+  const vaultUsdc = reserveUsdc * lpShare;
+
+  return {
+    hasVault: !!deployment?.liquidityVault && deployment.liquidityVault !== zeroAddress,
+    vaultAddress: deployment?.liquidityVault,
+    vaultLp: vaultLpFloat,
+    vaultLpRaw: vaultLp as bigint | undefined,
+    shareSupply,
+    shareSupplyFloat,
+    vaultKhype,
+    vaultUsdc,
+    vaultTvlUsd: vaultUsdc * 2,
+    targetRangeBps: targetRangeBps !== undefined ? Number(targetRangeBps) : 600,
+    refetch: () => {
+      refetchVaultLp();
+      refetchShareSupply();
+    },
+  };
+}
+
+export function useVaultBalance() {
+  const { address } = useConnection();
+  const deployment = useDeployment();
+  const stats = useVaultStats();
+
+  const { data, refetch } = useReadContract({
+    address: deployment?.liquidityVault,
+    abi: abis.liquidityVault,
+    functionName: "balanceOf",
+    args: address ? [address] : undefined,
+    query: { enabled: !!address && stats.hasVault, refetchInterval: 10000 },
+  });
+
+  const sharesRaw = data as bigint | undefined;
+  const shares = sharesRaw !== undefined ? formatUnits(sharesRaw, 18) : "0";
+  const share = stats.shareSupplyFloat > 0 ? parseFloat(shares) / stats.shareSupplyFloat : 0;
+
+  return {
+    shares,
+    sharesRaw,
+    hasVaultPosition: sharesRaw !== undefined && sharesRaw > BigInt(0),
+    khype: stats.vaultKhype * share,
+    usdc: stats.vaultUsdc * share,
+    valueUsd: stats.vaultTvlUsd * share,
+    refetch,
+  };
+}
+
+export function useVaultDepositDual() {
+  const { address } = useConnection();
+  const deployment = useDeployment();
+  const publicClient = usePublicClient();
+  const { writeContractAsync, data: hash, isPending } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  const depositDual = useCallback(
+    async (amountKHYPE: string, amountUSDC: string) => {
+      if (!deployment?.liquidityVault || !address || !publicClient) throw new Error("Vault unavailable");
+      const khypeAmount = parseUnits(amountKHYPE, 18);
+      const usdcAmount = parseUnits(amountUSDC, 6);
+      const slippageBps = getSlippageBps();
+      const khypeMin = (khypeAmount * BigInt(10000 - slippageBps)) / BigInt(10000);
+      const usdcMin = (usdcAmount * BigInt(10000 - slippageBps)) / BigInt(10000);
+      const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
+
+      await ensureExactAllowance(
+        publicClient,
+        writeContractAsync,
+        deployment.tokenKHYPE,
+        abis.erc20,
+        address,
+        deployment.liquidityVault,
+        khypeAmount
+      );
+      await ensureExactAllowance(
+        publicClient,
+        writeContractAsync,
+        deployment.tokenUSDC,
+        abis.erc20,
+        address,
+        deployment.liquidityVault,
+        usdcAmount
+      );
+
+      await writeContractAsync({
+        address: deployment.liquidityVault,
+        abi: abis.liquidityVault,
+        functionName: "depositDual",
+        args: [khypeAmount, usdcAmount, khypeMin, usdcMin, address, deadline],
+      });
+    },
+    [deployment, address, publicClient, writeContractAsync]
+  );
+
+  return { depositDual, isPending: isPending || isConfirming, isSuccess, hash };
+}
+
+export function useVaultWithdraw() {
+  const { address } = useConnection();
+  const deployment = useDeployment();
+  const { writeContractAsync, data: hash, isPending } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  const withdraw = useCallback(
+    async (shares: string) => {
+      if (!deployment?.liquidityVault || !address) throw new Error("Vault unavailable");
+      const shareAmount = parseUnits(shares, 18);
+      const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
+
+      await writeContractAsync({
+        address: deployment.liquidityVault,
+        abi: abis.liquidityVault,
+        functionName: "withdraw",
+        args: [shareAmount, BigInt(0), BigInt(0), address, deadline],
+      });
+    },
+    [deployment, address, writeContractAsync]
+  );
+
+  return { withdraw, isPending: isPending || isConfirming, isSuccess, hash };
 }
 
 export function useEpochCountdown() {

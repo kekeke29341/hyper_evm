@@ -13,10 +13,50 @@ export const TOKENS = [
 ];
 
 export const POOLS = [
-  { pair: "kHYPE/USDC", apr: "124.5%", tvl: "$12.4M", featured: true },
-  { pair: "HYPE/USDC", apr: "98.2%", tvl: "$8.1M", featured: true },
-  { pair: "HPOOL/USDC", apr: "156.0%", tvl: "$3.2M", featured: false },
-  { pair: "ETH/USDC", apr: "42.8%", tvl: "$1.9M", featured: false },
+  {
+    id: "khype-usdc-03",
+    pair: "kHYPE/USDC",
+    feeTier: "0.3%",
+    apr: "124.5%",
+    aprNum: 124.5,
+    tvl: "$12.4M",
+    volume24h: "$8.2M",
+    featured: true,
+    live: true,
+  },
+  {
+    id: "hype-usdc-03",
+    pair: "HYPE/USDC",
+    feeTier: "0.3%",
+    apr: "98.2%",
+    aprNum: 98.2,
+    tvl: "$8.1M",
+    volume24h: "$5.1M",
+    featured: true,
+    live: false,
+  },
+  {
+    id: "hpool-usdc-03",
+    pair: "HPOOL/USDC",
+    feeTier: "0.3%",
+    apr: "156.0%",
+    aprNum: 156,
+    tvl: "$3.2M",
+    volume24h: "$2.4M",
+    featured: false,
+    live: false,
+  },
+  {
+    id: "eth-usdc-05",
+    pair: "ETH/USDC",
+    feeTier: "0.05%",
+    apr: "42.8%",
+    aprNum: 42.8,
+    tvl: "$1.9M",
+    volume24h: "$1.1M",
+    featured: false,
+    live: false,
+  },
 ];
 
 export const LEADERBOARD = [

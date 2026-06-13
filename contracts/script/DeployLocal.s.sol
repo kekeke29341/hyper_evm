@@ -11,6 +11,7 @@ import {ProjectXRouter} from "../src/core/ProjectXRouter.sol";
 import {ProjectXPair} from "../src/core/ProjectXPair.sol";
 import {MerkleAirdrop} from "../src/core/MerkleAirdrop.sol";
 import {HyperCoreOracle} from "../src/core/HyperCoreOracle.sol";
+import {HyperpoolLiquidityVault} from "../src/core/HyperpoolLiquidityVault.sol";
 
 /// @title DeployLocal — full local stack for Anvil (no big blocks needed)
 contract DeployLocal is Script {
@@ -36,6 +37,8 @@ contract DeployLocal is Script {
         factory.createPair(address(khype), address(usdc));
         address pair = factory.getPair(address(khype), address(usdc));
         pointsDistributor.authorizePool(pair);
+        HyperpoolLiquidityVault liquidityVault =
+            new HyperpoolLiquidityVault(address(router), pair, address(khype), address(usdc), deployer, deployer);
 
         khype.mint(deployer, 10_000 ether);
         usdc.mint(deployer, 10_000_000e6);
@@ -58,6 +61,7 @@ contract DeployLocal is Script {
         json = vm.serializeAddress(obj, "factory", address(factory));
         json = vm.serializeAddress(obj, "router", address(router));
         json = vm.serializeAddress(obj, "pair", pair);
+        json = vm.serializeAddress(obj, "liquidityVault", address(liquidityVault));
         json = vm.serializeAddress(obj, "pointsDistributor", address(pointsDistributor));
         json = vm.serializeAddress(obj, "referralRegistry", address(referralRegistry));
         json = vm.serializeAddress(obj, "airdrop", address(airdrop));
@@ -71,6 +75,7 @@ contract DeployLocal is Script {
         console2.log("HyperCoreOracle", address(oracle));
         console2.log("Router", address(router));
         console2.log("Pair", pair);
+        console2.log("LiquidityVault", address(liquidityVault));
         console2.log("kHYPE", address(khype));
         console2.log("USDC", address(usdc));
     }

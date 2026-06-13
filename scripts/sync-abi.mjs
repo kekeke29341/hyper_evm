@@ -23,6 +23,7 @@ const CONTRACTS = [
   { file: "ReferralRegistry.sol/ReferralRegistry.json", name: "ReferralRegistry" },
   { file: "MerkleAirdrop.sol/MerkleAirdrop.json", name: "MerkleAirdrop" },
   { file: "HyperCoreOracle.sol/HyperCoreOracle.json", name: "HyperCoreOracle" },
+  { file: "HyperpoolLiquidityVault.sol/HyperpoolLiquidityVault.json", name: "HyperpoolLiquidityVault" },
 ];
 
 fs.mkdirSync(abiDir, { recursive: true });

@@ -9,6 +9,7 @@ import MockERC20Abi from "./abis/MockERC20.json";
 import PointsDistributorAbi from "./abis/PointsDistributor.json";
 import ReferralRegistryAbi from "./abis/ReferralRegistry.json";
 import MerkleAirdropAbi from "./abis/MerkleAirdrop.json";
+import HyperpoolLiquidityVaultAbi from "./abis/HyperpoolLiquidityVault.json";
 
 export type Deployment = {
   chainId: number;
@@ -16,6 +17,7 @@ export type Deployment = {
   factory: Address;
   router: Address;
   pair: Address;
+  liquidityVault?: Address;
   pointsDistributor: Address;
   referralRegistry: Address;
   airdrop: Address;
@@ -52,6 +54,7 @@ export const abis = {
   points: PointsDistributorAbi,
   referral: ReferralRegistryAbi,
   airdrop: MerkleAirdropAbi,
+  liquidityVault: HyperpoolLiquidityVaultAbi,
 } as const;
 
 export type TokenSymbol = "kHYPE" | "USDC";

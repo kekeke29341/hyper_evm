@@ -9,6 +9,7 @@ import {ProjectXFactory} from "../src/core/ProjectXFactory.sol";
 import {ProjectXRouter} from "../src/core/ProjectXRouter.sol";
 import {MerkleAirdrop} from "../src/core/MerkleAirdrop.sol";
 import {HyperCoreOracle} from "../src/core/HyperCoreOracle.sol";
+import {HyperpoolLiquidityVault} from "../src/core/HyperpoolLiquidityVault.sol";
 import {HyperCoreConstants} from "../src/libraries/HyperCoreConstants.sol";
 
 /// @title DeployProjectX — staged deploy for HyperEVM dual-block architecture
@@ -47,6 +48,8 @@ contract DeployProjectX is Script {
         factory.createPair(khype, usdc);
         address pair = factory.getPair(khype, usdc);
         pointsDistributor.authorizePool(pair);
+        HyperpoolLiquidityVault liquidityVault =
+            new HyperpoolLiquidityVault(address(router), pair, khype, usdc, deployer, deployer);
 
         // Step 4 (optional): seed liquidity if deployer holds tokens
         if (vm.envOr("SEED_LIQUIDITY", false)) {
@@ -62,6 +65,7 @@ contract DeployProjectX is Script {
         console2.log("Factory", address(factory));
         console2.log("Router", address(router));
         console2.log("Pair", pair);
+        console2.log("LiquidityVault", address(liquidityVault));
         console2.log("kHYPE/WHYPE", khype);
         console2.log("USDC", usdc);
 
@@ -75,6 +79,7 @@ contract DeployProjectX is Script {
             address(router),
             address(airdrop),
             pair,
+            address(liquidityVault),
             khype,
             usdc
         );
@@ -103,6 +108,7 @@ contract DeployProjectX is Script {
         address router,
         address airdrop,
         address pair,
+        address liquidityVault,
         address khype,
         address usdc
     ) internal {
@@ -117,6 +123,7 @@ contract DeployProjectX is Script {
         json = vm.serializeAddress(obj, "router", router);
         json = vm.serializeAddress(obj, "airdrop", airdrop);
         json = vm.serializeAddress(obj, "pair", pair);
+        json = vm.serializeAddress(obj, "liquidityVault", liquidityVault);
         json = vm.serializeAddress(obj, "tokenKHYPE", khype);
         json = vm.serializeAddress(obj, "tokenUSDC", usdc);
 
