@@ -10,8 +10,8 @@ const geistSans = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Project X | HyperEVM DEX",
-  description: "HyperEVM ecosystem DEX — Swap, Liquidity, Points & Cross-chain Bridge",
+  title: "Hyperpool | HyperEVM DEX",
+  description: "Hyperpool — HyperEVM community DEX. Swap, Liquidity, Points & Cross-chain Bridge",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -8,14 +8,14 @@ export const TOKENS = [
   { symbol: "kHYPE", name: "kHYPE", color: "bg-emerald-500" },
   { symbol: "HYPE", name: "HYPE", color: "bg-cyan-500" },
   { symbol: "USDC", name: "USDC", color: "bg-blue-500" },
-  { symbol: "PRJX", name: "PRJX", color: "bg-violet-500" },
+  { symbol: "HPOOL", name: "HPOOL", color: "bg-violet-500" },
   { symbol: "ETH", name: "ETH", color: "bg-indigo-500" },
 ];
 
 export const POOLS = [
   { pair: "kHYPE/USDC", apr: "124.5%", tvl: "$12.4M", featured: true },
   { pair: "HYPE/USDC", apr: "98.2%", tvl: "$8.1M", featured: true },
-  { pair: "PRJX/USDC", apr: "156.0%", tvl: "$3.2M", featured: false },
+  { pair: "HPOOL/USDC", apr: "156.0%", tvl: "$3.2M", featured: false },
   { pair: "ETH/USDC", apr: "42.8%", tvl: "$1.9M", featured: false },
 ];
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Copy, Check, Share2, Loader2 } from "lucide-react";
 import { keccak256, toBytes } from "viem";
 import { useApp } from "@/lib/store";
@@ -19,7 +19,11 @@ export function AffiliateTab() {
   const { referralCount, registered, hasDeployment } = useReferralStats();
   const { data: refLeaderboard, isLoading: refLbLoading } = useReferralLeaderboard(5);
 
-  const refUrl = "https://www.prjx.com/ref?code=XM79B4";
+  const [refUrl, setRefUrl] = useState("https://hyperpool.app/ref?code=XM79B4");
+
+  useEffect(() => {
+    setRefUrl(`${window.location.origin}/?ref=XM79B4`);
+  }, []);
 
   const copy = async () => {
     await navigator.clipboard.writeText(refUrl);
@@ -31,9 +35,9 @@ export function AffiliateTab() {
   const shareOnX = () => {
     const text =
       locale === "ja"
-        ? encodeURIComponent("Project X — 手数料0%のHyperEVM DEX。私のリンクから参加:")
+        ? encodeURIComponent("Hyperpool — 手数料0%のHyperEVM DEX。私のリンクから参加:")
         : encodeURIComponent(
-            "Trade on Project X — HyperEVM's community DEX with 0% fees. Join via my link:"
+            "Trade on Hyperpool — HyperEVM's community DEX with 0% fees. Join via my link:"
           );
     window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(refUrl)}`, "_blank");
   };

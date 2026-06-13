@@ -1,13 +1,13 @@
-# Project X プロダクト概要
+# Hyperpool プロダクト概要
 
-このドキュメントでは、**Project X がどんなアプリか**、**手数料の内訳**、**毎日の収益（ポイント）がどう更新されるか**を説明します。  
+このドキュメントでは、**Hyperpool がどんなアプリか**、**手数料の内訳**、**毎日の収益（ポイント）がどう更新されるか**を説明します。  
 技術詳細は [architecture.md](./architecture.md)、UI 要件原文は [cursor_instructions/platform_instruct.txt](./cursor_instructions/platform_instruct.txt) を参照してください。
 
 ---
 
 ## 1. このアプリは何か
 
-**Project X（PRJX）** は、HyperEVM 上で動作する **コミュニティ主導の AMM DEX（分散型取引所）** です。  
+**Hyperpool** は、HyperEVM 上で動作する **コミュニティ主導の AMM DEX（分散型取引所）** です。  
 Web フロントエンド（Next.js）から、ウォレット接続だけで以下を行えます。
 
 | 機能 | 説明 |
@@ -39,7 +39,7 @@ Web フロントエンド（Next.js）から、ウォレット接続だけで以
 
 手数料は **取引の種類** によって異なります。ガス代は HyperEVM / 送信元チェーンのネットワーク状況により変動します。
 
-### 2.1 同一チェーン DEX スワップ（Project X プール）
+### 2.1 同一チェーン DEX スワップ（Hyperpool プール）
 
 コントラクト `ProjectXPair` で定義されています。
 
@@ -65,12 +65,12 @@ LP 向け      = 3.00 × 86%   = 2.58 USDC（プール内に蓄積）
 
 | 項目 | 率 | 備考 |
 |------|-----|------|
-| **Project X アグリゲーター手数料** | **0%** | API 呼び出し時 `fee=0` を固定 |
+| **Hyperpool アグリゲーター手数料** | **0%** | API 呼び出し時 `fee=0` を固定 |
 | **スリッページ許容** | デフォルト **0.5%** | 設定画面で 0.1% / 0.5% / 1.0% 等に変更可（`prjx_slippage_bps`、初期 50 bps） |
 | **ガス / ブリッジコスト** | ルート依存 | Li.FI 見積もりの `gasCosts` を UI に表示（USD 目安） |
 | **ブリッジプロバイダー手数料** | ルート依存 | Li.FI が返す `feeCosts` に含まれる場合あり（0% アグリゲーター手数料とは別） |
 
-UI 上の「**0% Aggregator Fees — No hidden spreads, just gas**」は、**Project X が Li.FI 経由で追加のスプレッド手数料を取らない** ことを意味します。  
+UI 上の「**0% Aggregator Fees — No hidden spreads, just gas**」は、**Hyperpool が Li.FI 経由で追加のスプレッド手数料を取らない** ことを意味します。  
 Ethereum 等からのブリッジでは、送信元チェーンのガス・ブリッジルート固有のコストは別途かかります。
 
 ### 2.3 流動性（LP）

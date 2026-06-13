@@ -55,7 +55,7 @@ export const translations = {
       next: "次へ",
       start: "始める",
       step1: {
-        title: "Project X へようこそ",
+        title: "Hyperpool へようこそ",
         body: "HyperEVM エコシステム初のコミュニティ主導 DEX。VC 資金なし、100% セルフファンドで構築。",
       },
       step2: {
@@ -113,7 +113,7 @@ export const translations = {
       solanaUnsupported: "Solana ルートは WalletConnect + Li.FI Widget が必要です（EVM ウォレットでは未対応）",
       switchToFromChain: "送信元チェーンにウォレットを切り替えてください",
       testnetLifiNote:
-        "Li.FI は HyperEVM Mainnet (999) 経由。Testnet (998) では同一チェーンスワップのみ Project X DEX を使用。",
+        "Li.FI は HyperEVM Mainnet (999) 経由。Testnet (998) では同一チェーンスワップのみ Hyperpool DEX を使用。",
     },
     liquidity: {
       title: "流動性",
@@ -262,7 +262,7 @@ export const translations = {
       next: "Next",
       start: "Get Started",
       step1: {
-        title: "Welcome to Project X",
+        title: "Welcome to Hyperpool",
         body: "The first community-driven DEX on HyperEVM. 100% self-funded — no VCs, no seed rounds.",
       },
       step2: {
@@ -320,7 +320,7 @@ export const translations = {
       solanaUnsupported: "Solana routes require WalletConnect + Li.FI widget (not available via EVM wallet)",
       switchToFromChain: "Switch wallet to the source chain",
       testnetLifiNote:
-        "Li.FI routes HyperEVM via mainnet (999). On testnet (998), use Project X DEX for same-chain swaps only.",
+        "Li.FI routes HyperEVM via mainnet (999). On testnet (998), use Hyperpool DEX for same-chain swaps only.",
     },
     liquidity: {
       title: "Liquidity",

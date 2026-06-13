@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-shot: create wallet → fund HyperEVM → (optional) deploy Project X to chain 998
+# One-shot: create wallet → fund HyperEVM → (optional) deploy Hyperpool to chain 998
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -25,7 +25,7 @@ for arg in "$@"; do
 done
 
 echo "╔══════════════════════════════════════════════════╗"
-echo "║  Project X — HyperEVM Testnet CLI Setup (998)   ║"
+echo "║  Hyperpool — HyperEVM Testnet CLI Setup (998)   ║"
 echo "╚══════════════════════════════════════════════════╝"
 echo ""
 

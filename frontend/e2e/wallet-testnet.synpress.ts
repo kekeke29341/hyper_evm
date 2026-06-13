@@ -85,7 +85,7 @@ test.describe("Testnet wallet (Synpress)", () => {
     }
   });
 
-  test("swap: small WHYPE → USDC on Project X", async ({
+  test("swap: small WHYPE → USDC on Hyperpool", async ({
     context,
     page,
     metamaskPage,

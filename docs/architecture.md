@@ -2,7 +2,7 @@
 
 ## 概要
 
-Project X は HyperEVM 上の AMM DEX と、それを操作する Next.js フロントエンドで構成されます。  
+Hyperpool は HyperEVM 上の AMM DEX と、それを操作する Next.js フロントエンドで構成されます。  
 Phase 2 として Li.FI プロトコル経由のクロスチェーンスワップ/ブリッジ UI も統合されています。
 
 ```

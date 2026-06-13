@@ -1,4 +1,4 @@
-# E2E Testing — Project X
+# E2E Testing — Hyperpool
 
 ## 1. Smoke tests (UI only, no MetaMask)
 

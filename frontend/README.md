@@ -1,4 +1,4 @@
-# Project X Frontend
+# Hyperpool Frontend
 
 Next.js App Router UI for the HyperEVM DEX.
 

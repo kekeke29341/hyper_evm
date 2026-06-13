@@ -85,7 +85,7 @@ export function isEvmBridgeRoute(fromChainId: string, toChainId: string): boolea
 
 export function hyperEvmLifiNotice(walletChainId: number): string | null {
   if (walletChainId === 998) {
-    return "Li.FI routes HyperEVM via mainnet (chain 999). Testnet (998) uses Project X DEX for same-chain swaps.";
+    return "Li.FI routes HyperEVM via mainnet (chain 999). Testnet (998) uses Hyperpool DEX for same-chain swaps.";
   }
   return null;
 }

@@ -129,7 +129,7 @@ export function AdminShell() {
       </main>
 
       <footer className="py-4 text-center text-xs text-zinc-600 border-t border-zinc-800/50">
-        Project X Admin — on-chain owner-gated operations only
+        Hyperpool Admin — on-chain owner-gated operations only
       </footer>
 
       <WalletModal />

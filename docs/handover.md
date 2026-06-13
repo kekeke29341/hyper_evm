@@ -8,7 +8,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| プロダクト名 | Project X (PRJX) |
+| プロダクト名 | Hyperpool |
 | 種別 | HyperEVM 上の AMM DEX + クロスチェーンアグリゲーター UI |
 | 技術スタック | Foundry (Solidity 0.8.24) + Next.js 14 + wagmi/viem |
 | フェーズ | Phase 2: EVM Aggregator (Li.FI 統合) Live |

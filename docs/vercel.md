@@ -1,6 +1,6 @@
 # Vercel デプロイガイド
 
-Project X フロントエンドを Vercel に公開する手順です。  
+Hyperpool フロントエンドを Vercel に公開する手順です。  
 **スマートコントラクトは Vercel ではデプロイしません**（既に HyperEVM Testnet 998 にデプロイ済み）。
 
 ## 1. GitHub リポジトリ作成

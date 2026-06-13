@@ -25,7 +25,7 @@ source "$ROOT/scripts/deploy-key-guard.sh"
 echo "==> Building contracts..."
 forge build
 
-echo "==> Deploying Project X to HyperEVM Testnet (998)..."
+echo "==> Deploying Hyperpool to HyperEVM Testnet (998)..."
 echo "    RPC: $TESTNET_RPC"
 echo "    Ensure big blocks: {\"type\":\"evmUserModify\",\"usingBigBlocks\":true}"
 

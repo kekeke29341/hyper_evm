@@ -7,10 +7,10 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test.describe("Project X smoke", () => {
+test.describe("Hyperpool smoke", () => {
   test("home page loads with navigation tabs", async ({ page }) => {
     await page.goto("/");
-    await expect(page).toHaveTitle(/Project X|PRJX/i);
+    await expect(page).toHaveTitle(/Hyperpool/i);
     await expect(page.getByRole("navigation")).toBeVisible();
   });
 

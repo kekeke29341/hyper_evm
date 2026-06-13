@@ -26,9 +26,11 @@ export function Header({
     <header className="sticky top-0 z-40 border-b border-zinc-800/80 bg-zinc-950/70 backdrop-blur-md">
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
         <div className="flex items-center gap-2 shrink-0">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 to-cyan-400" />
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 to-cyan-400 flex items-center justify-center">
+            <span className="text-sm font-black text-zinc-950 leading-none">H</span>
+          </div>
           <div className="hidden sm:block">
-            <span className="font-bold text-white leading-none">Project X</span>
+            <span className="font-bold text-white leading-none">Hyperpool</span>
             <p className="text-[10px] text-zinc-500 mt-0.5">{t("header.tagline")}</p>
           </div>
         </div>
