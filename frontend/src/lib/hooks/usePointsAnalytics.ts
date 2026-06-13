@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useConnection, useChainId, usePublicClient, useReadContract } from "wagmi";
+import { useConnection, usePublicClient, useReadContract } from "wagmi";
+import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
 import { formatUnits } from "viem";
 import { abis, getDeployment } from "@/lib/contracts";
 import {
@@ -26,7 +27,7 @@ import {
 import { useI18n } from "@/lib/i18n";
 
 export function usePointsLeaderboard(limit = 5) {
-  const chainId = useChainId();
+  const chainId = useEffectiveChainId();
   const deployment = getDeployment(chainId);
   const publicClient = usePublicClient();
 
@@ -41,23 +42,28 @@ export function usePointsLeaderboard(limit = 5) {
     queryKey: ["points-leaderboard", chainId, deployment?.pointsDistributor, epochStart, limit],
     queryFn: async () => {
       if (!publicClient || !deployment || epochStart === undefined) return [];
-      return fetchPointsLeaderboard(
-        publicClient,
-        deployment.pointsDistributor,
-        chainId,
-        Number(epochStart),
-        limit
-      );
+      try {
+        return await fetchPointsLeaderboard(
+          publicClient,
+          deployment.pointsDistributor,
+          chainId,
+          Number(epochStart),
+          limit
+        );
+      } catch {
+        return [];
+      }
     },
     enabled: !!publicClient && !!deployment && epochStart !== undefined,
     refetchInterval: 15_000,
     staleTime: 10_000,
+    retry: 1,
   });
 }
 
 export function usePointsHistoryChart(currentPoints: number | null) {
   const { address } = useConnection();
-  const chainId = useChainId();
+  const chainId = useEffectiveChainId();
   const { locale } = useI18n();
   const [chart, setChart] = useState<ChartPoint[]>([]);
 
@@ -100,7 +106,7 @@ export function useUserPointsRank(rows: LeaderboardRow[] | undefined) {
 
 export function useEpochFeeContribution() {
   const { address } = useConnection();
-  const chainId = useChainId();
+  const chainId = useEffectiveChainId();
   const deployment = getDeployment(chainId);
 
   const { data: currentEpoch } = useReadContract({
@@ -132,7 +138,7 @@ export function useEpochFeeContribution() {
 
 export function useReferralStats() {
   const { address } = useConnection();
-  const chainId = useChainId();
+  const chainId = useEffectiveChainId();
   const deployment = getDeployment(chainId);
 
   const { data: referralCount } = useReadContract({
@@ -163,7 +169,7 @@ export function useReferralStats() {
 }
 
 export function useReferralLeaderboard(limit = 5) {
-  const chainId = useChainId();
+  const chainId = useEffectiveChainId();
   const deployment = getDeployment(chainId);
   const publicClient = usePublicClient();
 
@@ -171,15 +177,20 @@ export function useReferralLeaderboard(limit = 5) {
     queryKey: ["referral-leaderboard", chainId, deployment?.referralRegistry, limit],
     queryFn: async () => {
       if (!publicClient || !deployment) return [];
-      return fetchReferralLeaderboard(
-        publicClient,
-        deployment.referralRegistry,
-        chainId,
-        limit
-      );
+      try {
+        return await fetchReferralLeaderboard(
+          publicClient,
+          deployment.referralRegistry,
+          chainId,
+          limit
+        );
+      } catch {
+        return [];
+      }
     },
     enabled: !!publicClient && !!deployment,
     refetchInterval: 30_000,
     staleTime: 15_000,
+    retry: 1,
   });
 }

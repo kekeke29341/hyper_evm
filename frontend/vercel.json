@@ -4,6 +4,11 @@
   "installCommand": "npm ci",
   "buildCommand": "npm run build",
   "regions": ["iad1"],
+  "env": {
+    "NEXT_PUBLIC_DEFAULT_CHAIN_ID": "998",
+    "NEXT_PUBLIC_TESTNET_RPC": "https://rpcs.chain.link/hyperevm/testnet",
+    "NEXT_PUBLIC_MAINNET_RPC": "https://rpc.hyperliquid.xyz/evm"
+  },
   "headers": [
     {
       "source": "/(.*)",
@@ -13,7 +18,7 @@
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://rpc.hyperliquid.xyz https://rpc.hyperliquid-testnet.xyz https://rpcs.chain.link https://*.walletconnect.com https://*.walletconnect.org wss://*.walletconnect.com wss://*.walletconnect.org https://li.quest https://testnet.purrsec.com https://purrsec.com; frame-ancestors 'self'"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://rpc.hyperliquid.xyz https://rpc.hyperliquid-testnet.xyz https://rpcs.chain.link https://*.walletconnect.com https://*.walletconnect.org wss://*.walletconnect.com wss://*.walletconnect.org https://li.quest https://testnet.purrsec.com https://purrsec.com https://api.web3modal.org; frame-ancestors 'self'"
         }
       ]
     }

@@ -15,6 +15,8 @@ import { PortfolioTab } from "@/components/tabs/PortfolioTab";
 import { CashdropTab } from "@/components/tabs/CashdropTab";
 import { PointsTab } from "@/components/tabs/PointsTab";
 import { AffiliateTab } from "@/components/tabs/AffiliateTab";
+import { TabErrorBoundary } from "@/components/TabErrorBoundary";
+import { useI18n } from "@/lib/i18n";
 import type { TabId } from "@/lib/constants";
 
 const TAB_CONTENT: Record<TabId, React.ComponentType> = {
@@ -28,7 +30,9 @@ const TAB_CONTENT: Record<TabId, React.ComponentType> = {
 
 export default function AppShell() {
   const [activeTab, setActiveTab] = useState<TabId>("swap");
+  const { t } = useI18n();
   const Active = TAB_CONTENT[activeTab];
+  const tabLabel = t(`tabs.${activeTab}`);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -46,12 +50,16 @@ export default function AppShell() {
             transition={{ duration: 0.2 }}
           >
             {activeTab === "cashdrop" ? (
-              <CashdropTab
-                onGoToPoints={() => setActiveTab("points")}
-                onGoToAffiliate={() => setActiveTab("affiliate")}
-              />
+              <TabErrorBoundary tabLabel={tabLabel}>
+                <CashdropTab
+                  onGoToPoints={() => setActiveTab("points")}
+                  onGoToAffiliate={() => setActiveTab("affiliate")}
+                />
+              </TabErrorBoundary>
             ) : (
-              <Active />
+              <TabErrorBoundary tabLabel={tabLabel}>
+                <Active />
+              </TabErrorBoundary>
             )}
           </motion.div>
         </AnimatePresence>

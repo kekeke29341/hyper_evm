@@ -46,6 +46,7 @@ test.describe("Testnet deployment (998)", () => {
       const tab = page.getByRole("button", { name: new RegExp(label, "i") }).first();
       await expect(tab).toBeVisible();
       await tab.click();
+      await expect(page.getByText(/application error|a client-side exception/i)).toHaveCount(0);
     }
   });
 

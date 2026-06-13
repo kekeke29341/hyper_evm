@@ -4,14 +4,14 @@ import { useMemo } from "react";
 import { useConnection, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { type Address, parseUnits } from "viem";
 import { abis, getDeployment } from "@/lib/contracts";
-import { useChainId } from "wagmi";
+import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
 import MerkleAirdropAbi from "@/lib/contracts/abis/MerkleAirdrop.json";
 import ownableAbi from "@/lib/contracts/ownableAbi.json";
 import { buildMerkleRoot, parseAirdropCsv, type AirdropEntry } from "@/lib/admin/merkle";
 
 export function useAdminAuth() {
   const { address, isConnected } = useConnection();
-  const chainId = useChainId();
+  const chainId = useEffectiveChainId();
   const deployment = getDeployment(chainId);
 
   const { data: pointsOwner } = useReadContract({
@@ -53,7 +53,7 @@ export function useAdminAuth() {
 }
 
 export function useAdminAnalytics() {
-  const chainId = useChainId();
+  const chainId = useEffectiveChainId();
   const deployment = getDeployment(chainId);
 
   const { data: reserves } = useReadContract({
@@ -111,7 +111,7 @@ export function useAdminAnalytics() {
 }
 
 export function useAdminActions() {
-  const chainId = useChainId();
+  const chainId = useEffectiveChainId();
   const deployment = getDeployment(chainId);
   const { writeContractAsync, data: hash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });

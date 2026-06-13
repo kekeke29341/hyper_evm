@@ -1,6 +1,5 @@
 "use client";
 
-import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer } from "recharts";
 import { Loader2 } from "lucide-react";
 import { CHART_DATA } from "@/lib/constants";
 import { useOnChainPoints, useEpochCountdown, useCashdrop } from "@/lib/hooks/useDeFi";
@@ -10,7 +9,8 @@ import {
   useUserPointsRank,
   useEpochFeeContribution,
 } from "@/lib/hooks/usePointsAnalytics";
-import { multiplierBadgeClass } from "@/lib/points/multiplier";
+import { multiplierBadgeClass, parseMultiplierLabel } from "@/lib/points/multiplier";
+import { PointsTrendChart } from "@/components/charts/PointsTrendChart";
 import { useApp } from "@/lib/store";
 import { useI18n } from "@/lib/i18n";
 import { MainCard } from "@/components/ui/shared";
@@ -44,7 +44,7 @@ export function PointsTab() {
     rank !== null
       ? t("points.rankActive")
           .replace("{rank}", String(rank))
-          .replace("{multiplier}", multiplierLabel.replace("×", ""))
+          .replace("{multiplier}", String(parseMultiplierLabel(multiplierLabel)))
       : hasDeployment
         ? t("points.rankUnranked")
         : t("points.rank");
@@ -91,19 +91,7 @@ export function PointsTab() {
           {chartIsLive ? t("points.trendOnChain") : t("points.trendSub")}
         </p>
         <div className="h-32">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData}>
-              <XAxis dataKey="day" tick={{ fill: "#71717a", fontSize: 10 }} axisLine={false} tickLine={false} />
-              <YAxis hide />
-              <Area type="monotone" dataKey="pts" stroke="#39ff14" fill="url(#grad)" strokeWidth={2} />
-              <defs>
-                <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#39ff14" stopOpacity={0.3} />
-                  <stop offset="100%" stopColor="#39ff14" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-            </AreaChart>
-          </ResponsiveContainer>
+          <PointsTrendChart data={chartData} />
         </div>
       </div>
 
@@ -158,7 +146,7 @@ export function PointsTab() {
                 <span
                   className={cn(
                     "text-[10px] px-1.5 py-0.5 rounded font-bold",
-                    multiplierBadgeClass(parseFloat(row.multiplier.replace("×", "")))
+                    multiplierBadgeClass(parseMultiplierLabel(row.multiplier))
                   )}
                 >
                   {row.multiplier} {t("points.multiplier")}

@@ -35,7 +35,8 @@ MetaMask: Chain ID **31337**, RPC `http://127.0.0.1:8545`
 
 | Doc | Topic |
 |-----|-------|
-| [product-overview.md](docs/product-overview.md) | **アプリ概要・手数料・日次収益** |
+| [app-overview.md](docs/app-overview.md) | **アプリ全体の説明（入口）** |
+| [product-overview.md](docs/product-overview.md) | 手数料・ポイント・日次収益 |
 | [architecture.md](docs/architecture.md) | システム構成 |
 | [development.md](docs/development.md) | ローカル開発 |
 | [deployment.md](docs/deployment.md) | コントラクトデプロイ |

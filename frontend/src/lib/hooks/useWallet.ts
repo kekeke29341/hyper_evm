@@ -21,7 +21,7 @@ const CONNECTOR_MAP: Record<WalletId, string[]> = {
 const CHAIN_RPC: Record<number, string> = {
   [anvilLocal.id]: process.env.NEXT_PUBLIC_RPC_URL ?? "http://127.0.0.1:8545",
   [hyperEvmTestnet.id]:
-    process.env.NEXT_PUBLIC_TESTNET_RPC ?? "https://rpc.hyperliquid-testnet.xyz/evm",
+    process.env.NEXT_PUBLIC_TESTNET_RPC ?? "https://rpcs.chain.link/hyperevm/testnet",
   [hyperEvmMainnet.id]: process.env.NEXT_PUBLIC_MAINNET_RPC ?? "https://rpc.hyperliquid.xyz/evm",
 };
 

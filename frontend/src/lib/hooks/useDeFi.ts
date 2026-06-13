@@ -3,7 +3,6 @@
 import { useCallback, useState, useMemo } from "react";
 import {
   useConnection,
-  useChainId,
   usePublicClient,
   useReadContract,
   useWriteContract,
@@ -21,12 +20,10 @@ import { getMerkleProof } from "@/lib/admin/merkle";
 import MerkleAirdropAbi from "@/lib/contracts/abis/MerkleAirdrop.json";
 import { ensureExactAllowance } from "@/lib/erc20";
 import { getSlippageBps } from "@/components/layout/SettingsModal";
-import { defaultChain } from "@/lib/wagmi/config";
+import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
 
 export function useDeployment() {
-  const chainId = useChainId();
-  const { address } = useConnection();
-  return getDeployment(address ? chainId : defaultChain.id);
+  return getDeployment(useEffectiveChainId());
 }
 
 function applySlippage(amount: bigint, slippageBps: number) {

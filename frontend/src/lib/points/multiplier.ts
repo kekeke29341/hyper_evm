@@ -7,6 +7,12 @@ export function rankToMultiplier(rank: number | null): number {
   return 1;
 }
 
+export function parseMultiplierLabel(label: string): number {
+  const normalized = label.replace(/×/g, "").trim();
+  const value = parseFloat(normalized);
+  return Number.isFinite(value) ? value : 1;
+}
+
 export function formatMultiplier(rank: number | null): string {
   const m = rankToMultiplier(rank);
   return m === Math.floor(m) ? `×${m}.0` : `×${m}`;
