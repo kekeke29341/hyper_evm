@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
+import { checkRateLimit, clientIp } from "@/lib/api/rateLimit";
 
 const LIFI_BASE = "https://li.quest/v1";
 
 export async function GET(req: NextRequest) {
+  const ip = clientIp(req);
+  const limited = checkRateLimit(`lifi-status:${ip}`, 60, 60_000);
+  if (!limited.ok) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded" },
+      { status: 429, headers: { "Retry-After": String(limited.retryAfterSec) } }
+    );
+  }
+
   const txHash = req.nextUrl.searchParams.get("txHash");
   const bridge = req.nextUrl.searchParams.get("bridge") ?? "lifi";
   const fromChain = req.nextUrl.searchParams.get("fromChain");

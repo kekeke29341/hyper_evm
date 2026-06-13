@@ -11,7 +11,15 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "playwright test",
+    "test:e2e": "playwright test --project=smoke",
+    "test:e2e:wallet": "playwright test --project=wallet-mock",
+    "test:e2e:wallet:mock": "playwright test --project=wallet-mock",
+    "test:e2e:wallet:testnet": "bash ../scripts/e2e-synpress-testnet.sh",
+    "test:e2e:wallet:local": "NODE_OPTIONS='--import tsx' playwright test --config=playwright.synpress.config.ts --project=wallet-local",
+    "test:e2e:synpress:cache": "bash ../scripts/e2e-synpress-cache.sh",
+    "verify:testnet": "node scripts/testnet-verify-onchain.mjs",
+    "testnet:actions": "node ../scripts/testnet-wallet-actions.mjs",
+    "test:e2e:all": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "sync-abi": "node ../scripts/sync-abi.mjs"
   },
@@ -38,7 +46,9 @@
     "wagmi": "^3.6.16"
   },
   "devDependencies": {
+    "@nktkas/hyperliquid": "^0.32.2",
     "@playwright/test": "^1.52.0",
+    "@synthetixio/synpress": "^4.1.2",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
@@ -52,6 +62,7 @@
     "jsdom": "^26.1.0",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
+    "tsx": "^4.22.4",
     "typescript": "^5",
     "vitest": "^3.1.2"
   }

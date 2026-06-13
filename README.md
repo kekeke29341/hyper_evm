@@ -35,12 +35,27 @@ MetaMask: Chain ID **31337**, RPC `http://127.0.0.1:8545`
 
 | Doc | Topic |
 |-----|-------|
+| [product-overview.md](docs/product-overview.md) | **アプリ概要・手数料・日次収益** |
 | [architecture.md](docs/architecture.md) | システム構成 |
 | [development.md](docs/development.md) | ローカル開発 |
-| [deployment.md](docs/deployment.md) | デプロイ |
+| [deployment.md](docs/deployment.md) | コントラクトデプロイ |
+| [vercel.md](docs/vercel.md) | **Vercel フロント公開** |
 | [testing.md](docs/testing.md) | テスト・CI |
 | [handover.md](docs/handover.md) | **引き継ぎ** |
 
 ## CI/CD
 
 `.github/workflows/ci.yml` — push/PR で Forge / Vitest / Playwright / ABI sync を実行。
+
+## Vercel（フロントエンド公開）
+
+Testnet 向けフロントを Vercel に載せる手順: **[docs/vercel.md](docs/vercel.md)**
+
+1. GitHub に push（リモート未設定の場合は `git remote add origin …`）
+2. Vercel → Import → **Root Directory: `frontend`**
+3. 環境変数を `frontend/.env.vercel.example` 参照で設定
+4. Deploy
+
+```bash
+git check-ignore -v .env.testnet   # 秘密鍵ファイルが ignore されていることを確認
+```

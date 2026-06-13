@@ -10,6 +10,9 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 env:
   FOUNDRY_PROFILE: ci
 
@@ -21,12 +24,10 @@ jobs:
       run:
         working-directory: contracts
     steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+      - uses: actions/checkout@b4ffde65f96336fa8845d2abf1aaebbd41bdc435
 
       - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
+        uses: foundry-rs/foundry-toolchain@ac3e9deec47b3129520584cdba09c448d0d7cbb2
 
       - name: Forge build
         run: forge build --sizes
@@ -37,6 +38,34 @@ jobs:
       - name: Forge fmt check (tests)
         run: forge fmt --check test/
 
+      - name: Branch coverage gate
+        run: node ../scripts/check-coverage.mjs 17
+
+  slither:
+    name: Slither (static analysis)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts
+    steps:
+      - uses: actions/checkout@b4ffde65f96336fa8845d2abf1aaebbd41bdc435
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@ac3e9deec47b3129520584cdba09c448d0d7cbb2
+
+      - name: Setup Python
+        uses: actions/setup-python@8e9f8adf09a2123d3d71c2121ceeadcd225ee5e0
+        with:
+          python-version: "3.11"
+
+      - name: Install Slither
+        run: pip install slither-analyzer
+
+      - name: Run Slither
+        run: slither . --config-file slither.config.json --fail-high
+
   frontend:
     name: Frontend (lint + test + build)
     runs-on: ubuntu-latest
@@ -44,10 +73,10 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@b4ffde65f96336fa8845d2abf1aaebbd41bdc435
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@0a0048894711f7d55835cd04bfeafac1976a8eb1
         with:
           node-version: "20"
           cache: npm
@@ -68,8 +97,8 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          NEXT_PUBLIC_DEFAULT_CHAIN_ID: "31337"
-          NEXT_PUBLIC_RPC_URL: http://127.0.0.1:8545
+          NEXT_PUBLIC_DEFAULT_CHAIN_ID: "998"
+          NEXT_PUBLIC_TESTNET_RPC: https://rpcs.chain.link/hyperevm/testnet
           NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ci-placeholder
 
   e2e:
@@ -80,10 +109,10 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@b4ffde65f96336fa8845d2abf1aaebbd41bdc435
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@0a0048894711f7d55835cd04bfeafac1976a8eb1
         with:
           node-version: "20"
           cache: npm
@@ -98,13 +127,20 @@ jobs:
       - name: Build application
         run: npm run build
         env:
-          NEXT_PUBLIC_DEFAULT_CHAIN_ID: "31337"
-          NEXT_PUBLIC_RPC_URL: http://127.0.0.1:8545
+          NEXT_PUBLIC_DEFAULT_CHAIN_ID: "998"
+          NEXT_PUBLIC_TESTNET_RPC: https://rpcs.chain.link/hyperevm/testnet
           NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ci-placeholder
 
-      - name: Run Playwright tests
+      - name: Run Playwright smoke tests
         run: npm run test:e2e
         env:
+          CI: "true"
+          NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ci-placeholder
+
+      - name: Run Playwright wallet-mock tests
+        run: npm run test:e2e:wallet:mock
+        env:
+          CI: "true"
           NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ci-placeholder
 
   sync-abi:
@@ -112,16 +148,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: contracts
     steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+      - uses: actions/checkout@b4ffde65f96336fa8845d2abf1aaebbd41bdc435
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@0a0048894711f7d55835cd04bfeafac1976a8eb1
         with:
           node-version: "20"
 
       - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
+        uses: foundry-rs/foundry-toolchain@ac3e9deec47b3129520584cdba09c448d0d7cbb2
 
       - name: Build contracts and sync ABIs
         run: |

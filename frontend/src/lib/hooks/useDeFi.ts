@@ -20,6 +20,7 @@ import {
 import { getMerkleProof } from "@/lib/admin/merkle";
 import MerkleAirdropAbi from "@/lib/contracts/abis/MerkleAirdrop.json";
 import { ensureExactAllowance } from "@/lib/erc20";
+import { getSlippageBps } from "@/components/layout/SettingsModal";
 
 export function useDeployment() {
   const chainId = useChainId();
@@ -146,6 +147,9 @@ export function useAddLiquidity() {
       const usdc = deployment.tokenUSDC;
       const a = parseUnits(amountKHYPE, 18);
       const b = parseUnits(amountUSDC, 6);
+      const slippageBps = getSlippageBps();
+      const aMin = (a * BigInt(10000 - slippageBps)) / BigInt(10000);
+      const bMin = (b * BigInt(10000 - slippageBps)) / BigInt(10000);
       const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
 
       for (const [token, amount] of [
@@ -167,7 +171,7 @@ export function useAddLiquidity() {
         address: deployment.router,
         abi: abis.router,
         functionName: "addLiquidity",
-        args: [khype, usdc, a, b, BigInt(0), BigInt(0), address, deadline],
+        args: [khype, usdc, a, b, aMin, bMin, address, deadline],
       });
     },
     [deployment, address, publicClient, writeContractAsync]
@@ -189,7 +193,34 @@ export function useRemoveLiquidity() {
       const khype = deployment.tokenKHYPE;
       const usdc = deployment.tokenUSDC;
       const liquidity = parseUnits(lpAmount, 18);
+      const slippageBps = getSlippageBps();
       const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
+
+      const [reserve0, reserve1] = (await publicClient.readContract({
+        address: deployment.pair,
+        abi: abis.pair,
+        functionName: "getReserves",
+      })) as [bigint, bigint];
+
+      const totalSupply = (await publicClient.readContract({
+        address: deployment.pair,
+        abi: abis.erc20,
+        functionName: "totalSupply",
+      })) as bigint;
+
+      const token0 = (await publicClient.readContract({
+        address: deployment.pair,
+        abi: abis.pair,
+        functionName: "token0",
+      })) as `0x${string}`;
+
+      const reserveKhype = token0 === khype ? reserve0 : reserve1;
+      const reserveUsdc = token0 === khype ? reserve1 : reserve0;
+
+      const expectedKhype = (liquidity * reserveKhype) / totalSupply;
+      const expectedUsdc = (liquidity * reserveUsdc) / totalSupply;
+      const khypeMin = (expectedKhype * BigInt(10000 - slippageBps)) / BigInt(10000);
+      const usdcMin = (expectedUsdc * BigInt(10000 - slippageBps)) / BigInt(10000);
 
       await ensureExactAllowance(
         publicClient,
@@ -205,7 +236,7 @@ export function useRemoveLiquidity() {
         address: deployment.router,
         abi: abis.router,
         functionName: "removeLiquidity",
-        args: [khype, usdc, liquidity, BigInt(0), BigInt(0), address, deadline],
+        args: [khype, usdc, liquidity, khypeMin, usdcMin, address, deadline],
       });
     },
     [deployment, address, publicClient, writeContractAsync]
@@ -325,24 +356,6 @@ export function useEpochCountdown() {
   const m = Math.floor((total % 3600) / 60);
   const s = total % 60;
   return { h, m, s, formatted: `${String(h).padStart(2, "0")}h ${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s` };
-}
-
-export function useClaimPoints() {
-  const { address } = useConnection();
-  const deployment = useDeployment();
-  const { writeContractAsync, data: hash, isPending } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
-
-  const claim = useCallback(async () => {
-    if (!deployment || !address) throw new Error("Wallet not connected");
-    await writeContractAsync({
-      address: deployment.pointsDistributor,
-      abi: abis.points,
-      functionName: "claimDailyRewards",
-    });
-  }, [deployment, address, writeContractAsync]);
-
-  return { claim, isPending: isPending || isConfirming, isSuccess, hash };
 }
 
 export function useCashdrop() {

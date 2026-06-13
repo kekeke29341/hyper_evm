@@ -51,6 +51,7 @@ contract ProjectXRouter is ReentrancyGuard {
         uint256 deadline
     ) external nonReentrant ensure(deadline) returns (uint256 amountA, uint256 amountB) {
         address pair = ProjectXFactory(factory).getPair(tokenA, tokenB);
+        require(pair != address(0), "ProjectXRouter: PAIR_NOT_EXISTS");
         IERC20(pair).safeTransferFrom(msg.sender, pair, liquidity);
         (amountA, amountB) = ProjectXPair(pair).burn(to);
         require(amountA >= amountAMin && amountB >= amountBMin, "ProjectXRouter: INSUFFICIENT_AMOUNTS");

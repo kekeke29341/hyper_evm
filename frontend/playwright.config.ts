@@ -13,19 +13,28 @@ export default defineConfig({
   use: {
     baseURL,
     trace: "on-first-retry",
+    ...devices["Desktop Chrome"],
   },
   projects: [
     {
-      name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      name: "smoke",
+      testMatch: /smoke\.spec\.ts/,
+      fullyParallel: true,
+    },
+    {
+      name: "wallet-mock",
+      testMatch: /wallet-mock\.spec\.ts/,
+      fullyParallel: false,
+      workers: 1,
+      timeout: 60_000,
     },
   ],
   webServer: process.env.PLAYWRIGHT_BASE_URL
     ? undefined
     : {
-        command: `npm run start -- -p ${PORT}`,
+        command: `bash -c 'NEXT_PUBLIC_DEFAULT_CHAIN_ID=998 NEXT_PUBLIC_TESTNET_RPC=https://rpcs.chain.link/hyperevm/testnet NEXT_PUBLIC_ADMIN_ENABLED=true npm run build && NEXT_PUBLIC_DEFAULT_CHAIN_ID=998 NEXT_PUBLIC_TESTNET_RPC=https://rpcs.chain.link/hyperevm/testnet NEXT_PUBLIC_ADMIN_ENABLED=true npm run start -- -p ${PORT}'`,
         url: baseURL,
         reuseExistingServer: !process.env.CI,
-        timeout: 120_000,
+        timeout: 180_000,
       },
 });

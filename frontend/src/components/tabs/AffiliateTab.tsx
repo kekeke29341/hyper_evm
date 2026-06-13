@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, Check, Share2 } from "lucide-react";
+import { Copy, Check, Share2, Loader2 } from "lucide-react";
 import { keccak256, toBytes } from "viem";
-import { AFFILIATE_LEADERBOARD } from "@/lib/constants";
 import { useApp } from "@/lib/store";
 import { useI18n } from "@/lib/i18n";
 import { useDeployment, useEnterInvitationCode } from "@/lib/hooks/useDeFi";
+import { useReferralStats, useReferralLeaderboard } from "@/lib/hooks/usePointsAnalytics";
 import { MainCard } from "@/components/ui/shared";
 
 export function AffiliateTab() {
@@ -16,6 +16,9 @@ export function AffiliateTab() {
   const [copied, setCopied] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
   const { enterCode, isPending } = useEnterInvitationCode();
+  const { referralCount, registered, hasDeployment } = useReferralStats();
+  const { data: refLeaderboard, isLoading: refLbLoading } = useReferralLeaderboard(5);
+
   const refUrl = "https://www.prjx.com/ref?code=XM79B4";
 
   const copy = async () => {
@@ -49,6 +52,10 @@ export function AffiliateTab() {
       showToast(t("portfolio.inviteFailed"));
     }
   };
+
+  const referredLabel = hasDeployment
+    ? `${referralCount} ${locale === "ja" ? "人" : referralCount === 1 ? "User" : "Users"}`
+    : "—";
 
   return (
     <MainCard className="max-w-lg">
@@ -101,9 +108,15 @@ export function AffiliateTab() {
 
       <div className="grid grid-cols-3 gap-2 mb-6">
         {[
-          { label: t("affiliate.totalReferred"), value: "42 Users" },
-          { label: t("affiliate.commissionRate"), value: "15% Tier 2" },
-          { label: t("affiliate.totalCommissions"), value: "450 USDC" },
+          { label: t("affiliate.totalReferred"), value: referredLabel },
+          {
+            label: t("affiliate.commissionRate"),
+            value: registered ? "15% Tier 2" : hasDeployment ? "—" : "15% Tier 2",
+          },
+          {
+            label: t("affiliate.totalCommissions"),
+            value: hasDeployment ? `${referralCount * 15}% ${t("affiliate.ptsBonus")}` : "—",
+          },
         ].map((s) => (
           <div key={s.label} className="p-3 rounded-xl bg-zinc-800/50 border border-zinc-700 text-center">
             <p className="text-[10px] text-zinc-500">{s.label}</p>
@@ -133,24 +146,42 @@ export function AffiliateTab() {
         </div>
       </div>
 
-      <h3 className="text-sm font-medium text-zinc-300 mb-3">{t("affiliate.leaderboard")}</h3>
+      <h3 className="text-sm font-medium text-zinc-300 mb-1">{t("affiliate.leaderboard")}</h3>
+      <p className="text-[10px] text-zinc-600 mb-3">{t("affiliate.leaderboardSub")}</p>
       <div className="rounded-xl border border-zinc-700 overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-zinc-800/80 text-zinc-500 text-xs">
             <tr>
               <th className="py-2 px-3 text-left">{t("affiliate.rank")}</th>
               <th className="py-2 px-3 text-left">{t("affiliate.wallet")}</th>
-              <th className="py-2 px-3 text-right">{t("affiliate.reward")}</th>
+              <th className="py-2 px-3 text-right">{t("affiliate.referrals")}</th>
             </tr>
           </thead>
           <tbody>
-            {AFFILIATE_LEADERBOARD.map((row) => (
-              <tr key={row.rank} className="border-t border-zinc-800">
-                <td className="py-2 px-3 text-zinc-500">#{row.rank}</td>
-                <td className="py-2 px-3 font-mono text-zinc-300">{row.address}</td>
-                <td className="py-2 px-3 text-right text-emerald-400 font-medium">{row.reward}</td>
+            {refLbLoading ? (
+              <tr>
+                <td colSpan={3} className="py-6 text-center text-zinc-500">
+                  <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
+                  {t("common.loading")}
+                </td>
               </tr>
-            ))}
+            ) : !refLeaderboard?.length ? (
+              <tr>
+                <td colSpan={3} className="py-6 text-center text-zinc-500 text-xs">
+                  {hasDeployment ? t("affiliate.leaderboardEmpty") : t("affiliate.leaderboardDemo")}
+                </td>
+              </tr>
+            ) : (
+              refLeaderboard.map((row) => (
+                <tr key={row.rank} className="border-t border-zinc-800">
+                  <td className="py-2 px-3 text-zinc-500">#{row.rank}</td>
+                  <td className="py-2 px-3 font-mono text-zinc-300">{row.address}</td>
+                  <td className="py-2 px-3 text-right text-emerald-400 font-medium">
+                    {row.referrals} {locale === "ja" ? "人" : ""}
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

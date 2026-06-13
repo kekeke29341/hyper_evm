@@ -59,6 +59,7 @@
 
 | やりたいこと | ファイル / コマンド |
 |-------------|-------------------|
+| **アプリ概要・手数料・収益更新** | [docs/product-overview.md](./product-overview.md) |
 | ローカル起動 | `./scripts/dev-local.sh` |
 | Testnet デプロイ | `./scripts/deploy-testnet.sh` |
 | ABI 同期 | `node scripts/sync-abi.mjs` |

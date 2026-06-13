@@ -30,6 +30,7 @@ contract DeployLocal is Script {
         ProjectXFactory factory =
             new ProjectXFactory(address(feeCollector), address(pointsDistributor), deployer);
         ProjectXRouter router = new ProjectXRouter(address(factory));
+        factory.setTrustedRouter(address(router));
         MerkleAirdrop airdrop = new MerkleAirdrop(address(usdc));
 
         factory.createPair(address(khype), address(usdc));

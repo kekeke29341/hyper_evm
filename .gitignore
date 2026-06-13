@@ -9,9 +9,12 @@ frontend/.next/
 contracts/out/
 contracts/cache/
 
-# Broadcast logs (keep structure, ignore local anvil)
-contracts/broadcast/*/31337/
-contracts/broadcast/**/dry-run/
+# Broadcast logs (local anvil + testnet deploy artifacts)
+contracts/broadcast/
+
+# Vercel
+.vercel/
+frontend/.vercel/
 
 # Local Anvil runtime
 contracts/anvil-state.json
@@ -22,7 +25,10 @@ contracts/.anvil.pid
 .env
 .env.local
 .env.*.local
+.env.testnet
+.env.production
 frontend/.env.local
+frontend/.env.production
 
 # Logs & OS
 *.log
@@ -32,6 +38,7 @@ frontend/.env.local
 # Test artifacts
 frontend/playwright-report/
 frontend/test-results/
+frontend/.cache-synpress/
 frontend/coverage/
 frontend/blob-report/
 frontend/tsconfig.tsbuildinfo

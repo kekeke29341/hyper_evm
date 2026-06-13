@@ -123,6 +123,9 @@ export function useLiFiBridge() {
 
       const txReq = quote.transactionRequest;
       const fromChain = quote.action.fromChainId;
+      if (txReq.chainId !== undefined && Number(txReq.chainId) !== fromChain) {
+        throw new Error("Li.FI transaction chainId does not match quote source chain");
+      }
       const fromToken = quote.action.fromToken;
       const approval = quote.estimate.approvalAddress as Address | undefined;
 

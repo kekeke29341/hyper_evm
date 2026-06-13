@@ -8,11 +8,13 @@ contract ProjectXFactory {
     address public feeCollector;
     address public pointsDistributor;
     address public feeToSetter;
+    address public trustedRouter;
 
     mapping(address => mapping(address => address)) public getPair;
     address[] public allPairs;
 
     event PairCreated(address indexed token0, address indexed token1, address pair, uint256);
+    event TrustedRouterUpdated(address indexed router);
 
     constructor(address _feeCollector, address _pointsDistributor, address _feeToSetter) {
         feeCollector = _feeCollector;
@@ -38,6 +40,13 @@ contract ProjectXFactory {
         getPair[token1][token0] = pair;
         allPairs.push(pair);
         emit PairCreated(token0, token1, pair, allPairs.length);
+    }
+
+    function setTrustedRouter(address _router) external {
+        require(msg.sender == feeToSetter, "ProjectXFactory: FORBIDDEN");
+        require(_router != address(0), "ProjectXFactory: ZERO_ADDRESS");
+        trustedRouter = _router;
+        emit TrustedRouterUpdated(_router);
     }
 
     function setFeeCollector(address _feeCollector) external {

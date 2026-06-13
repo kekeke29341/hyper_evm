@@ -70,19 +70,6 @@
   },
   {
     "type": "function",
-    "name": "claimDailyRewards",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "claimable",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "currentEpoch",
     "inputs": [],
     "outputs": [
@@ -111,6 +98,11 @@
     "type": "function",
     "name": "epochFeeContribution",
     "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
       {
         "name": "",
         "type": "address",

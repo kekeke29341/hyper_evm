@@ -1,0 +1,14 @@
+{
+  "chainId": "0x3e6",
+  "chainName": "HyperEVM Testnet",
+  "nativeCurrency": {
+    "name": "HYPE",
+    "symbol": "HYPE",
+    "decimals": 18
+  },
+  "rpcUrls": [
+    "https://rpcs.chain.link/hyperevm/testnet",
+    "https://rpc.hyperliquid-testnet.xyz/evm"
+  ],
+  "blockExplorerUrls": ["https://testnet.purrsec.com"]
+}

@@ -33,6 +33,7 @@ contract ReferralRegistry is Ownable {
         require(referrer != address(0), "ReferralRegistry: INVALID_CODE");
         require(referrer != msg.sender, "ReferralRegistry: SELF_REFERRAL");
         require(refereeToReferrer[msg.sender] == address(0), "ReferralRegistry: ALREADY_BOUND");
+        require(refereeToReferrer[referrer] != msg.sender, "ReferralRegistry: MUTUAL_REFERRAL");
         refereeToReferrer[msg.sender] = referrer;
         referralCount[referrer]++;
         emit RefereeBound(msg.sender, referrer, code);

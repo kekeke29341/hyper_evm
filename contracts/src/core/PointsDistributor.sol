@@ -5,6 +5,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReferralRegistry} from "./ReferralRegistry.sol";
 
 /// @title PointsDistributor — fee-generation-based points (not capital size)
+/// @dev userPoints is an off-chain-readable ledger; no on-chain claim — points are not burned by mistake.
 contract PointsDistributor is Ownable {
     uint256 public constant DAILY_POOL = 1_000_000 ether; // 1M PTS (18 dec display)
     uint256 public constant EPOCH_DURATION = 1 days;
@@ -16,7 +17,7 @@ contract PointsDistributor is Ownable {
     uint256 public totalPointsDistributed;
 
     mapping(address => uint256) public userPoints;
-    mapping(address => uint256) public epochFeeContribution;
+    mapping(uint256 => mapping(address => uint256)) public epochFeeContribution;
     mapping(uint256 => uint256) public epochTotalFees;
 
     mapping(address => bool) public authorizedPools;
@@ -47,27 +48,32 @@ contract PointsDistributor is Ownable {
     function recordFeeContribution(address pool, address user, uint256 feeAmount) external onlyPool {
         require(pool == msg.sender, "PointsDistributor: POOL_MISMATCH");
         _maybeAdvanceEpoch();
-        epochFeeContribution[user] += feeAmount;
-        epochTotalFees[currentEpoch] += feeAmount;
 
-        uint256 basePoints = feeAmount; // 1:1 fee to points ratio (mock scaling)
+        uint256 epoch = currentEpoch;
+        uint256 oldContrib = epochFeeContribution[epoch][user];
+        uint256 newContrib = oldContrib + feeAmount;
+        uint256 oldTotal = epochTotalFees[epoch];
+        uint256 newTotal = oldTotal + feeAmount;
+
+        epochFeeContribution[epoch][user] = newContrib;
+        epochTotalFees[epoch] = newTotal;
+
+        uint256 oldPoints = oldTotal > 0 ? (oldContrib * DAILY_POOL) / oldTotal : 0;
+        uint256 newPoints = newTotal > 0 ? (newContrib * DAILY_POOL) / newTotal : 0;
+        uint256 basePoints = newPoints - oldPoints;
+
         uint256 boosted = referralRegistry.applyRefereeBoost(user, basePoints);
         userPoints[user] += boosted;
+        totalPointsDistributed += boosted;
 
         address referrer = referralRegistry.getReferrer(user);
         if (referrer != address(0)) {
             uint256 referralBonus = (boosted * 1500) / 10_000; // 15% of generated points
             userPoints[referrer] += referralBonus;
+            totalPointsDistributed += referralBonus;
         }
 
         emit PointsRecorded(user, pool, feeAmount, boosted);
-    }
-
-    function claimDailyRewards() external returns (uint256 claimable) {
-        claimable = userPoints[msg.sender];
-        require(claimable > 0, "PointsDistributor: NOTHING_TO_CLAIM");
-        userPoints[msg.sender] = 0;
-        totalPointsDistributed += claimable;
     }
 
     function getUserPoints(address user) external view returns (uint256) {
@@ -80,10 +86,10 @@ contract PointsDistributor is Ownable {
     }
 
     function _maybeAdvanceEpoch() internal {
-        if (block.timestamp >= epochStart + EPOCH_DURATION) {
+        while (block.timestamp >= epochStart + EPOCH_DURATION) {
             emit EpochAdvanced(currentEpoch, epochTotalFees[currentEpoch]);
             currentEpoch++;
-            epochStart = block.timestamp;
+            epochStart += EPOCH_DURATION;
         }
     }
 }

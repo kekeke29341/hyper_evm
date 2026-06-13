@@ -1,0 +1,6 @@
+{
+  "filter_paths": "lib/|mocks/|test/",
+  "exclude_informational": true,
+  "exclude_low": true,
+  "detectors_to_exclude": "naming-convention,solc-version,pragma,timestamp,immutable-states"
+}

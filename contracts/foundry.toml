@@ -16,6 +16,7 @@ fs_permissions = [{ access = "read-write", path = "./deployments" }]
 [rpc_endpoints]
 anvil = "http://127.0.0.1:8545"
 hyperEVM_testnet = "https://rpc.hyperliquid-testnet.xyz/evm"
+hyperEVM_testnet_alt = "https://rpcs.chain.link/hyperevm/testnet"
 hyperEVM_mainnet = "https://rpc.hyperliquid.xyz/evm"
 
 [etherscan]

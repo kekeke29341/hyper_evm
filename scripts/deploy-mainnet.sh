@@ -5,6 +5,9 @@ cd "$ROOT/contracts"
 
 : "${PRIVATE_KEY:?Set PRIVATE_KEY for deployer}"
 
+# shellcheck disable=SC1091
+source "$ROOT/scripts/deploy-key-guard.sh"
+
 echo "Deploying Project X to HyperEVM Mainnet (999)..."
 echo "Ensure big blocks enabled: {\"type\":\"evmUserModify\",\"usingBigBlocks\":true}"
 

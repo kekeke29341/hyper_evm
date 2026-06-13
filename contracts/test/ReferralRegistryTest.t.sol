@@ -89,4 +89,19 @@ contract ReferralRegistryTest is Test {
         vm.expectRevert("ReferralRegistry: INVALID_CODE");
         registry.enterInvitationCode(CODE);
     }
+
+    function test_RevertMutualReferral() public {
+        bytes32 codeBob = keccak256("BOB_CODE");
+        vm.prank(alice);
+        registry.registerCode(CODE);
+        vm.prank(bob);
+        registry.registerCode(codeBob);
+
+        vm.prank(alice);
+        registry.enterInvitationCode(codeBob);
+
+        vm.prank(bob);
+        vm.expectRevert("ReferralRegistry: MUTUAL_REFERRAL");
+        registry.enterInvitationCode(CODE);
+    }
 }

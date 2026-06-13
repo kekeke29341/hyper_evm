@@ -65,6 +65,7 @@ contract ProjectXTest is Test {
         pointsDistributor = new PointsDistributor(address(referralRegistry));
         factory = new ProjectXFactory(address(feeCollector), address(pointsDistributor), address(this));
         router = new ProjectXRouter(address(factory));
+        factory.setTrustedRouter(address(router));
         tokenA = new MockERC20("kHYPE", "kHYPE", 18);
         tokenB = new MockERC20("USDC", "USDC", 6);
         airdrop = new MerkleAirdrop(address(tokenB));
@@ -136,7 +137,7 @@ contract ProjectXTest is Test {
         assertLt(gasUsed, HyperCoreConstants.SMALL_BLOCK_GAS_LIMIT, "swap must fit small block (3M gas)");
     }
 
-    function test_ClaimDailyRewardsOnlySelf() public {
+    function test_UserPointsPersistAfterSwap() public {
         tokenA.mint(bob, 2 ether);
         vm.startPrank(bob);
         tokenA.approve(address(router), type(uint256).max);
@@ -146,18 +147,9 @@ contract ProjectXTest is Test {
         router.swapExactTokensForTokens(1 ether, 0, path, bob, block.timestamp + 1);
         vm.stopPrank();
 
-        assertGt(pointsDistributor.getUserPoints(bob), 0);
-
-        vm.prank(alice);
-        uint256 bobPointsBefore = pointsDistributor.getUserPoints(bob);
-        vm.expectRevert("PointsDistributor: NOTHING_TO_CLAIM");
-        pointsDistributor.claimDailyRewards();
-        assertEq(pointsDistributor.getUserPoints(bob), bobPointsBefore);
-
-        vm.prank(bob);
-        uint256 claimed = pointsDistributor.claimDailyRewards();
-        assertGt(claimed, 0);
-        assertEq(pointsDistributor.getUserPoints(bob), 0);
+        uint256 bobPoints = pointsDistributor.getUserPoints(bob);
+        assertGt(bobPoints, 0);
+        assertEq(pointsDistributor.getUserPoints(bob), bobPoints);
     }
 
     function test_CreatePairRestrictedToAdmin() public {

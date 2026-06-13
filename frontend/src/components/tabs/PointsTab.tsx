@@ -1,10 +1,16 @@
 "use client";
 
-import { useEffect } from "react";
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer } from "recharts";
 import { Loader2 } from "lucide-react";
-import { CHART_DATA, LEADERBOARD } from "@/lib/constants";
-import { useOnChainPoints, useClaimPoints, useEpochCountdown, useCashdrop } from "@/lib/hooks/useDeFi";
+import { CHART_DATA } from "@/lib/constants";
+import { useOnChainPoints, useEpochCountdown, useCashdrop } from "@/lib/hooks/useDeFi";
+import {
+  usePointsLeaderboard,
+  usePointsHistoryChart,
+  useUserPointsRank,
+  useEpochFeeContribution,
+} from "@/lib/hooks/usePointsAnalytics";
+import { multiplierBadgeClass } from "@/lib/points/multiplier";
 import { useApp } from "@/lib/store";
 import { useI18n } from "@/lib/i18n";
 import { MainCard } from "@/components/ui/shared";
@@ -20,35 +26,28 @@ function EpochCountdown() {
 
 export function PointsTab() {
   const { livePoints, showToast } = useApp();
-  const { t } = useI18n();
-  const { points: onChainPoints, hasDeployment, refetch } = useOnChainPoints();
-  const { claim, isPending, isSuccess } = useClaimPoints();
+  const { t, locale } = useI18n();
+  const { points: onChainPoints, hasDeployment } = useOnChainPoints();
   const cashdrop = useCashdrop();
+  const { contribution: epochContribution } = useEpochFeeContribution();
+  const { data: leaderboard, isLoading: leaderboardLoading } = usePointsLeaderboard(5);
+  const { rank, multiplierLabel, inTop100 } = useUserPointsRank(leaderboard);
   const displayPoints = hasDeployment && onChainPoints !== null ? onChainPoints : livePoints;
-  const claimablePts = hasDeployment && onChainPoints !== null ? onChainPoints : 0;
+  const { chart, hasHistory } = usePointsHistoryChart(
+    hasDeployment && onChainPoints !== null ? onChainPoints : null
+  );
 
-  useEffect(() => {
-    if (isSuccess) {
-      showToast(t("points.claimSuccess"));
-      refetch();
-    }
-  }, [isSuccess, showToast, refetch, t]);
+  const chartData = hasHistory ? chart : CHART_DATA;
+  const chartIsLive = hasDeployment && hasHistory;
 
-  const handleClaim = async () => {
-    if (!hasDeployment) {
-      showToast(t("swap.deployHint"));
-      return;
-    }
-    if (claimablePts <= 0) {
-      showToast(t("points.earnHint"));
-      return;
-    }
-    try {
-      await claim();
-    } catch {
-      showToast(t("swap.swapFailed"));
-    }
-  };
+  const rankText =
+    rank !== null
+      ? t("points.rankActive")
+          .replace("{rank}", String(rank))
+          .replace("{multiplier}", multiplierLabel.replace("×", ""))
+      : hasDeployment
+        ? t("points.rankUnranked")
+        : t("points.rank");
 
   return (
     <MainCard className="max-w-lg">
@@ -57,6 +56,11 @@ export function PointsTab() {
         <p className="text-sm text-zinc-400 mt-1">
           {t("points.nextDistribution")} <EpochCountdown />
         </p>
+        {hasDeployment && epochContribution !== null && epochContribution > 0 && (
+          <p className="text-[11px] text-emerald-500/80 mt-2">
+            {t("points.epochContribution")}: {Math.floor(epochContribution).toLocaleString()} PTS
+          </p>
+        )}
       </div>
 
       <p className="text-xs text-zinc-500">{t("points.yourPoints")}</p>
@@ -67,19 +71,28 @@ export function PointsTab() {
         )}
       </p>
 
-      <div className="mt-2 flex items-center gap-2">
-        <span className="text-xs px-2 py-1 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30">
+      <div className="mt-2 flex items-center gap-2 flex-wrap">
+        <span
+          className={cn(
+            "text-xs px-2 py-1 rounded-full border",
+            inTop100
+              ? "bg-violet-500/20 text-violet-300 border-violet-500/30"
+              : "bg-zinc-800 text-zinc-500 border-zinc-700"
+          )}
+        >
           {t("points.multiplierBadge")}
         </span>
       </div>
-      <p className="text-sm text-cyan-400 mt-2 font-medium">{t("points.rank")}</p>
+      <p className="text-sm text-cyan-400 mt-2 font-medium">{rankText}</p>
 
       <div className="mt-6">
         <h3 className="text-sm font-medium text-zinc-300 mb-1">{t("points.trendTitle")}</h3>
-        <p className="text-[10px] text-zinc-600 mb-3">{t("points.trendSub")}</p>
+        <p className="text-[10px] text-zinc-600 mb-3">
+          {chartIsLive ? t("points.trendOnChain") : t("points.trendSub")}
+        </p>
         <div className="h-32">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={CHART_DATA}>
+            <AreaChart data={chartData}>
               <XAxis dataKey="day" tick={{ fill: "#71717a", fontSize: 10 }} axisLine={false} tickLine={false} />
               <YAxis hide />
               <Area type="monotone" dataKey="pts" stroke="#39ff14" fill="url(#grad)" strokeWidth={2} />
@@ -94,22 +107,7 @@ export function PointsTab() {
         </div>
       </div>
 
-      <div className="mt-6 flex items-center justify-between p-3 rounded-xl bg-zinc-800/50 border border-zinc-700">
-        <div>
-          <p className="text-xs text-zinc-500">{t("points.unclaimedToday")}</p>
-          <p className="text-lg font-bold text-white">{Math.floor(claimablePts).toLocaleString()} PTS</p>
-        </div>
-        <button
-          onClick={handleClaim}
-          disabled={isPending || claimablePts <= 0}
-          className="px-4 py-2 rounded-xl gradient-btn text-sm font-semibold hover:shadow-lg transition-shadow disabled:opacity-50 flex items-center gap-2"
-        >
-          {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-          {t("common.claimAll")}
-        </button>
-      </div>
-
-      <p className="mt-4 text-xs text-zinc-600 leading-relaxed">{t("points.earnHint")}</p>
+      <p className="mt-6 text-xs text-zinc-600 leading-relaxed">{t("points.earnHint")}</p>
 
       {cashdrop.hasDeployment && (
         <div className="mt-4 p-3 rounded-xl border border-violet-500/20 bg-violet-500/5">
@@ -134,29 +132,41 @@ export function PointsTab() {
       )}
 
       <div className="mt-6">
-        <h3 className="text-sm font-medium text-zinc-300 mb-3">{t("points.leaderboard")}</h3>
-        <div className="space-y-1">
-          {LEADERBOARD.map((row) => (
-            <div
-              key={row.rank}
-              className="flex items-center justify-between py-2 px-2 rounded-lg hover:bg-zinc-800/50 text-sm"
-            >
-              <span className="text-zinc-500 w-6">#{row.rank}</span>
-              <span className="text-zinc-300 flex-1 font-mono">{row.address}</span>
-              <span className="text-zinc-400 mr-2">{row.points}</span>
-              <span
-                className={cn(
-                  "text-[10px] px-1.5 py-0.5 rounded font-bold",
-                  row.multiplier === "×3.0" && "bg-emerald-500/20 text-emerald-400",
-                  row.multiplier === "×2.0" && "bg-cyan-500/20 text-cyan-400",
-                  row.multiplier === "×1.5" && "bg-violet-500/20 text-violet-400"
-                )}
+        <h3 className="text-sm font-medium text-zinc-300 mb-1">{t("points.leaderboard")}</h3>
+        <p className="text-[10px] text-zinc-600 mb-3">{t("points.leaderboardSub")}</p>
+        {leaderboardLoading ? (
+          <div className="flex items-center gap-2 py-4 text-zinc-500 text-sm">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            {t("common.loading")}
+          </div>
+        ) : !leaderboard?.length ? (
+          <p className="text-sm text-zinc-500 py-4 text-center border border-dashed border-zinc-700 rounded-xl">
+            {hasDeployment ? t("points.leaderboardEmpty") : t("points.leaderboardDemo")}
+          </p>
+        ) : (
+          <div className="space-y-1">
+            {leaderboard.map((row) => (
+              <div
+                key={row.rank}
+                className="flex items-center justify-between py-2 px-2 rounded-lg hover:bg-zinc-800/50 text-sm"
               >
-                {row.multiplier} {t("points.multiplier")}
-              </span>
-            </div>
-          ))}
-        </div>
+                <span className="text-zinc-500 w-6">#{row.rank}</span>
+                <span className="text-zinc-300 flex-1 font-mono">{row.address}</span>
+                <span className="text-zinc-400 mr-2">
+                  {Math.floor(row.points).toLocaleString(locale === "ja" ? "ja-JP" : "en-US")}
+                </span>
+                <span
+                  className={cn(
+                    "text-[10px] px-1.5 py-0.5 rounded font-bold",
+                    multiplierBadgeClass(parseFloat(row.multiplier.replace("×", "")))
+                  )}
+                >
+                  {row.multiplier} {t("points.multiplier")}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </MainCard>
   );

@@ -5,13 +5,19 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {PoolMath} from "../libraries/PoolMath.sol";
 
 interface IPointsDistributor {
     function recordFeeContribution(address pool, address user, uint256 feeAmount) external;
 }
 
+interface IProjectXFactory {
+    function trustedRouter() external view returns (address);
+}
+
 /// @title ProjectXPair — constant-product AMM with V3-inspired fee routing (86% to LPs)
+/// @dev Spot reserves are a read-only oracle during swap callbacks — do not use getReserves() mid-callback.
 contract ProjectXPair is ERC20, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
@@ -27,7 +33,6 @@ contract ProjectXPair is ERC20, ReentrancyGuard {
 
     uint256 public reserve0;
     uint256 public reserve1;
-    uint256 private kLast;
     uint256 private unlocked = 1;
     address private constant DEAD = address(0xdEaD);
 
@@ -73,11 +78,10 @@ contract ProjectXPair is ERC20, ReentrancyGuard {
         require(msg.sender == factory, "ProjectXPair: FORBIDDEN");
         feeCollector = _feeCollector;
         pointsDistributor = IPointsDistributor(_pointsDistributor);
-        if (_feeCollector == address(0)) {
-            kLast = 0;
-        }
     }
 
+    /// @notice Last synced reserves. During `swap` callbacks (before `_update`), values are stale —
+    ///         do not use as a spot price oracle. TWAP is not implemented.
     function getReserves() public view returns (uint256 _reserve0, uint256 _reserve1) {
         _reserve0 = reserve0;
         _reserve1 = reserve1;
@@ -86,7 +90,6 @@ contract ProjectXPair is ERC20, ReentrancyGuard {
     function _update(uint256 balance0, uint256 balance1) private {
         reserve0 = balance0;
         reserve1 = balance1;
-        _updateKLast(balance0, balance1);
         emit Sync(reserve0, reserve1);
     }
 
@@ -97,7 +100,6 @@ contract ProjectXPair is ERC20, ReentrancyGuard {
         uint256 amount0 = balance0 - _reserve0;
         uint256 amount1 = balance1 - _reserve1;
 
-        bool feeOn = feeCollector != address(0);
         uint256 _totalSupply = totalSupply();
 
         if (_totalSupply == 0) {
@@ -109,26 +111,20 @@ contract ProjectXPair is ERC20, ReentrancyGuard {
         require(liquidity > 0, "ProjectXPair: INSUFFICIENT_LIQUIDITY_MINTED");
         _mint(to, liquidity);
         _update(balance0, balance1);
-        if (feeOn) _mintFee(_reserve0, _reserve1);
         emit Mint(msg.sender, amount0, amount1);
     }
 
     function burn(address to) external nonReentrant lock returns (uint256 amount0, uint256 amount1) {
-        (uint256 _reserve0, uint256 _reserve1) = getReserves();
         address _token0 = token0;
         address _token1 = token1;
         uint256 balance0 = IERC20(_token0).balanceOf(address(this));
         uint256 balance1 = IERC20(_token1).balanceOf(address(this));
         uint256 liquidity = balanceOf(address(this));
-
-        bool feeOn = feeCollector != address(0);
-        uint256 feeLiquidity = feeOn ? _mintFee(_reserve0, _reserve1) : 0;
         uint256 _totalSupply = totalSupply();
         amount0 = (liquidity * balance0) / _totalSupply;
         amount1 = (liquidity * balance1) / _totalSupply;
         require(amount0 > 0 && amount1 > 0, "ProjectXPair: INSUFFICIENT_LIQUIDITY_BURNED");
         _burn(address(this), liquidity);
-        if (feeLiquidity > 0) _burn(address(this), feeLiquidity);
         IERC20(_token0).safeTransfer(to, amount0);
         IERC20(_token1).safeTransfer(to, amount1);
         balance0 = IERC20(_token0).balanceOf(address(this));
@@ -160,6 +156,16 @@ contract ProjectXPair is ERC20, ReentrancyGuard {
         require(amount0In > 0 || amount1In > 0, "ProjectXPair: INSUFFICIENT_INPUT");
         require(amount0In == 0 || amount1In == 0, "ProjectXPair: TWO_SIDED_INPUT");
 
+        uint256 balance0Adjusted = balance0 * 10_000 - amount0In * SWAP_FEE_BPS;
+        uint256 balance1Adjusted = balance1 * 10_000 - amount1In * SWAP_FEE_BPS;
+        require(
+            Math.mulDiv(balance0Adjusted, balance1Adjusted, 10_000 ** 2) >= uint256(_reserve0) * uint256(_reserve1),
+            "ProjectXPair: K"
+        );
+
+        address trustedRouter = IProjectXFactory(factory).trustedRouter();
+        bool recordPoints = msg.sender == trustedRouter && trustedRouter != address(0);
+
         uint256 totalFee;
         if (amount0In > 0) {
             totalFee = (amount0In * SWAP_FEE_BPS) / 10_000;
@@ -167,7 +173,7 @@ contract ProjectXPair is ERC20, ReentrancyGuard {
             if (protocolShare > 0 && feeCollector != address(0)) {
                 IERC20(token0).safeTransfer(feeCollector, protocolShare);
             }
-            if (address(pointsDistributor) != address(0)) {
+            if (recordPoints && address(pointsDistributor) != address(0)) {
                 pointsDistributor.recordFeeContribution(address(this), origin, totalFee);
             }
         }
@@ -177,40 +183,15 @@ contract ProjectXPair is ERC20, ReentrancyGuard {
             if (protocolShare > 0 && feeCollector != address(0)) {
                 IERC20(token1).safeTransfer(feeCollector, protocolShare);
             }
-            if (address(pointsDistributor) != address(0)) {
+            if (recordPoints && address(pointsDistributor) != address(0)) {
                 pointsDistributor.recordFeeContribution(address(this), origin, totalFee);
             }
         }
 
-        uint256 balance0Adjusted = IERC20(token0).balanceOf(address(this));
-        uint256 balance1Adjusted = IERC20(token1).balanceOf(address(this));
-        require(
-            balance0Adjusted * balance1Adjusted >= uint256(_reserve0) * uint256(_reserve1),
-            "ProjectXPair: K"
-        );
-        _update(balance0Adjusted, balance1Adjusted);
+        balance0 = IERC20(token0).balanceOf(address(this));
+        balance1 = IERC20(token1).balanceOf(address(this));
+        _update(balance0, balance1);
         emit Swap(msg.sender, amount0In, amount1In, amount0Out, amount1Out, to);
-    }
-
-    function _mintFee(uint256 _reserve0, uint256 _reserve1) private returns (uint256 liquidity) {
-        uint256 _kLast = kLast;
-        if (_kLast == 0) return 0;
-        uint256 rootK = PoolMath.sqrt(_reserve0 * _reserve1);
-        uint256 rootKLast = PoolMath.sqrt(_kLast);
-        if (rootK > rootKLast) {
-            uint256 numerator = totalSupply() * (rootK - rootKLast);
-            uint256 denominator = rootK * 5 + rootKLast;
-            liquidity = numerator / denominator;
-            if (liquidity > 0) _mint(feeCollector, liquidity);
-        }
-    }
-
-    function _updateKLast(uint256 balance0, uint256 balance1) private {
-        if (feeCollector != address(0)) {
-            kLast = balance0 * balance1;
-        } else {
-            kLast = 0;
-        }
     }
 
     function _min(uint256 a, uint256 b) private pure returns (uint256) {

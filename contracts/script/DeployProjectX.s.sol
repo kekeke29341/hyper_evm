@@ -40,6 +40,7 @@ contract DeployProjectX is Script {
         ProjectXFactory factory =
             new ProjectXFactory(address(feeCollector), address(pointsDistributor), deployer);
         ProjectXRouter router = new ProjectXRouter(address(factory));
+        factory.setTrustedRouter(address(router));
 
         // Step 3: airdrop + pool
         MerkleAirdrop airdrop = new MerkleAirdrop(usdc);

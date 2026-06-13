@@ -74,7 +74,7 @@ export function PointsPanel() {
           <li>Referees receive 10% boost via ReferralRegistry</li>
           <li>Referrers earn 15% bonus on referee-generated points</li>
           <li>Epochs advance automatically every 24h on next fee record</li>
-          <li>Users claim accumulated points via claimDailyRewards</li>
+          <li>Points accrue on-chain via swap fees (read-only ledger — no on-chain claim)</li>
         </ul>
       </AdminCard>
 
