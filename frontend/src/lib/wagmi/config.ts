@@ -57,7 +57,7 @@ const walletConnectProjectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID 
 
 const connectors = [
   metaMask({
-    dappMetadata: { name: "Project X", url: dappUrl },
+    dappMetadata: { name: "Hyperpool", url: dappUrl },
   }),
   ...(walletConnectProjectId
     ? [
@@ -65,7 +65,7 @@ const connectors = [
           projectId: walletConnectProjectId,
           showQrModal: true,
           metadata: {
-            name: "Project X",
+            name: "Hyperpool",
             description: "HyperEVM DEX — Swap, Liquidity & Points",
             url: dappUrl,
             icons: [`${dappUrl}/favicon.ico`],
@@ -79,6 +79,7 @@ const connectors = [
 export const wagmiConfig = createConfig({
   chains: [anvilLocal, hyperEvmTestnet, hyperEvmMainnet],
   connectors,
+  ssr: true,
   transports: {
     [anvilLocal.id]: http(),
     [hyperEvmTestnet.id]: http(),
