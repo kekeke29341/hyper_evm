@@ -17,5 +17,6 @@ forge script script/DeployProjectX.s.sol:DeployProjectX \
   --slow \
   -vvv
 
+node "$ROOT/scripts/finalize-deployment.mjs" 999 hyperEVM_mainnet
 node "$ROOT/scripts/sync-abi.mjs"
 echo "Done. Set NEXT_PUBLIC_DEFAULT_CHAIN_ID=999 in frontend/.env.local"

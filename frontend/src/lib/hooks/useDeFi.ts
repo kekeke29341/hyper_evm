@@ -26,7 +26,43 @@ import { defaultChain } from "@/lib/wagmi/config";
 export function useDeployment() {
   const chainId = useChainId();
   const { address } = useConnection();
-  return getDeployment(address ? chainId : defaultChain.id) ?? getDeployment(defaultChain.id);
+  return getDeployment(address ? chainId : defaultChain.id);
+}
+
+function applySlippage(amount: bigint, slippageBps: number) {
+  return (amount * BigInt(10000 - slippageBps)) / BigInt(10000);
+}
+
+async function getPoolTokenBreakdown(
+  publicClient: NonNullable<ReturnType<typeof usePublicClient>>,
+  deployment: NonNullable<ReturnType<typeof useDeployment>>,
+  liquidity: bigint
+) {
+  const [reserve0, reserve1] = (await publicClient.readContract({
+    address: deployment.pair,
+    abi: abis.pair,
+    functionName: "getReserves",
+  })) as [bigint, bigint];
+
+  const totalSupply = (await publicClient.readContract({
+    address: deployment.pair,
+    abi: abis.erc20,
+    functionName: "totalSupply",
+  })) as bigint;
+
+  const token0 = (await publicClient.readContract({
+    address: deployment.pair,
+    abi: abis.pair,
+    functionName: "token0",
+  })) as `0x${string}`;
+
+  const reserveKhype = token0.toLowerCase() === deployment.tokenKHYPE.toLowerCase() ? reserve0 : reserve1;
+  const reserveUsdc = token0.toLowerCase() === deployment.tokenKHYPE.toLowerCase() ? reserve1 : reserve0;
+
+  return {
+    khype: (liquidity * reserveKhype) / totalSupply,
+    usdc: (liquidity * reserveUsdc) / totalSupply,
+  };
 }
 
 export function useTokenBalance(symbol: TokenSymbol) {
@@ -198,31 +234,9 @@ export function useRemoveLiquidity() {
       const slippageBps = getSlippageBps();
       const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
 
-      const [reserve0, reserve1] = (await publicClient.readContract({
-        address: deployment.pair,
-        abi: abis.pair,
-        functionName: "getReserves",
-      })) as [bigint, bigint];
-
-      const totalSupply = (await publicClient.readContract({
-        address: deployment.pair,
-        abi: abis.erc20,
-        functionName: "totalSupply",
-      })) as bigint;
-
-      const token0 = (await publicClient.readContract({
-        address: deployment.pair,
-        abi: abis.pair,
-        functionName: "token0",
-      })) as `0x${string}`;
-
-      const reserveKhype = token0 === khype ? reserve0 : reserve1;
-      const reserveUsdc = token0 === khype ? reserve1 : reserve0;
-
-      const expectedKhype = (liquidity * reserveKhype) / totalSupply;
-      const expectedUsdc = (liquidity * reserveUsdc) / totalSupply;
-      const khypeMin = (expectedKhype * BigInt(10000 - slippageBps)) / BigInt(10000);
-      const usdcMin = (expectedUsdc * BigInt(10000 - slippageBps)) / BigInt(10000);
+      const expected = await getPoolTokenBreakdown(publicClient, deployment, liquidity);
+      const khypeMin = applySlippage(expected.khype, slippageBps);
+      const usdcMin = applySlippage(expected.usdc, slippageBps);
 
       await ensureExactAllowance(
         publicClient,
@@ -393,6 +407,7 @@ export function useZapLiquidity() {
           const decimals = source === "USDC" ? 6 : 18;
           const amountIn = parseUnits(totalAmount, decimals);
           const swapAmount = amountIn / BigInt(2);
+          const keepAmount = amountIn - swapAmount;
           const path = source === "USDC" ? [usdc, khype] : [khype, usdc];
           const amounts = (await publicClient.readContract({
             address: deployment.router,
@@ -400,7 +415,11 @@ export function useZapLiquidity() {
             functionName: "getAmountsOut",
             args: [swapAmount, path],
           })) as bigint[];
-          const amountOutMin = (amounts[1] * BigInt(10000 - slippageBps)) / BigInt(10000);
+          const amountOutMin = applySlippage(amounts[1], slippageBps);
+          const expectedKhype = source === "USDC" ? amounts[1] : keepAmount;
+          const expectedUsdc = source === "USDC" ? keepAmount : amounts[1];
+          const khypeMin = applySlippage(expectedKhype, slippageBps);
+          const usdcMin = applySlippage(expectedUsdc, slippageBps);
 
           await ensureExactAllowance(
             publicClient,
@@ -416,7 +435,7 @@ export function useZapLiquidity() {
             address: deployment.liquidityVault,
             abi: abis.liquidityVault,
             functionName: "depositSingle",
-            args: [tokenIn, amountIn, amountOutMin, BigInt(0), BigInt(0), address, deadline],
+            args: [tokenIn, amountIn, amountOutMin, khypeMin, usdcMin, address, deadline],
           });
           return;
         }
@@ -713,23 +732,43 @@ export function useVaultDepositDual() {
 export function useVaultWithdraw() {
   const { address } = useConnection();
   const deployment = useDeployment();
+  const publicClient = usePublicClient();
   const { writeContractAsync, data: hash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
   const withdraw = useCallback(
     async (shares: string) => {
-      if (!deployment?.liquidityVault || !address) throw new Error("Vault unavailable");
+      if (!deployment?.liquidityVault || !address || !publicClient) throw new Error("Vault unavailable");
       const shareAmount = parseUnits(shares, 18);
+      const slippageBps = getSlippageBps();
       const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
+
+      const [vaultLp, shareSupply] = await Promise.all([
+        publicClient.readContract({
+          address: deployment.pair,
+          abi: abis.erc20,
+          functionName: "balanceOf",
+          args: [deployment.liquidityVault],
+        }) as Promise<bigint>,
+        publicClient.readContract({
+          address: deployment.liquidityVault,
+          abi: abis.liquidityVault,
+          functionName: "totalSupply",
+        }) as Promise<bigint>,
+      ]);
+      const liquidity = (vaultLp * shareAmount) / shareSupply;
+      const expected = await getPoolTokenBreakdown(publicClient, deployment, liquidity);
+      const khypeMin = applySlippage(expected.khype, slippageBps);
+      const usdcMin = applySlippage(expected.usdc, slippageBps);
 
       await writeContractAsync({
         address: deployment.liquidityVault,
         abi: abis.liquidityVault,
         functionName: "withdraw",
-        args: [shareAmount, BigInt(0), BigInt(0), address, deadline],
+        args: [shareAmount, khypeMin, usdcMin, address, deadline],
       });
     },
-    [deployment, address, writeContractAsync]
+    [deployment, address, publicClient, writeContractAsync]
   );
 
   return { withdraw, isPending: isPending || isConfirming, isSuccess, hash };

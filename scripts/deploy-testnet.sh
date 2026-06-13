@@ -35,6 +35,9 @@ forge script script/DeployProjectX.s.sol:DeployProjectX \
   --slow \
   -vvv
 
+echo "==> Finalizing deployment JSON after on-chain code verification..."
+node "$ROOT/scripts/finalize-deployment.mjs" 998 "$TESTNET_RPC"
+
 echo "==> Syncing ABIs + deployment JSON..."
 node "$ROOT/scripts/sync-abi.mjs"
 

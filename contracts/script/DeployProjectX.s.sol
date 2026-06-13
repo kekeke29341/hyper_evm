@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {Script, console2} from "forge-std/Script.sol";
+import {VmSafe} from "forge-std/Vm.sol";
 import {FeeCollector} from "../src/core/FeeCollector.sol";
 import {ReferralRegistry} from "../src/core/ReferralRegistry.sol";
 import {PointsDistributor} from "../src/core/PointsDistributor.sol";
@@ -69,20 +70,24 @@ contract DeployProjectX is Script {
         console2.log("kHYPE/WHYPE", khype);
         console2.log("USDC", usdc);
 
-        _writeDeployment(
-            chainId,
-            address(feeCollector),
-            address(referralRegistry),
-            address(pointsDistributor),
-            address(oracle),
-            address(factory),
-            address(router),
-            address(airdrop),
-            pair,
-            address(liquidityVault),
-            khype,
-            usdc
-        );
+        if (!vm.isContext(VmSafe.ForgeContext.ScriptBroadcast)) {
+            _writeDeployment(
+                chainId,
+                address(feeCollector),
+                address(referralRegistry),
+                address(pointsDistributor),
+                address(oracle),
+                address(factory),
+                address(router),
+                address(airdrop),
+                pair,
+                address(liquidityVault),
+                khype,
+                usdc
+            );
+        } else {
+            console2.log("Deployment JSON skipped during broadcast; run scripts/finalize-deployment.mjs after receipts.");
+        }
     }
 
     function _seedLiquidity(
