@@ -4,7 +4,7 @@ import { formatMultiplier, type LeaderboardRow } from "./multiplier";
 import { shortenAddress } from "@/lib/utils";
 
 export const pointsRecordedEvent = parseAbiItem(
-  "event PointsRecorded(address indexed user, address indexed pool, uint256 feeAmount, uint256 pointsAdded)"
+  "event PointsRecorded(address indexed user, address indexed pool, uint256 feeAmount)"
 );
 
 export const refereeBoundEvent = parseAbiItem(
@@ -86,9 +86,9 @@ export async function fetchPointsLeaderboard(
   const totals = new Map<string, bigint>();
   for (const log of epochLogs) {
     if (!("args" in log) || !log.args || Array.isArray(log.args)) continue;
-    const args = log.args as { user: Address; pointsAdded: bigint };
+    const args = log.args as { user: Address; feeAmount: bigint };
     const user = args.user;
-    const added = args.pointsAdded;
+    const added = args.feeAmount;
     const key = user.toLowerCase();
     totals.set(key, (totals.get(key) ?? 0n) + added);
   }

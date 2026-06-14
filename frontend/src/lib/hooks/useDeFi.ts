@@ -330,6 +330,13 @@ export function useOnChainPoints() {
   const { address } = useConnection();
   const deployment = useDeployment();
 
+  const { data: currentEpoch } = useDeploymentReadContract({
+    address: deployment?.pointsDistributor,
+    abi: abis.points,
+    functionName: "currentEpoch",
+    query: { enabled: !!deployment, refetchInterval: 30000 },
+  });
+
   const { data, refetch } = useDeploymentReadContract({
     address: deployment?.pointsDistributor,
     abi: abis.points,
@@ -338,8 +345,26 @@ export function useOnChainPoints() {
     query: { enabled: !!address && !!deployment, refetchInterval: 5000 },
   });
 
+  const { data: previewEpoch } = useDeploymentReadContract({
+    address: deployment?.pointsDistributor,
+    abi: abis.points,
+    functionName: "previewEpochPoints",
+    args:
+      address && currentEpoch !== undefined
+        ? [currentEpoch as bigint, address]
+        : undefined,
+    query: { enabled: !!address && !!deployment && currentEpoch !== undefined, refetchInterval: 5000 },
+  });
+
+  const claimed = data as bigint | undefined;
+  const pending = previewEpoch as bigint | undefined;
+  const totalWei =
+    claimed !== undefined ? claimed + (pending ?? 0n) : undefined;
+
   return {
-    points: data !== undefined ? Number(formatUnits(data as bigint, 18)) : null,
+    points: totalWei !== undefined ? Number(formatUnits(totalWei, 18)) : null,
+    claimedPoints: claimed !== undefined ? Number(formatUnits(claimed, 18)) : null,
+    pendingEpochPoints: pending !== undefined ? Number(formatUnits(pending, 18)) : null,
     refetch,
     hasDeployment: !!deployment,
   };

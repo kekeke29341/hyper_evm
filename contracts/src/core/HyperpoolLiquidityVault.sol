@@ -14,6 +14,9 @@ import {ProjectXRouter} from "./ProjectXRouter.sol";
 contract HyperpoolLiquidityVault is ERC20, Ownable, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
+    uint256 private constant MINIMUM_VAULT_SHARES = 1000;
+    address private constant DEAD = address(0xdEaD);
+
     ProjectXRouter public immutable router;
     IERC20 public immutable pair;
     IERC20 public immutable tokenKHYPE;
@@ -83,7 +86,9 @@ contract HyperpoolLiquidityVault is ERC20, Ownable, Pausable, ReentrancyGuard {
     function previewSharesForLiquidity(uint256 liquidity) public view returns (uint256) {
         uint256 supply = totalSupply();
         uint256 managed = totalManagedLp();
-        if (supply == 0 || managed == 0) return liquidity;
+        if (supply == 0 || managed == 0) {
+            return liquidity > MINIMUM_VAULT_SHARES ? liquidity - MINIMUM_VAULT_SHARES : 0;
+        }
         return (liquidity * supply) / managed;
     }
 
@@ -259,7 +264,13 @@ contract HyperpoolLiquidityVault is ERC20, Ownable, Pausable, ReentrancyGuard {
         require(lpGained > 0, "HyperpoolVault: NO_LP_GAINED");
 
         uint256 supply = totalSupply();
-        shares = supply == 0 || lpBefore == 0 ? lpGained : (lpGained * supply) / lpBefore;
+        if (supply == 0 || lpBefore == 0) {
+            require(lpGained > MINIMUM_VAULT_SHARES, "HyperpoolVault: INSUFFICIENT_LP");
+            _mint(DEAD, MINIMUM_VAULT_SHARES);
+            shares = lpGained - MINIMUM_VAULT_SHARES;
+        } else {
+            shares = (lpGained * supply) / lpBefore;
+        }
         require(shares > 0, "HyperpoolVault: ZERO_SHARES");
         _mint(receiver, shares);
     }

@@ -135,6 +135,17 @@ contract HyperpoolLiquidityVaultTest is Test {
         assertGt(liquidity, 0);
     }
 
+    function test_VaultFirstDepositLocksDeadShares() public {
+        vm.startPrank(alice);
+        khype.approve(address(vault), 10 ether);
+        usdc.approve(address(vault), 20_000e6);
+        vault.depositDual(10 ether, 20_000e6, 0, 0, alice, block.timestamp + 1);
+        vm.stopPrank();
+
+        assertEq(vault.balanceOf(address(0xdEaD)), 1000);
+        assertGt(vault.balanceOf(alice), 0);
+    }
+
     function test_SequentialDepositsDoNotInflateShares() public {
         vm.startPrank(alice);
         khype.approve(address(vault), 10 ether);
@@ -150,7 +161,7 @@ contract HyperpoolLiquidityVaultTest is Test {
         vm.stopPrank();
 
         assertApproxEqAbs(liquidityA, liquidityB, 2);
-        assertApproxEqAbs(sharesA, sharesB, 2);
+        assertApproxEqAbs(sharesA, sharesB, 1000);
     }
 
     function _fund(address user) private {

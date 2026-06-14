@@ -127,6 +127,11 @@ contract SecurityFixTest is Test {
         router.swapExactTokensForTokens(1 ether, 0, path, bob, block.timestamp + 1);
         vm.stopPrank();
 
+        uint256 epoch = pointsDistributor.currentEpoch();
+        vm.warp(block.timestamp + pointsDistributor.EPOCH_DURATION() + 1);
+        vm.prank(bob);
+        pointsDistributor.claimEpochPoints(epoch);
+
         assertGt(pointsDistributor.getUserPoints(bob), 0);
     }
 

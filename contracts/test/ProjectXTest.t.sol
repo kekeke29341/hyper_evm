@@ -99,6 +99,10 @@ contract ProjectXTest is Test {
         path[1] = address(tokenB);
         uint256[] memory amounts = router.swapExactTokensForTokens(1 ether, 0, path, bob, block.timestamp + 1);
         assertGt(amounts[1], 0);
+        uint256 epoch = pointsDistributor.currentEpoch();
+        assertGt(pointsDistributor.previewEpochPoints(epoch, bob), 0);
+        vm.warp(block.timestamp + pointsDistributor.EPOCH_DURATION() + 1);
+        pointsDistributor.claimEpochPoints(epoch);
         assertGt(pointsDistributor.getUserPoints(bob), 0);
         vm.stopPrank();
     }
@@ -118,6 +122,13 @@ contract ProjectXTest is Test {
         path[1] = address(tokenB);
         router.swapExactTokensForTokens(1 ether, 0, path, bob, block.timestamp + 1);
         vm.stopPrank();
+
+        uint256 epoch = pointsDistributor.currentEpoch();
+        vm.warp(block.timestamp + pointsDistributor.EPOCH_DURATION() + 1);
+        vm.prank(bob);
+        pointsDistributor.claimEpochPoints(epoch);
+        vm.prank(alice);
+        pointsDistributor.claimEpochPoints(epoch);
 
         assertGt(pointsDistributor.getUserPoints(bob), 0);
         assertGt(pointsDistributor.getUserPoints(alice), 0);
@@ -146,6 +157,11 @@ contract ProjectXTest is Test {
         path[1] = address(tokenB);
         router.swapExactTokensForTokens(1 ether, 0, path, bob, block.timestamp + 1);
         vm.stopPrank();
+
+        uint256 epoch = pointsDistributor.currentEpoch();
+        vm.warp(block.timestamp + pointsDistributor.EPOCH_DURATION() + 1);
+        vm.prank(bob);
+        pointsDistributor.claimEpochPoints(epoch);
 
         uint256 bobPoints = pointsDistributor.getUserPoints(bob);
         assertGt(bobPoints, 0);

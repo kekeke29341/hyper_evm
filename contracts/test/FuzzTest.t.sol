@@ -75,8 +75,15 @@ contract FuzzTest is Test {
 
     function testFuzz_PointsBoundedByDailyPool(uint256 feeSeed) public {
         uint256 fee = bound(feeSeed, 1, 1e20);
+        uint256 epoch = pointsDistributor.currentEpoch();
         vm.prank(address(pair));
         pointsDistributor.recordFeeContribution(address(pair), trader, fee);
+
+        assertLe(pointsDistributor.previewEpochPoints(epoch, trader), pointsDistributor.DAILY_POOL());
+
+        vm.warp(block.timestamp + pointsDistributor.EPOCH_DURATION() + 1);
+        vm.prank(trader);
+        pointsDistributor.claimEpochPoints(epoch);
         assertLe(pointsDistributor.getUserPoints(trader), pointsDistributor.DAILY_POOL());
     }
 
