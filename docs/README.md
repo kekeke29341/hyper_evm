@@ -2,6 +2,12 @@
 
 このディレクトリには、開発・運用・引き継ぎに必要な資料を集約しています。
 
+## 運営・本番運用（最重要）
+
+| フォルダ | 対象 | 内容 |
+|---------|------|------|
+| **[本番運用/](./本番運用/README.md)** | **運営・DevOps** | **Testnet/本番の立ち上げ、Swap に必要な流動性、チェックリスト** |
+
 ## ドキュメント一覧
 
 | ファイル | 対象読者 | 内容 |
@@ -28,8 +34,9 @@
 ## 推奨読了順（新規参加者）
 
 1. ルート [README.md](../README.md) — クイックスタート
-2. [app-overview.md](./app-overview.md) — **このアプリとは何か（入口）**
-3. [product-overview.md](./product-overview.md) — 手数料・ポイント・収益更新
-4. [architecture.md](./architecture.md) — 技術構成
-5. [development.md](./development.md) — 手を動かす
-6. [handover.md](./handover.md) — 引き継ぎ項目の確認
+2. **[本番運用/README.md](./本番運用/README.md)** — **運営担当はここ（デプロイ済み vs 未完了）**
+3. [app-overview.md](./app-overview.md) — このアプリとは何か（入口）
+4. [product-overview.md](./product-overview.md) — 手数料・ポイント・収益更新
+5. [architecture.md](./architecture.md) — 技術構成
+6. [development.md](./development.md) — 手を動かす
+7. [handover.md](./handover.md) — 引き継ぎ項目の確認

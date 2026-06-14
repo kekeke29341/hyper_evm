@@ -59,6 +59,7 @@
 
 | やりたいこと | ファイル / コマンド |
 |-------------|-------------------|
+| **Testnet/本番の運営・Swap 立ち上げ** | **[docs/本番運用/](./本番運用/README.md)** |
 | **アプリ概要・手数料・収益更新** | [docs/product-overview.md](./product-overview.md) |
 | ローカル起動 | `./scripts/dev-local.sh` |
 | Testnet デプロイ | `./scripts/deploy-testnet.sh` |
