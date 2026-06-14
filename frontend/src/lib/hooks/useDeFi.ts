@@ -26,6 +26,23 @@ export function useDeployment() {
   return getDeployment(useEffectiveChainId());
 }
 
+/** Align contract reads with deployment chain (avoids stale wagmi chainId when disconnected). */
+function useDeploymentReadChainId() {
+  return useEffectiveChainId();
+}
+
+function useDeploymentReadContract(
+  config: Parameters<typeof useReadContract>[0]
+) {
+  const chainId = useDeploymentReadChainId();
+  return useReadContract({ ...config, chainId });
+}
+
+function useDeploymentPublicClient() {
+  const chainId = useDeploymentReadChainId();
+  return usePublicClient({ chainId });
+}
+
 function applySlippage(amount: bigint, slippageBps: number) {
   return (amount * BigInt(10000 - slippageBps)) / BigInt(10000);
 }
@@ -67,7 +84,7 @@ export function useTokenBalance(symbol: TokenSymbol) {
   const deployment = useDeployment();
   const token = deployment ? getTokenAddress(deployment, symbol) : undefined;
 
-  const { data, refetch } = useReadContract({
+  const { data, refetch } = useDeploymentReadContract({
     address: token,
     abi: abis.erc20,
     functionName: "balanceOf",
@@ -96,7 +113,7 @@ export function useSwapQuote(fromSymbol: TokenSymbol, toSymbol: TokenSymbol, amo
     parsedIn = undefined;
   }
 
-  const { data: amounts } = useReadContract({
+  const { data: amounts } = useDeploymentReadContract({
     address: deployment?.router,
     abi: abis.router,
     functionName: "getAmountsOut",
@@ -115,7 +132,7 @@ export function useSwapQuote(fromSymbol: TokenSymbol, toSymbol: TokenSymbol, amo
 export function useSwap(fromSymbol: TokenSymbol, toSymbol: TokenSymbol) {
   const { address } = useConnection();
   const deployment = useDeployment();
-  const publicClient = usePublicClient();
+  const publicClient = useDeploymentPublicClient();
   const { writeContractAsync, data: hash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
   const [error, setError] = useState<string | null>(null);
@@ -171,7 +188,7 @@ export function useSwap(fromSymbol: TokenSymbol, toSymbol: TokenSymbol) {
 export function useAddLiquidity() {
   const { address } = useConnection();
   const deployment = useDeployment();
-  const publicClient = usePublicClient();
+  const publicClient = useDeploymentPublicClient();
   const { writeContractAsync, data: hash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -218,7 +235,7 @@ export function useAddLiquidity() {
 export function useRemoveLiquidity() {
   const { address } = useConnection();
   const deployment = useDeployment();
-  const publicClient = usePublicClient();
+  const publicClient = useDeploymentPublicClient();
   const { writeContractAsync, data: hash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -304,7 +321,7 @@ export function useOnChainPoints() {
   const { address } = useConnection();
   const deployment = useDeployment();
 
-  const { data, refetch } = useReadContract({
+  const { data, refetch } = useDeploymentReadContract({
     address: deployment?.pointsDistributor,
     abi: abis.points,
     functionName: "getUserPoints",
@@ -321,7 +338,7 @@ export function useOnChainPoints() {
 
 export function usePoolReserves() {
   const deployment = useDeployment();
-  const { data } = useReadContract({
+  const { data } = useDeploymentReadContract({
     address: deployment?.pair,
     abi: abis.pair,
     functionName: "getReserves",
@@ -341,14 +358,14 @@ export function usePoolStats() {
   const deployment = useDeployment();
   const reserves = usePoolReserves();
 
-  const { data: totalSupply } = useReadContract({
+  const { data: totalSupply } = useDeploymentReadContract({
     address: deployment?.pair,
     abi: abis.erc20,
     functionName: "totalSupply",
     query: { enabled: !!deployment, refetchInterval: 10000 },
   });
 
-  const { data: token0 } = useReadContract({
+  const { data: token0 } = useDeploymentReadContract({
     address: deployment?.pair,
     abi: abis.pair,
     functionName: "token0",
@@ -381,7 +398,7 @@ export function usePoolStats() {
 export function useZapLiquidity() {
   const { address } = useConnection();
   const deployment = useDeployment();
-  const publicClient = usePublicClient();
+  const publicClient = useDeploymentPublicClient();
   const { writeContractAsync, data: hash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
   const [error, setError] = useState<string | null>(null);
@@ -584,7 +601,7 @@ export function useLpBalance() {
   const { address } = useConnection();
   const deployment = useDeployment();
 
-  const { data, refetch } = useReadContract({
+  const { data, refetch } = useDeploymentReadContract({
     address: deployment?.pair,
     abi: abis.erc20,
     functionName: "balanceOf",
@@ -602,7 +619,7 @@ export function useVaultStats() {
   const deployment = useDeployment();
   const { reserveKhype, reserveUsdc, totalSupply } = usePoolStats();
 
-  const { data: vaultLp, refetch: refetchVaultLp } = useReadContract({
+  const { data: vaultLp, refetch: refetchVaultLp } = useDeploymentReadContract({
     address: deployment?.pair,
     abi: abis.erc20,
     functionName: "balanceOf",
@@ -610,14 +627,14 @@ export function useVaultStats() {
     query: { enabled: !!deployment?.liquidityVault, refetchInterval: 10000 },
   });
 
-  const { data: vaultShareSupply, refetch: refetchShareSupply } = useReadContract({
+  const { data: vaultShareSupply, refetch: refetchShareSupply } = useDeploymentReadContract({
     address: deployment?.liquidityVault,
     abi: abis.liquidityVault,
     functionName: "totalSupply",
     query: { enabled: !!deployment?.liquidityVault, refetchInterval: 10000 },
   });
 
-  const { data: targetRangeBps } = useReadContract({
+  const { data: targetRangeBps } = useDeploymentReadContract({
     address: deployment?.liquidityVault,
     abi: abis.liquidityVault,
     functionName: "targetRangeBps",
@@ -654,7 +671,7 @@ export function useVaultBalance() {
   const deployment = useDeployment();
   const stats = useVaultStats();
 
-  const { data, refetch } = useReadContract({
+  const { data, refetch } = useDeploymentReadContract({
     address: deployment?.liquidityVault,
     abi: abis.liquidityVault,
     functionName: "balanceOf",
@@ -680,7 +697,7 @@ export function useVaultBalance() {
 export function useVaultDepositDual() {
   const { address } = useConnection();
   const deployment = useDeployment();
-  const publicClient = usePublicClient();
+  const publicClient = useDeploymentPublicClient();
   const { writeContractAsync, data: hash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -729,7 +746,7 @@ export function useVaultDepositDual() {
 export function useVaultWithdraw() {
   const { address } = useConnection();
   const deployment = useDeployment();
-  const publicClient = usePublicClient();
+  const publicClient = useDeploymentPublicClient();
   const { writeContractAsync, data: hash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -774,7 +791,7 @@ export function useVaultWithdraw() {
 export function useEpochCountdown() {
   const deployment = useDeployment();
 
-  const { data: secondsLeft } = useReadContract({
+  const { data: secondsLeft } = useDeploymentReadContract({
     address: deployment?.pointsDistributor,
     abi: abis.points,
     functionName: "timeUntilNextEpoch",
@@ -795,21 +812,21 @@ export function useCashdrop() {
   const { writeContractAsync, data: hash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
-  const { data: merkleRoot } = useReadContract({
+  const { data: merkleRoot } = useDeploymentReadContract({
     address: deployment?.airdrop,
     abi: MerkleAirdropAbi,
     functionName: "merkleRoot",
     query: { enabled: !!deployment },
   });
 
-  const { data: claimDeadline } = useReadContract({
+  const { data: claimDeadline } = useDeploymentReadContract({
     address: deployment?.airdrop,
     abi: MerkleAirdropAbi,
     functionName: "claimDeadline",
     query: { enabled: !!deployment },
   });
 
-  const { data: alreadyClaimed } = useReadContract({
+  const { data: alreadyClaimed } = useDeploymentReadContract({
     address: deployment?.airdrop,
     abi: MerkleAirdropAbi,
     functionName: "claimed",
@@ -817,7 +834,7 @@ export function useCashdrop() {
     query: { enabled: !!deployment && !!address },
   });
 
-  const { data: airdropBalance } = useReadContract({
+  const { data: airdropBalance } = useDeploymentReadContract({
     address: deployment?.tokenUSDC,
     abi: abis.erc20,
     functionName: "balanceOf",
