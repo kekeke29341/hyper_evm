@@ -11,5 +11,12 @@
   "pair": "0x1e7af33cc3ba44de119a9e845a677eefeba5eb47",
   "liquidityVault": "0x25615b36ece679472619f85166b777fe54a6892a",
   "tokenKHYPE": "0x5555555555555555555555555555555555555555",
-  "tokenUSDC": "0x2B3370eE501B4a559b57D449569354196457D8Ab"
+  "tokenUSDC": "0x2B3370eE501B4a559b57D449569354196457D8Ab",
+  "airdropEntries": [
+    {
+      "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
+      "amount": "100000000"
+    }
+  ],
+  "merkleRoot": "0x14266be6f050f137db2c4534cbe89d35196eb77c4a6af8519694d1da541cdc3b"
 }
