@@ -27,6 +27,12 @@ import {
   isEvmBridgeRoute,
 } from "@/lib/lifi/config";
 import type { TokenSymbol } from "@/lib/contracts";
+import { useAppChain, WRONG_NETWORK_ERROR } from "@/lib/hooks/useAppChain";
+import { useWallet } from "@/lib/hooks/useWallet";
+
+function applyParams(text: string, params: Record<string, string>) {
+  return Object.entries(params).reduce((s, [k, v]) => s.replaceAll(`{${k}}`, v), text);
+}
 
 function TokenRow({
   label,
@@ -83,7 +89,9 @@ function TokenRow({
 }
 
 export function SwapTab() {
-  const { isConnected, showToast, openWalletModal } = useApp();
+  const { showToast, openWalletModal } = useApp();
+  const { isConnected, isOnAppChain, targetChainId, targetLabel } = useAppChain();
+  const { switchNetwork, isSwitching } = useWallet();
   const { t } = useI18n();
   const walletChainId = useChainId();
   const deployment = useDeployment();
@@ -184,11 +192,25 @@ export function SwapTab() {
       showToast(t("swap.deployHint"));
       return;
     }
+    if (!isOnAppChain) {
+      try {
+        await switchNetwork(targetChainId);
+      } catch {
+        showToast(
+          applyParams(t("network.switchRequired"), { target: targetLabel })
+        );
+      }
+      return;
+    }
     if (!fromAmount || parseFloat(fromAmount) <= 0) return;
     try {
       await swap(fromAmount, slippageBps);
-    } catch {
-      showToast(t("swap.swapFailed"));
+    } catch (e) {
+      if (e instanceof Error && e.message === WRONG_NETWORK_ERROR) {
+        showToast(applyParams(t("network.switchRequired"), { target: targetLabel }));
+      } else {
+        showToast(t("swap.swapFailed"));
+      }
     }
   };
 
@@ -197,14 +219,17 @@ export function SwapTab() {
       ? (parseFloat(amountOut) / parseFloat(fromAmount)).toFixed(4)
       : "—";
 
-  const isPending = isBridge ? isBridgePending : isSwapPending;
+  const isPending = isBridge ? isBridgePending : isSwapPending || isSwitching;
+  const needsNetworkSwitch = isConnected && !isBridge && !isOnAppChain;
   const actionLabel = isBridge
     ? isConnected
       ? `${t("swap.bridge")} ${fromChain} → ${toChain}`
       : t("common.connectWallet")
-    : isConnected
-      ? t("common.swap")
-      : t("common.connectWallet");
+    : needsNetworkSwitch
+      ? applyParams(t("network.switchTo"), { target: targetLabel })
+      : isConnected
+        ? t("common.swap")
+        : t("common.connectWallet");
 
   return (
     <MainCard>
@@ -340,8 +365,9 @@ export function SwapTab() {
           onClick={handleAction}
           disabled={
             isPending ||
+            isSwitching ||
             (isBridge && (!lifiQuote.data || lifiQuote.isFetching)) ||
-            (!isBridge && !fromAmount)
+            (!isBridge && !fromAmount && !needsNetworkSwitch)
           }
         >
           {isPending ? (

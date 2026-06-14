@@ -106,8 +106,8 @@ export const translations = {
       pointsInfo:
         "ポイントは預け額ではなく手数料貢献度で決まります。高ボリュームプールほど多く獲得できます。",
       swapSuccess: "スワップ成功！",
-      swapFailed: "スワップ失敗 — Anvil が起動しているか確認してください",
-      deployHint: "ローカルにコントラクトをデプロイしてください (chain 31337)",
+      swapFailed: "スワップ失敗 — ネットワーク・残高・トークン承認を確認してください",
+      deployHint: "このチェーンではコントラクト未デプロイです。HyperEVM Testnet (998) に切り替えてください",
       bridgeSuccess: "ブリッジトランザクションを送信しました",
       bridgeFailed: "Li.FI ブリッジに失敗しました",
       bridgeQuoteLoading: "Li.FI ルートを取得中…",
@@ -268,6 +268,14 @@ export const translations = {
       leaderboardDemo: "デプロイ後にオンチェーンランキングを表示",
       applySuccess: "招待コード適用 — +10% ブースト有効！",
     },
+    network: {
+      wrongNetworkTitle: "ネットワークが一致していません",
+      wrongNetworkBody:
+        "ウォレットは Chain {chainId} です。スワップ・LP 操作には {target} への切替が必要です（RPC ではなく MetaMask のネットワーク設定です）。",
+      switchTo: "{target} に切替",
+      switching: "切替中…",
+      switchRequired: "{target} にネットワークを切り替えてから再度お試しください",
+    },
   },
   en: {
     header: {
@@ -374,8 +382,8 @@ export const translations = {
       pointsInfo:
         "Points are driven by fee generation, not just capital size. High volume pools yield more points.",
       swapSuccess: "Swap successful!",
-      swapFailed: "Swap failed — check Anvil is running",
-      deployHint: "Deploy contracts locally (chain 31337)",
+      swapFailed: "Swap failed — check network, balance, and token approval",
+      deployHint: "Contracts are not deployed on this chain. Switch to HyperEVM Testnet (998).",
       bridgeSuccess: "Bridge transaction submitted",
       bridgeFailed: "Li.FI bridge failed",
       bridgeQuoteLoading: "Fetching Li.FI route…",
@@ -535,6 +543,14 @@ export const translations = {
       leaderboardEmpty: "No referrals recorded yet",
       leaderboardDemo: "On-chain ranking appears after deployment",
       applySuccess: "Invitation code applied — +10% boost active!",
+    },
+    network: {
+      wrongNetworkTitle: "Wrong network",
+      wrongNetworkBody:
+        "Your wallet is on chain {chainId}. Switch to {target} to swap or manage LP (this is MetaMask network, not the app RPC URL).",
+      switchTo: "Switch to {target}",
+      switching: "Switching…",
+      switchRequired: "Switch your wallet to {target} and try again",
     },
   },
 } as const;

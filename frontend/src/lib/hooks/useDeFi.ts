@@ -7,6 +7,7 @@ import {
   useReadContract,
   useWriteContract,
   useWaitForTransactionReceipt,
+  useChainId,
 } from "wagmi";
 import { parseUnits, formatUnits, zeroAddress } from "viem";
 import {
@@ -21,6 +22,7 @@ import MerkleAirdropAbi from "@/lib/contracts/abis/MerkleAirdrop.json";
 import { ensureExactAllowance } from "@/lib/erc20";
 import { getSlippageBps } from "@/components/layout/SettingsModal";
 import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
+import { WRONG_NETWORK_ERROR } from "@/lib/hooks/useAppChain";
 
 export function useDeployment() {
   return getDeployment(useEffectiveChainId());
@@ -131,6 +133,8 @@ export function useSwapQuote(fromSymbol: TokenSymbol, toSymbol: TokenSymbol, amo
 
 export function useSwap(fromSymbol: TokenSymbol, toSymbol: TokenSymbol) {
   const { address } = useConnection();
+  const walletChainId = useChainId();
+  const appChainId = useEffectiveChainId();
   const deployment = useDeployment();
   const publicClient = useDeploymentPublicClient();
   const { writeContractAsync, data: hash, isPending } = useWriteContract();
@@ -140,6 +144,11 @@ export function useSwap(fromSymbol: TokenSymbol, toSymbol: TokenSymbol) {
   const swap = useCallback(
     async (amountIn: string, slippageBps = 50) => {
       if (!deployment || !address || !publicClient) throw new Error("Wallet not connected");
+      if (walletChainId !== appChainId) {
+        const err = new Error(WRONG_NETWORK_ERROR);
+        setError(WRONG_NETWORK_ERROR);
+        throw err;
+      }
       setError(null);
       try {
         const from = getTokenAddress(deployment, fromSymbol);
@@ -179,7 +188,7 @@ export function useSwap(fromSymbol: TokenSymbol, toSymbol: TokenSymbol) {
         throw e;
       }
     },
-    [deployment, address, publicClient, fromSymbol, toSymbol, writeContractAsync]
+    [deployment, address, publicClient, walletChainId, appChainId, fromSymbol, toSymbol, writeContractAsync]
   );
 
   return { swap, isPending: isPending || isConfirming, isSuccess, error, hash };

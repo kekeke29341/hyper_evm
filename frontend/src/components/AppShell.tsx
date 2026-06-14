@@ -7,6 +7,7 @@ import { TabHero } from "@/components/layout/TabHero";
 import { SocialProofBar } from "@/components/layout/SocialProofBar";
 import { OnboardingModal } from "@/components/layout/OnboardingModal";
 import { TestnetGuideBanner } from "@/components/layout/TestnetGuideBanner";
+import { NetworkSwitchBanner } from "@/components/layout/NetworkSwitchBanner";
 import { WalletModal } from "@/components/layout/WalletModal";
 import { Toast } from "@/components/ui/shared";
 import { SwapTab } from "@/components/tabs/SwapTab";
@@ -39,6 +40,7 @@ export default function AppShell() {
       <Header activeTab={activeTab} onTabChange={setActiveTab} />
       <main className="flex-1 px-3 sm:px-4 py-6 sm:py-8">
         <SocialProofBar />
+        <NetworkSwitchBanner />
         <TestnetGuideBanner />
         <TabHero activeTab={activeTab} />
         <AnimatePresence mode="wait">
