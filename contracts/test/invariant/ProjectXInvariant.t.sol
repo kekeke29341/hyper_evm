@@ -20,4 +20,12 @@ contract ProjectXInvariant is StdInvariant, Test {
     function invariant_lpSupplyPositive() public view {
         assertGt(handler.pair().totalSupply(), 0);
     }
+
+    function invariant_epochBasePointsNeverExceedPool() public view {
+        handler.assertEpochBasePointsCapped();
+    }
+
+    function invariant_kNeverDecreasesOnSwap() public view {
+        handler.assertKNeverDecreasesOnSwap();
+    }
 }

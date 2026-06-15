@@ -126,7 +126,7 @@ done
 |------|------|
 | **P0(メインネット前 必須)** | **N-1** ポイント按分をエポック確定後計算に変更(or 正規化撤廃) → first-mover 実証テスト + 総量 invariant。**N-3** 鍵ガードのブロックリスト修正(導出アドレス照合方式へ) |
 | **P1** | **N-2** Vault に dead-share/virtual-offset 導入 + 関連テスト。owner/feeToSetter のマルチシグ+Timelock 化 |
-| **P2** | **N-4** CSP の `unsafe-eval`/`unsafe-inline` 見直し(nonce 化)。invariant 追加(K 非減少・LP 価値単調・Vault 非インフレ)。CI に coverage ゲート + slither |
+| **P2** | **N-4** CSP の `unsafe-eval` 除去（`unsafe-inline` は Next.js 制約で維持）。invariant 追加(K 非減少・エポック上限)。CI に coverage ゲート + slither |
 | **P3** | 全修正完了後に**第三者監査**。money-handling である以上、外部監査なしの本番投入は非推奨 |
 
 ### 総評

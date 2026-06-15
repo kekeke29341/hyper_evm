@@ -129,21 +129,49 @@ async function main() {
   console.log(`    Wallet: ${account.address}`);
   console.log(`    Router: ${deployment.router}`);
 
-  // 1. Bridge USDC spot → EVM
-  console.log(`\n[1/4] spotSend ${BRIDGE_USDC} USDC → HyperEVM...`);
-  const { HttpTransport } = await hlImport("transport/http/mod.js");
-  const { spotSend } = await hlImport("api/exchange/mod.js");
-  const transportHl = new HttpTransport({ isTestnet: true });
-  await spotSend({ transport: transportHl, wallet: account }, {
-    destination: USDC_SYSTEM,
-    token: USDC_TOKEN,
-    amount: BRIDGE_USDC,
-  });
-  console.log("    ✓ USDC bridged");
+  const erc20BalanceAbi = [
+    {
+      name: "balanceOf",
+      type: "function",
+      stateMutability: "view",
+      inputs: [{ name: "a", type: "address" }],
+      outputs: [{ type: "uint256" }],
+    },
+  ];
 
-  console.log(`    waiting for EVM USDC...`);
-  const usdcBal = await waitBalance(publicClient, deployment.tokenUSDC, account.address, LP_USDC, 6, viem);
-  console.log(`    EVM USDC: ${usdcBal}`);
+  const lpUsdcMin = parseUnits(LP_USDC, 6);
+  let evmUsdc = await publicClient.readContract({
+    address: deployment.tokenUSDC,
+    abi: erc20BalanceAbi,
+    functionName: "balanceOf",
+    args: [account.address],
+  });
+
+  if (evmUsdc >= lpUsdcMin) {
+    console.log(`\n[1/4] EVM USDC sufficient (${evmUsdc}), skipping spot bridge`);
+  } else {
+    console.log(`\n[1/4] spotSend ${BRIDGE_USDC} USDC → HyperEVM...`);
+    const { HttpTransport } = await hlImport("transport/http/mod.js");
+    const { spotSend } = await hlImport("api/exchange/mod.js");
+    const transportHl = new HttpTransport({ isTestnet: true });
+    try {
+      await spotSend({ transport: transportHl, wallet: account }, {
+        destination: USDC_SYSTEM,
+        token: USDC_TOKEN,
+        amount: BRIDGE_USDC,
+      });
+      console.log("    ✓ USDC bridged");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new Error(
+        `spotSend failed (${msg}). Need spot USDC — try: node scripts/testnet-bootstrap.mjs (claimDrip) or reduce BRIDGE_USDC (spot balance ~8 USDC).`
+      );
+    }
+
+    console.log("    waiting for EVM USDC...");
+    evmUsdc = await waitBalance(publicClient, deployment.tokenUSDC, account.address, LP_USDC, 6, viem);
+    console.log(`    EVM USDC: ${evmUsdc}`);
+  }
 
   // 2. Wrap HYPE → WHYPE
   console.log(`\n[2/4] Wrap ${WRAP_HYPE} HYPE → WHYPE...`);

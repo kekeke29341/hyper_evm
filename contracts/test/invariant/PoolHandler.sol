@@ -16,18 +16,21 @@ contract PoolHandler is Test {
     MockERC20 public tokenB;
     ProjectXRouter public router;
     ProjectXPair public pair;
+    PointsDistributor public pointsDistributor;
 
     address[] public actors;
     bool public tokenAIsToken0;
 
     uint256 public ghostSwapCount;
     uint256 public ghostLastK;
+    uint256 public ghostSwapKRegression;
 
     constructor() {
         FeeCollector feeCollector = new FeeCollector();
         ReferralRegistry referralRegistry = new ReferralRegistry();
-        PointsDistributor pointsDistributor = new PointsDistributor(address(referralRegistry));
-        ProjectXFactory factory = new ProjectXFactory(address(feeCollector), address(pointsDistributor), address(this));
+        pointsDistributor = new PointsDistributor(address(referralRegistry));
+        ProjectXFactory factory =
+            new ProjectXFactory(address(feeCollector), address(pointsDistributor), address(this));
         router = new ProjectXRouter(address(factory));
         factory.setTrustedRouter(address(router));
 
@@ -65,6 +68,17 @@ contract PoolHandler is Test {
         assertEq(r1, tokenAIsToken0 ? tokenB.balanceOf(address(pair)) : tokenA.balanceOf(address(pair)));
     }
 
+    function assertEpochBasePointsCapped() external view {
+        uint256 epoch = pointsDistributor.currentEpoch();
+        for (uint256 e = 0; e <= epoch; e++) {
+            assertLe(pointsDistributor.epochBasePointsDistributed(e), pointsDistributor.DAILY_POOL());
+        }
+    }
+
+    function assertKNeverDecreasesOnSwap() external view {
+        assertEq(ghostSwapKRegression, 0);
+    }
+
     function swap(uint256 actorSeed, uint256 amountSeed, bool aToB) external {
         address actor = actors[bound(actorSeed, 0, actors.length - 1)];
         uint256 amountIn = bound(amountSeed, 1e15, 2 ether);
@@ -79,10 +93,14 @@ contract PoolHandler is Test {
         }
 
         vm.startPrank(actor);
+        (uint256 r0, uint256 r1) = pair.getReserves();
+        uint256 kBefore = r0 * r1;
         try router.swapExactTokensForTokens(amountIn, 0, path, actor, block.timestamp + 1) {
             ghostSwapCount++;
-            (uint256 r0, uint256 r1) = pair.getReserves();
-            ghostLastK = r0 * r1;
+            (r0, r1) = pair.getReserves();
+            uint256 kAfter = r0 * r1;
+            if (kAfter < kBefore) ghostSwapKRegression++;
+            ghostLastK = kAfter;
         } catch {}
         vm.stopPrank();
     }
