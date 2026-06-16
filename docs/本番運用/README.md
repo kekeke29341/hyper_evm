@@ -12,16 +12,15 @@
 | [テストネット運用.md](./テストネット運用.md) | **998 デプロイ済みの現状**と、残りの運営作業 |
 | [本番環境運用.md](./本番環境運用.md) | Mainnet (999) 公開前の準備 |
 | [チェックリスト.md](./チェックリスト.md) | コピペ用チェックリスト |
+| [検証手順.md](./検証手順.md) | **手動検証**（Vercel Redeploy・MetaMask・Swap） |
 
 ## 30 秒サマリー
 
 | 質問 | 答え |
 |------|------|
 | Testnet にコントラクトはある？ | **ある**（Chain 998、`998.json` 参照） |
-| いま GUI で Swap できる？ | **プールが空**のため実用的には **まだ不可** |
-| Swap のために運営が入れるもの | **kHYPE + USDC をペアに LP 追加**（流動性シード） |
-| フロントは？ | Vercel 公開済み想定。env は `NEXT_PUBLIC_DEFAULT_CHAIN_ID=998` |
-| Cashdrop | Merkle 未設定・`airdropEntries` 未同期 → **運営設定が必要** |
+| いま GUI で Swap できる？ | **最小流動性あり**（レートは出る。Vercel **Redeploy 後**に最新アドレス） |
+| Cashdrop | Merkle 設定済み。**コントラクト USDC 残高**が請求額に足りない場合は fund が必要 |
 
 ## 最短で Testnet を「触れる」ようにする
 
