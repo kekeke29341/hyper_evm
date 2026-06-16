@@ -19,6 +19,7 @@
 | 質問 | 答え |
 |------|------|
 | Testnet にコントラクトはある？ | **ある**（Chain 998、`998.json` 参照） |
+| Mainnet (999) にコントラクトはある？ | **ない**（`999.json` は `deployed: false`・ゼロアドレス） |
 | いま GUI で Swap できる？ | **最小流動性あり**（レートは出る。Vercel **Redeploy 後**に最新アドレス） |
 | Cashdrop | Merkle 設定済み。**コントラクト USDC 残高**が請求額に足りない場合は fund が必要 |
 
