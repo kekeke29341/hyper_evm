@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Zap, TrendingUp, Wallet } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
+import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
 import { useApp } from "@/lib/store";
 
 const STORAGE_KEY = "prjx_onboarding_done";
+const MOBILE_MEDIA_QUERY = "(max-width: 767px)";
 
 const STEPS = [
   { icon: Zap, titleKey: "onboarding.step1.title", bodyKey: "onboarding.step1.body" },
@@ -17,12 +19,21 @@ const STEPS = [
 export function OnboardingModal() {
   const { t } = useI18n();
   const { openWalletModal } = useApp();
+  const isMobile = useMediaQuery(MOBILE_MEDIA_QUERY);
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
 
   useEffect(() => {
+    if (isMobile === null) return;
+
+    if (isMobile) {
+      localStorage.setItem(STORAGE_KEY, "1");
+      setOpen(false);
+      return;
+    }
+
     if (!localStorage.getItem(STORAGE_KEY)) setOpen(true);
-  }, []);
+  }, [isMobile]);
 
   const finish = () => {
     localStorage.setItem(STORAGE_KEY, "1");
