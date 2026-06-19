@@ -3,7 +3,8 @@ pragma solidity ^0.8.24;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-/// @title ReferralRegistry — dual-reward referral (15% referrer / 10% referee boost)
+/// @title ReferralRegistry — dual-reward referral (15% referrer / 10% referee boost on USDC Cashdrop)
+/// @dev applyRefereeBoost is reserved for future Cashdrop allocation; not used by PointsDistributor (removed).
 contract ReferralRegistry is Ownable {
     uint256 public constant REFERRER_BONUS_BPS = 1500; // 15%
     uint256 public constant REFEREE_BOOST_BPS = 1000; // 10%
@@ -43,8 +44,9 @@ contract ReferralRegistry is Ownable {
         return refereeToReferrer[user];
     }
 
-    function applyRefereeBoost(address user, uint256 basePoints) external view returns (uint256) {
-        if (refereeToReferrer[user] == address(0)) return basePoints;
-        return basePoints + (basePoints * REFEREE_BOOST_BPS) / 10_000;
+    /// @notice Future: boost a user's USDC reward base before referral commission split.
+    function applyRefereeBoost(address user, uint256 baseRewardUsdc) external view returns (uint256) {
+        if (refereeToReferrer[user] == address(0)) return baseRewardUsdc;
+        return baseRewardUsdc + (baseRewardUsdc * REFEREE_BOOST_BPS) / 10_000;
     }
 }

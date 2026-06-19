@@ -6,13 +6,13 @@ import {
   Shield,
   LayoutDashboard,
   Droplets,
-  Star,
   Gift,
   BarChart3,
   ArrowLeft,
   Vault,
   Settings,
   Home,
+  Coins,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAdminAuth } from "@/lib/hooks/useAdmin";
@@ -27,7 +27,7 @@ import { AdminTxBanner } from "./AdminTxBanner";
 import { OverviewPanel } from "./panels/OverviewPanel";
 import { AnalyticsPanel } from "./panels/AnalyticsPanel";
 import { PoolsPanel } from "./panels/PoolsPanel";
-import { PointsPanel } from "./panels/PointsPanel";
+import { RewardsPanel } from "./panels/RewardsPanel";
 import { AirdropPanel } from "./panels/AirdropPanel";
 import { VaultPanel } from "./panels/VaultPanel";
 import { SystemPanel } from "./panels/SystemPanel";
@@ -35,8 +35,8 @@ import { SystemPanel } from "./panels/SystemPanel";
 const ADMIN_TABS = [
   { id: "overview", label: "Overview", icon: Home },
   { id: "analytics", label: "Analytics", icon: BarChart3 },
-  { id: "pools", label: "Pools", icon: Droplets },
-  { id: "points", label: "Points", icon: Star },
+  { id: "pools", label: "Project X", icon: Droplets },
+  { id: "rewards", label: "Rewards", icon: Coins },
   { id: "airdrop", label: "Airdrop", icon: Gift },
   { id: "vault", label: "Vault", icon: Vault },
   { id: "system", label: "System", icon: Settings },
@@ -48,14 +48,11 @@ export function AdminShell() {
   const [tab, setTab] = useState<AdminTabId>("overview");
   const chainId = useEffectiveChainId();
   const chainMeta = getChainDeploymentMeta(chainId);
-  const { isConnected, isAdmin, address, isPointsOwner, isAirdropOwner, isFactoryAdmin, isVaultOwner } =
-    useAdminAuth();
+  const { isConnected, isAdmin, address, isAirdropOwner, isVaultOwner } = useAdminAuth();
   const { openWalletModal } = useApp();
 
   const roleBadges = [
-    isPointsOwner ? "Points Owner" : null,
     isAirdropOwner ? "Airdrop Owner" : null,
-    isFactoryAdmin ? "Factory Admin" : null,
     isVaultOwner ? "Vault Owner" : null,
   ].filter((b): b is string => b !== null);
 
@@ -122,7 +119,7 @@ export function AdminShell() {
               <LayoutDashboard className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
               <h1 className="text-xl font-semibold text-white mb-2">Connect owner wallet</h1>
               <p className="text-sm text-zinc-500 mb-6 max-w-md mx-auto">
-                Admin writes require a contract owner or factory admin wallet on {chainMeta.label} (chain {chainId}).
+                Admin writes require a vault or airdrop owner wallet on {chainMeta.label} (chain {chainId}).
               </p>
               <button
                 type="button"
@@ -159,7 +156,7 @@ export function AdminShell() {
               {tab === "overview" && <OverviewPanel />}
               {tab === "analytics" && <AnalyticsPanel />}
               {tab === "pools" && <PoolsPanel />}
-              {tab === "points" && <PointsPanel />}
+              {tab === "rewards" && <RewardsPanel />}
               {tab === "airdrop" && <AirdropPanel />}
               {tab === "vault" && <VaultPanel />}
               {tab === "system" && <SystemPanel />}

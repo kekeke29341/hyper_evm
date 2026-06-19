@@ -13,19 +13,20 @@ const CHAIN_TOKENS = {
   },
   999: {
     tokenKHYPE: "0x5555555555555555555555555555555555555555",
-    tokenUSDC: "0xB8CE59FC3717ada4C02eaDF9682A9e934F625ebb",
+    tokenUSDC: "0xb88339CB7199b77E23DB6E890353E22632Ba630f",
   },
 };
 
-const REQUIRED = {
-  feeCollector: "FeeCollector",
-  referralRegistry: "ReferralRegistry",
-  pointsDistributor: "PointsDistributor",
+const CORE_CONTRACTS = {
   oracle: "HyperCoreOracle",
-  factory: "ProjectXFactory",
-  router: "ProjectXRouter",
+  projectXAdapter: "ProjectXAdapter",
+  hyperpoolVault: "HyperpoolVault",
   airdrop: "MerkleAirdrop",
-  liquidityVault: "HyperpoolLiquidityVault",
+};
+
+const OPTIONAL_CONTRACTS = {
+  projectXNpm: "MockProjectXNPM",
+  referralRegistry: "ReferralRegistry",
 };
 
 function usage() {
@@ -59,9 +60,8 @@ if (!CHAIN_TOKENS[chainId]) throw new Error(`Unsupported chain id: ${chainId}`);
 
 function listBroadcastFiles(chainId) {
   const dirs = [
-    path.join(root, "contracts/broadcast/DeployProjectX.s.sol", String(chainId)),
-    path.join(root, "contracts/broadcast/DeployVaultOnlyTestnet.s.sol", String(chainId)),
-    path.join(root, "contracts/broadcast/ContinuePhase3Testnet.s.sol", String(chainId)),
+    path.join(root, "contracts/broadcast/DeployHyperpool.s.sol", String(chainId)),
+    path.join(root, "contracts/broadcast/DeployLocal.s.sol", String(chainId)),
   ];
 
   const files = [];
@@ -92,14 +92,6 @@ function findCreateAddress(txs, name) {
   return (withHash ?? creates[creates.length - 1]).contractAddress ?? null;
 }
 
-function findPairAddress(txs) {
-  for (const tx of txs) {
-    const found = (tx.additionalContracts ?? []).find((c) => c.contractName === "ProjectXPair");
-    if (found?.address) return found.address;
-  }
-  return null;
-}
-
 async function rpc(method, params) {
   const res = await fetch(rpcUrl, {
     method: "POST",
@@ -112,6 +104,7 @@ async function rpc(method, params) {
 }
 
 async function hasCode(address) {
+  if (!address) return false;
   const code = await rpc("eth_getCode", [address, "latest"]);
   return code && code !== "0x";
 }
@@ -123,26 +116,25 @@ async function requireCode(label, address) {
 }
 
 async function buildDeploymentFromTxs(txs) {
-  const partial = {
-    feeCollector: findCreateAddress(txs, REQUIRED.feeCollector),
-    referralRegistry: findCreateAddress(txs, REQUIRED.referralRegistry),
-    pointsDistributor: findCreateAddress(txs, REQUIRED.pointsDistributor),
-    oracle: findCreateAddress(txs, REQUIRED.oracle),
-    factory: findCreateAddress(txs, REQUIRED.factory),
-    router: findCreateAddress(txs, REQUIRED.router),
-    airdrop: findCreateAddress(txs, REQUIRED.airdrop),
-    pair: findPairAddress(txs),
-    liquidityVault: findCreateAddress(txs, REQUIRED.liquidityVault),
-  };
-
-  for (const [label, address] of Object.entries(partial)) {
-    if (!address) return null;
-    if (!(await hasCode(address))) return null;
+  const partial = {};
+  for (const [key, name] of Object.entries(CORE_CONTRACTS)) {
+    partial[key] = findCreateAddress(txs, name);
+    if (!partial[key] || !(await hasCode(partial[key]))) return null;
   }
 
+  for (const [key, name] of Object.entries(OPTIONAL_CONTRACTS)) {
+    const addr = findCreateAddress(txs, name);
+    if (addr && (await hasCode(addr))) partial[key] = addr;
+  }
+
+  const vault = partial.hyperpoolVault;
   return {
     chainId,
     deployed: true,
+    hyperpoolVault: vault,
+    liquidityVault: vault,
+    projectXPool:
+      chainId === 999 ? "0x6c9A33E3b592C0d65B3Ba59355d5Be0d38259285" : undefined,
     ...partial,
     tokenKHYPE: CHAIN_TOKENS[chainId].tokenKHYPE,
     tokenUSDC: CHAIN_TOKENS[chainId].tokenUSDC,
@@ -171,48 +163,6 @@ async function findBestDeployment(explicitPath) {
     }
   }
 
-  // Vault-only / continuation scripts: merge vault into best partial DeployProjectX run.
-  for (const entry of ranked) {
-    const base = await buildDeploymentFromTxs(entry.run.transactions ?? []);
-    if (base) continue;
-    const txs = entry.run.transactions ?? [];
-    const vault = findCreateAddress(txs, REQUIRED.liquidityVault);
-    if (!vault || !(await hasCode(vault))) continue;
-
-    for (const projectEntry of ranked) {
-      if (!projectEntry.file.includes("DeployProjectX.s.sol")) continue;
-      const projectTxs = projectEntry.run.transactions ?? [];
-      const core = {
-        feeCollector: findCreateAddress(projectTxs, REQUIRED.feeCollector),
-        referralRegistry: findCreateAddress(projectTxs, REQUIRED.referralRegistry),
-        pointsDistributor: findCreateAddress(projectTxs, REQUIRED.pointsDistributor),
-        oracle: findCreateAddress(projectTxs, REQUIRED.oracle),
-        factory: findCreateAddress(projectTxs, REQUIRED.factory),
-        router: findCreateAddress(projectTxs, REQUIRED.router),
-        airdrop: findCreateAddress(projectTxs, REQUIRED.airdrop),
-        pair: findPairAddress(projectTxs),
-      };
-      if (Object.values(core).some((a) => !a)) continue;
-      const merged = {
-        chainId,
-        deployed: true,
-        ...core,
-        liquidityVault: vault,
-        tokenKHYPE: CHAIN_TOKENS[chainId].tokenKHYPE,
-        tokenUSDC: CHAIN_TOKENS[chainId].tokenUSDC,
-      };
-      const labels = ["feeCollector", "referralRegistry", "pointsDistributor", "oracle", "factory", "router", "airdrop", "pair", "liquidityVault"];
-      let mergedOk = true;
-      for (const label of labels) {
-        if (!(await hasCode(merged[label]))) mergedOk = false;
-      }
-      if (mergedOk) {
-        console.log(`Using merged deployment: core from ${projectEntry.file} + vault from ${entry.file}`);
-        return merged;
-      }
-    }
-  }
-
   throw new Error("No complete on-chain deployment found in broadcast files");
 }
 
@@ -221,11 +171,12 @@ const deployment = await findBestDeployment(
 );
 
 for (const [label, address] of Object.entries(deployment)) {
-  if (label === "chainId" || label === "deployed" || label.startsWith("token")) continue;
+  if (label === "chainId" || label === "deployed" || label.startsWith("token") || address === undefined) continue;
   await requireCode(label, address);
 }
 
 const outPath = path.join(root, "contracts/deployments", `${chainId}.json`);
 fs.mkdirSync(path.dirname(outPath), { recursive: true });
-fs.writeFileSync(outPath, `${JSON.stringify(deployment, null, 2)}\n`);
+const cleaned = Object.fromEntries(Object.entries(deployment).filter(([, v]) => v !== undefined));
+fs.writeFileSync(outPath, `${JSON.stringify(cleaned, null, 2)}\n`);
 console.log(`Finalized deployment: ${outPath}`);

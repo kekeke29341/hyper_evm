@@ -52,8 +52,8 @@ git push -u origin main
 | `NEXT_PUBLIC_TESTNET_RPC` | `https://rpcs.chain.link/hyperevm/testnet` | 同上 |
 | `NEXT_PUBLIC_MAINNET_RPC` | `https://rpc.hyperliquid.xyz/evm` | 同上 |
 | `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | （[cloud.reown.com](https://cloud.reown.com) で取得） | 同上 |
-| `NEXT_PUBLIC_LIFI_INTEGRATOR` | `projectx` | 同上 |
-| `LIFI_INTEGRATOR` | `projectx` | 同上 |
+| `NEXT_PUBLIC_LIFI_INTEGRATOR` | `hyperpool` | 同上 |
+| `LIFI_INTEGRATOR` | `hyperpool` | 同上 |
 | `NEXT_PUBLIC_ADMIN_ENABLED` | `false` | **Production** |
 | `NEXT_PUBLIC_ADMIN_ENABLED` | `true` | **Preview** のみ（任意） |
 

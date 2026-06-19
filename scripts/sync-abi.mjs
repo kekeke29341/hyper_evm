@@ -15,15 +15,12 @@ const deploySrc = path.join(root, "contracts/deployments");
 const deployDst = path.join(root, "frontend/src/lib/contracts/deployments");
 
 const CONTRACTS = [
-  { file: "ProjectXRouter.sol/ProjectXRouter.json", name: "ProjectXRouter" },
-  { file: "ProjectXFactory.sol/ProjectXFactory.json", name: "ProjectXFactory" },
-  { file: "ProjectXPair.sol/ProjectXPair.json", name: "ProjectXPair" },
+  { file: "HyperpoolVault.sol/HyperpoolVault.json", name: "HyperpoolVault" },
+  { file: "ProjectXAdapter.sol/ProjectXAdapter.json", name: "ProjectXAdapter" },
   { file: "MockERC20.sol/MockERC20.json", name: "MockERC20" },
-  { file: "PointsDistributor.sol/PointsDistributor.json", name: "PointsDistributor" },
   { file: "ReferralRegistry.sol/ReferralRegistry.json", name: "ReferralRegistry" },
   { file: "MerkleAirdrop.sol/MerkleAirdrop.json", name: "MerkleAirdrop" },
   { file: "HyperCoreOracle.sol/HyperCoreOracle.json", name: "HyperCoreOracle" },
-  { file: "HyperpoolLiquidityVault.sol/HyperpoolLiquidityVault.json", name: "HyperpoolLiquidityVault" },
 ];
 
 fs.mkdirSync(abiDir, { recursive: true });

@@ -10,8 +10,8 @@ const geistSans = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Hyperpool | HyperEVM DEX",
-  description: "Hyperpool — HyperEVM community DEX. Swap, Liquidity, Points & Cross-chain Bridge",
+  title: "Hyperpool | Managed LP on HyperEVM",
+  description: "Hyperpool — Project X managed LP, daily USDC Cashdrop rewards, and cross-chain deposit via Li.FI",
 };
 
 export const viewport: Viewport = {

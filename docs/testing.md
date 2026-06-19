@@ -4,9 +4,10 @@
 
 | レイヤー | フレームワーク | テスト数（目安） |
 |---------|--------------|----------------|
-| スマートコントラクト | Foundry (Forge) | 28 |
-| フロントエンド単体 | Vitest + Testing Library | 25 |
+| スマートコントラクト | Foundry (Forge) | 34 |
+| フロントエンド単体 | Vitest + Testing Library | 41 |
 | E2E | Playwright | 3 |
+| Testnet on-chain | CLI スクリプト | 下記参照 |
 
 ## 一括実行
 
@@ -15,6 +16,29 @@
 # または
 make test
 ```
+
+## Testnet on-chain E2E
+
+`.env.testnet` に `MAIN_PRIVATE_KEY` を設定後:
+
+```bash
+source scripts/testnet-env.sh
+
+# 一括
+./scripts/testnet-run-all.sh
+
+# 個別
+node scripts/verify-testnet.mjs
+cd frontend && npm run verify:testnet
+node scripts/testnet-vault-smoke.mjs
+DEPLOYMENT_CHAIN=998 SKIP_ORACLE=1 node scripts/keeper-rebalance.mjs
+FEE_WHYPE=0.01 FEE_USDC=0 node scripts/testnet-accrue-fees.mjs
+DEPLOYMENT_CHAIN=998 node scripts/daily-rewards.mjs
+POOL_USDC=0.01 node scripts/testnet-daily-rewards-smoke.mjs
+node scripts/testnet-wallet-actions.mjs
+```
+
+詳細: [本番運用/テストネット運用.md](./本番運用/テストネット運用.md)
 
 ## スマートコントラクト
 
@@ -31,27 +55,19 @@ forge test -vvv
 FOUNDRY_PROFILE=ci forge test
 
 # 特定ファイル
-forge test --match-path test/MerkleAirdropTest.t.sol
-
-# Testnet フォーク（RPC 必要、CI ではスキップ）
-FORK_TEST=true forge test --match-test testFork_HyperEVMTestnet
+forge test --match-path test/HyperpoolVaultTest.t.sol
+forge test --match-path test/HyperpoolTest.t.sol
 ```
 
 ### テストファイル
 
 | ファイル | 対象 |
 |---------|------|
-| `test/ProjectXTest.t.sol` | 統合（swap, LP, points, referral, gas limit） |
+| `test/HyperpoolVaultTest.t.sol` | Vault deposit/withdraw/harvest/rebalance |
+| `test/HyperpoolTest.t.sol` | Adapter + Mock NPM 統合 |
+| `test/TwapTest.t.sol` | Oracle / TWAP |
 | `test/MerkleAirdropTest.t.sol` | Cashdrop claim / revert 系 |
-| `test/ReferralRegistryTest.t.sol` | 紹介コード・ブースト |
-| `test/PoolMathExtendedTest.t.sol` | AMM 数学 |
-
-### プリコンパイル Mock
-
-`ProjectXTest` は 2 方式をサポート:
-
-- デフォルト: `vm.mockCall`
-- `USE_ETCH_MOCKS=true`: `vm.etch` でプリコンパイルアドレスに Mock 注入
+| `test/invariant/HyperpoolInvariant.t.sol` | 不変条件 |
 
 ## フロントエンド
 
@@ -63,13 +79,14 @@ npm run test:watch        # watch モード
 npm run test:coverage     # カバレッジレポート
 npm run typecheck         # tsc --noEmit
 npm run lint              # ESLint
+npm run verify:testnet    # on-chain smoke（要 testnet-env）
 ```
 
 ### テスト配置
 
 ```
 frontend/src/
-├── lib/__tests__/           # utils, merkle, lifi config
+├── lib/__tests__/           # utils, merkle, lifi config, earnings
 ├── app/api/lifi/*/route.test.ts
 └── components/tabs/__tests__/
 ```
@@ -79,29 +96,24 @@ frontend/src/
 ```bash
 cd frontend
 
-# build 済みアプリに対して実行（webServer 自動起動）
 npm run build
 npm run test:e2e
-
-# UI モード
-npm run test:e2e:ui
+npm run test:e2e:ui   # UI モード
 ```
-
-E2E はオンボーディングモーダルを `localStorage` でスキップします（`prjx_onboarding_done=1`）。
 
 ## CI/CD
 
 `.github/workflows/ci.yml` — push / PR で自動実行:
 
-1. **contracts** — build, test, fmt check (`test/`)
+1. **contracts** — build, test, fmt check
 2. **frontend** — lint, typecheck, Vitest, build
 3. **e2e** — Playwright smoke
 4. **sync-abi** — ABI 差分検出
 
-ローカルで CI と同等の確認:
+ローカルで CI と同等:
 
 ```bash
-make ci-local   # test + build + lint（Makefile 参照）
+make ci-local
 ```
 
 ## カバレッジ目標
@@ -110,5 +122,3 @@ Vitest coverage thresholds（`vitest.config.ts`）:
 
 - lines / functions / statements: 15%+
 - branches: 10%+
-
-今後の拡張候補: `useDeFi` hooks、`SwapTab` コンポーネント、Admin パネル。

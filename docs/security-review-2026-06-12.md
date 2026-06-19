@@ -4,14 +4,14 @@
 手法: 4 系統の独立レビュー(コア AMM / インセンティブ系 / 運用・Web 層 / テスト評価)+ Critical/High はソースコードで直接裏取り済み。
 
 > **結論(TL;DR)**: 現状のままメインネットにデプロイしてはいけない。
-> **資金ロックを引き起こす Critical バグが 1 件**(`ProjectXPair.burn`)、**手数料モデルを破壊する High が 1 件**(K チェック)、**ポイント制度を無効化する High が 2 件**(`origin` 偽装・`claimDailyRewards`)を確認した。テストはこれらの欠陥を一切検出できておらず(branch カバレッジ 16%、fuzz/invariant テスト 0 件)、`removeLiquidity` に至っては一度も実行されていない。
+> **資金ロックを引き起こす Critical バグが 1 件**(`HyperpoolPair.burn`)、**手数料モデルを破壊する High が 1 件**(K チェック)、**ポイント制度を無効化する High が 2 件**(`origin` 偽装・`claimDailyRewards`)を確認した。テストはこれらの欠陥を一切検出できておらず(branch カバレッジ 16%、fuzz/invariant テスト 0 件)、`removeLiquidity` に至っては一度も実行されていない。
 
 ---
 
 ## 1. Critical — 即時修正必須
 
 ### C-1. `burn()` が手数料発生後に必ずリバートし、LP 資金がロックされる
-**場所:** `contracts/src/core/ProjectXPair.sol:125-131`
+**場所:** `contracts/src/core/HyperpoolPair.sol:125-131`
 
 ```solidity
 uint256 liquidity = balanceOf(address(this));            // L122: ユーザーが償還する LP
@@ -35,7 +35,7 @@ _burn(address(this), liquidity);
 ## 2. High — リリースブロッカー
 
 ### H-1. K 不変量チェックがスワップ手数料を強制しておらず、LP 手数料(86%)が直接呼び出しで全額バイパス可能
-**場所:** `contracts/src/core/ProjectXPair.sol:185-190`
+**場所:** `contracts/src/core/HyperpoolPair.sol:185-190`
 
 現在のチェックは「生の K が減らない」だけで、Uniswap V2 のような fee 調整済み残高(`balance*1000 - amountIn*3`)での検証がない。プロトコル分(0.30% × 14% ≈ 0.042%)は事前に transfer 済みなので、チェックが実質強制するのはその 0.042% のみ。**Router を経由せず `pair.swap()` を直接呼ぶ MEV ボット/アービトラージャーは LP 手数料 0.258% を 1 円も払わずに取引できる**。「86% は LP へ」という設計が成立しない。
 
@@ -46,13 +46,13 @@ uint256 balance0Adjusted = balance0 * 10_000 - amount0In * SWAP_FEE_BPS;
 uint256 balance1Adjusted = balance1 * 10_000 - amount1In * SWAP_FEE_BPS;
 require(
     balance0Adjusted * balance1Adjusted >= _reserve0 * _reserve1 * 10_000 ** 2,
-    "ProjectXPair: K"
+    "HyperpoolPair: K"
 );
 ```
 ※ `10_000**2` 倍のスケールで乗算オーバーフローの余地が広がるため、リザーブ上限(uint112 相当)導入か `Math.mulDiv` の使用を併せて検討(L-3 参照)。
 
 ### H-2. `swap()` の `origin` 引数が呼び出し側の自由値 → ポイントを任意アドレスに付け替え可能(シビル/ウォッシュ取引)
-**場所:** `ProjectXPair.sol:140, 171, 181` → `PointsDistributor.sol:47-64`
+**場所:** `HyperpoolPair.sol:140, 171, 181` → `PointsDistributor.sol:47-64`
 
 `swap` は誰でも直接呼べ、`origin` がそのまま `recordFeeContribution(pool, origin, totalFee)` に渡る。`PointsDistributor` 側は `user` と実際のトレーダーの一致を検証しない。攻撃者は任意のアドレス(自分のファーム用アドレスや被害者)にポイントを集中でき、H-1 と組み合わせると **約 0.042% のコストでポイントを無制限にファーミングできる**。相互リファラル(A→B, B→A は禁止されていない)で 10% ブースト+15% 紹介ボーナスも上乗せ可能。ポイントがエアドロップ配分の根拠なら、リーダーボードは完全に汚染される。
 
@@ -82,12 +82,12 @@ function claimDailyRewards() external returns (uint256 claimable) {
 ## 3. Medium
 
 ### M-1. `mint()` で `_mintFee` が `_update` の後に呼ばれ、プロトコル手数料が永久に mint されない
-**場所:** `ProjectXPair.sol:110-112`
+**場所:** `HyperpoolPair.sol:110-112`
 `_update` が先に `kLast` を新残高で上書きするため、`_mintFee` 内で常に `rootK <= rootKLast` となり mint されない(`burn()` は正しい順序であり、設計意図に反するバグと判断)。
 **修正:** `burn()` と同様に `_mintFee` → `_mint` → `_update` の順に並べ替え、`_totalSupply` は `_mintFee` 後に再取得する。
 
 ### M-2. プロトコル手数料の二重徴収(直接 14% + `_mintFee` で K 成長の ~1/6)
-**場所:** `ProjectXPair.sol:164-183` と `195-206`
+**場所:** `HyperpoolPair.sol:164-183` と `195-206`
 スワップ毎に 14% を直接 transfer しながら、`_mintFee` でも K 成長(= LP に残した手数料)の約 16.7% を feeCollector に mint しており、86/14 の謳いより LP が希釈される。
 **修正:** どちらか一方に統一する。「スワップ毎 14% 直接徴収」モデルなら `_mintFee`/`kLast` 機構を全削除(C-1, M-1 も同時に消滅し、コードが大幅に単純化される。**推奨**)。
 
@@ -113,7 +113,7 @@ function recoverUnclaimed(address to) external onlyOwner {
 
 ### M-6. `contracts/.gitignore` の `!/broadcast` 否定ルールがルート設定を上書きし、テストネット(将来はメインネット)ブロードキャストがコミット可能
 **場所:** `contracts/.gitignore:7`(`git check-ignore` で 998 のファイルが**無視されていない**ことを確認済み。`scripts/vercel-prepare.sh:33` は `git add -A` を推奨しており、一手でコミットされる)
-**修正:** `contracts/.gitignore` の `!/broadcast` 行を削除し、`git check-ignore contracts/broadcast/DeployProjectX.s.sol/998/run-latest.json` が通ることを確認する。
+**修正:** `contracts/.gitignore` の `!/broadcast` 行を削除し、`git check-ignore contracts/broadcast/DeployHyperpool.s.sol/998/run-latest.json` が通ることを確認する。
 
 ### M-7. Synpress E2E がデプロイヤー本鍵(`MAIN_PRIVATE_KEY`)を MetaMask キャッシュに取り込み、既定パスワードが `Tester@1234`
 **場所:** `frontend/test/wallet-setup/hyperevm-testnet.setup.ts:4,19-26`、`scripts/e2e-synpress-{cache,testnet}.sh:8`
@@ -141,9 +141,9 @@ function recoverUnclaimed(address to) external onlyOwner {
 
 | # | 場所 | 内容 | 修正 |
 |---|------|------|------|
-| L-1 | `ProjectXRouter.sol:53` | `removeLiquidity` に `pair != address(0)` チェックなし | `require(pair != address(0), "PAIR_NOT_EXISTS")` 追加 |
-| L-2 | `ProjectXPair.sol:151-154` | コールバック中に `getReserves()` が古い値を返す read-only reentrancy | TWAP がない旨と「スポットオラクル利用禁止」を明記、または `_update` をコールバック前に移動 |
-| L-3 | `ProjectXPair.sol:188` | リザーブが uint256 無制限で K 乗算がオーバーフローし得る(DoS) | uint112 相当の上限 or `Math.mulDiv` |
+| L-1 | `HyperpoolRouter.sol:53` | `removeLiquidity` に `pair != address(0)` チェックなし | `require(pair != address(0), "PAIR_NOT_EXISTS")` 追加 |
+| L-2 | `HyperpoolPair.sol:151-154` | コールバック中に `getReserves()` が古い値を返す read-only reentrancy | TWAP がない旨と「スポットオラクル利用禁止」を明記、または `_update` をコールバック前に移動 |
+| L-3 | `HyperpoolPair.sol:188` | リザーブが uint256 無制限で K 乗算がオーバーフローし得る(DoS) | uint112 相当の上限 or `Math.mulDiv` |
 | L-4 | `PointsDistributor.sol:82-88` | エポックが 1 回しか進まず境界がドリフト、`epochFeeContribution` がエポック毎にリセットされない | `while` ループ + `epochStart += EPOCH_DURATION`、`mapping(uint256 => mapping(address => uint256))` に変更 |
 | L-5 | `MerkleAirdrop.sol` | ルート更新時に `claimed` が引き継がれ、追加配布で既請求者が永久ブロック。pause 機構なし | ラウンド毎の `mapping(bytes32 => mapping(address => bool))` + `Pausable` 導入 |
 | L-6 | `ReferralRegistry.sol:30-39` | 相互リファラル可、コードの先取り登録(squatting)可 | H-2 修正で実質緩和。相互参照拒否を追加 |

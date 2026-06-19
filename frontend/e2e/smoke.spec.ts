@@ -17,7 +17,7 @@ test.describe("Hyperpool smoke", () => {
   test("can switch between main tabs", async ({ page }) => {
     await page.goto("/");
 
-    const tabs = ["Swap", "Position", "Portfolio", "Cashdrop"];
+    const tabs = ["Dashboard", "Bridge", "Position", "Cashdrop"];
     for (const label of tabs) {
       const tab = page.getByRole("button", { name: new RegExp(label, "i") }).first();
       if (await tab.isVisible()) {
@@ -42,7 +42,7 @@ test.describe("Testnet deployment (998)", () => {
 
   test("all user tabs are reachable", async ({ page }) => {
     await page.goto("/");
-    for (const label of ["Swap", "Position", "Portfolio", "Cashdrop", "Points", "Affiliate"]) {
+    for (const label of ["Dashboard", "Bridge", "Position", "Cashdrop", "Affiliate"]) {
       const tab = page.getByRole("button", { name: new RegExp(label, "i") }).first();
       await expect(tab).toBeVisible();
       await tab.click();
@@ -57,9 +57,9 @@ test.describe("Testnet deployment (998)", () => {
     await expect(page.getByText("Admin Dashboard")).toBeVisible();
   });
 
-  test("swap tab shows token inputs when disconnected", async ({ page }) => {
+  test("deposit tab shows bridge UI when disconnected", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: /swap/i }).first().click();
+    await page.getByRole("button", { name: /bridge/i }).first().click();
     const body = page.locator("main");
     await expect(body).toBeVisible();
     await expect(body).not.toBeEmpty();

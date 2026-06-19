@@ -2,36 +2,37 @@ import type { Address } from "viem";
 import deployment31337 from "./deployments/31337.json";
 import deployment998 from "./deployments/998.json";
 import deployment999 from "./deployments/999.json";
-import ProjectXRouterAbi from "./abis/ProjectXRouter.json";
-import ProjectXFactoryAbi from "./abis/ProjectXFactory.json";
-import ProjectXPairAbi from "./abis/ProjectXPair.json";
+import HyperpoolVaultAbi from "./abis/HyperpoolVault.json";
+import ProjectXAdapterAbi from "./abis/ProjectXAdapter.json";
 import MockERC20Abi from "./abis/MockERC20.json";
-import PointsDistributorAbi from "./abis/PointsDistributor.json";
 import ReferralRegistryAbi from "./abis/ReferralRegistry.json";
 import MerkleAirdropAbi from "./abis/MerkleAirdrop.json";
-import HyperpoolLiquidityVaultAbi from "./abis/HyperpoolLiquidityVault.json";
 
 export type Deployment = {
   chainId: number;
   deployed?: boolean;
-  factory: Address;
-  router: Address;
-  pair: Address;
+  hyperpoolVault?: Address;
+  /** @deprecated alias for hyperpoolVault */
   liquidityVault?: Address;
-  pointsDistributor: Address;
-  referralRegistry: Address;
+  projectXAdapter?: Address;
+  projectXNpm?: Address;
+  projectXPool?: Address;
+  referralRegistry?: Address;
   airdrop: Address;
   oracle?: Address;
   tokenKHYPE: Address;
   tokenUSDC: Address;
-  airdropEntries?: { address: Address; amount: string }[];
+  airdropEntries?: { address: Address; amount: string; minShares?: string }[];
+  vaultShareHolders?: { address: Address; shares: string }[];
+  merkleRoot?: string;
 };
 
 const ZERO = "0x0000000000000000000000000000000000000000" as Address;
 
 function isLive(d: Deployment): boolean {
   if (d.deployed === false) return false;
-  return d.factory !== ZERO && d.router !== ZERO;
+  const vault = d.hyperpoolVault ?? d.liquidityVault;
+  return !!vault && vault !== ZERO;
 }
 
 const DEPLOYMENTS: Record<number, Deployment> = {
@@ -46,15 +47,16 @@ export function getDeployment(chainId: number): Deployment | null {
   return d;
 }
 
+export function getVaultAddress(d: Deployment): Address | undefined {
+  return d.hyperpoolVault ?? d.liquidityVault;
+}
+
 export const abis = {
-  router: ProjectXRouterAbi,
-  factory: ProjectXFactoryAbi,
-  pair: ProjectXPairAbi,
+  vault: HyperpoolVaultAbi,
+  adapter: ProjectXAdapterAbi,
   erc20: MockERC20Abi,
-  points: PointsDistributorAbi,
   referral: ReferralRegistryAbi,
   airdrop: MerkleAirdropAbi,
-  liquidityVault: HyperpoolLiquidityVaultAbi,
 } as const;
 
 export type TokenSymbol = "kHYPE" | "USDC";

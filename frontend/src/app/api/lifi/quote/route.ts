@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Missing required quote parameters" }, { status: 400 });
   }
 
-  const integrator = process.env.LIFI_INTEGRATOR ?? process.env.NEXT_PUBLIC_LIFI_INTEGRATOR ?? "projectx";
+  const integrator = process.env.LIFI_INTEGRATOR ?? process.env.NEXT_PUBLIC_LIFI_INTEGRATOR ?? "hyperpool";
 
   const url = new URL(`${LIFI_BASE}/quote`);
   url.searchParams.set("fromChain", fromChain);

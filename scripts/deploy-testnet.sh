@@ -35,7 +35,7 @@ if [[ -n "${GAS_PRICE:-}" ]]; then
   echo "    Gas price: $GAS_PRICE"
 fi
 
-forge script script/DeployProjectX.s.sol:DeployProjectX "${FORGE_ARGS[@]}"
+forge script script/DeployHyperpool.s.sol:DeployHyperpool "${FORGE_ARGS[@]}"
 
 echo "==> Finalizing deployment JSON after on-chain code verification..."
 node "$ROOT/scripts/finalize-deployment.mjs" 998 "$TESTNET_RPC"

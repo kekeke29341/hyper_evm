@@ -7,6 +7,7 @@ import {MockERC20} from "../src/mocks/MockERC20.sol";
 
 contract MerkleAirdropTest is Test {
     MockERC20 token;
+    MockERC20 vaultShares;
     MerkleAirdrop airdrop;
 
     address alice = makeAddr("alice");
@@ -15,15 +16,20 @@ contract MerkleAirdropTest is Test {
 
     uint256 constant ALICE_AMOUNT = 1000e6;
     uint256 constant BOB_AMOUNT = 500e6;
+    uint256 constant ALICE_MIN_SHARES = 100e6;
 
     function setUp() public {
         token = new MockERC20("USDC", "USDC", 6);
+        vaultShares = new MockERC20("VAULT", "VAULT", 6);
         airdrop = new MerkleAirdrop(address(token));
         token.mint(owner, 10_000e6);
         token.approve(address(airdrop), type(uint256).max);
     }
 
-    function _leaf(address account, uint256 amount) internal pure returns (bytes32) {
+    function _leaf(address account, uint256 amount, uint256 minShares, bool gated) internal pure returns (bytes32) {
+        if (gated) {
+            return keccak256(bytes.concat(keccak256(abi.encode(account, amount, minShares))));
+        }
         return keccak256(bytes.concat(keccak256(abi.encode(account, amount))));
     }
 
@@ -32,8 +38,8 @@ contract MerkleAirdropTest is Test {
     }
 
     function test_ClaimWithValidProof() public {
-        bytes32 leafAlice = _leaf(alice, ALICE_AMOUNT);
-        bytes32 leafBob = _leaf(bob, BOB_AMOUNT);
+        bytes32 leafAlice = _leaf(alice, ALICE_AMOUNT, 0, false);
+        bytes32 leafBob = _leaf(bob, BOB_AMOUNT, 0, false);
         bytes32 root = _root(leafAlice, leafBob);
 
         airdrop.setMerkleRoot(root, block.timestamp + 7 days);
@@ -43,42 +49,70 @@ contract MerkleAirdropTest is Test {
         proof[0] = leafBob;
 
         vm.prank(alice);
-        airdrop.claim(ALICE_AMOUNT, proof);
+        airdrop.claim(ALICE_AMOUNT, 0, proof);
 
         assertEq(token.balanceOf(alice), ALICE_AMOUNT);
         assertTrue(airdrop.claimed(alice));
     }
 
+    function test_ClaimWithVaultShareGate() public {
+        airdrop.setVaultShareToken(address(vaultShares));
+
+        bytes32 leaf = _leaf(alice, ALICE_AMOUNT, ALICE_MIN_SHARES, true);
+        airdrop.setMerkleRoot(leaf, block.timestamp + 7 days);
+        airdrop.fund(ALICE_AMOUNT);
+
+        vaultShares.mint(alice, ALICE_MIN_SHARES);
+
+        bytes32[] memory proof = new bytes32[](0);
+        vm.prank(alice);
+        airdrop.claim(ALICE_AMOUNT, ALICE_MIN_SHARES, proof);
+        assertEq(token.balanceOf(alice), ALICE_AMOUNT);
+    }
+
+    function test_RevertClaimWithoutVaultShares() public {
+        airdrop.setVaultShareToken(address(vaultShares));
+
+        bytes32 leaf = _leaf(alice, ALICE_AMOUNT, ALICE_MIN_SHARES, true);
+        airdrop.setMerkleRoot(leaf, block.timestamp + 7 days);
+        airdrop.fund(ALICE_AMOUNT);
+
+        bytes32[] memory proof = new bytes32[](0);
+        vm.prank(alice);
+        vm.expectRevert("MerkleAirdrop: INSUFFICIENT_SHARES");
+        airdrop.claim(ALICE_AMOUNT, ALICE_MIN_SHARES, proof);
+    }
+
     function test_RevertDoubleClaim() public {
-        bytes32 root = _leaf(alice, ALICE_AMOUNT);
+        bytes32 root = _leaf(alice, ALICE_AMOUNT, 0, false);
         airdrop.setMerkleRoot(root, block.timestamp + 7 days);
         airdrop.fund(ALICE_AMOUNT);
 
         bytes32[] memory proof = new bytes32[](0);
 
         vm.prank(alice);
-        airdrop.claim(ALICE_AMOUNT, proof);
+        airdrop.claim(ALICE_AMOUNT, 0, proof);
 
         vm.prank(alice);
         vm.expectRevert("MerkleAirdrop: ALREADY_CLAIMED");
-        airdrop.claim(ALICE_AMOUNT, proof);
+        airdrop.claim(ALICE_AMOUNT, 0, proof);
     }
 
     function test_RevertInvalidProof() public {
-        bytes32 root = _leaf(alice, ALICE_AMOUNT);
+        bytes32 root = _leaf(alice, ALICE_AMOUNT, 0, false);
         airdrop.setMerkleRoot(root, block.timestamp + 7 days);
         airdrop.fund(ALICE_AMOUNT);
 
         bytes32[] memory proof = new bytes32[](1);
-        proof[0] = _leaf(bob, BOB_AMOUNT);
+        proof[0] = _leaf(bob, BOB_AMOUNT, 0, false);
 
         vm.prank(alice);
         vm.expectRevert("MerkleAirdrop: INVALID_PROOF");
-        airdrop.claim(ALICE_AMOUNT, proof);
+        airdrop.claim(ALICE_AMOUNT, 0, proof);
     }
 
     function test_RevertAfterDeadline() public {
-        bytes32 root = _leaf(alice, ALICE_AMOUNT);
+        bytes32 root = _leaf(alice, ALICE_AMOUNT, 0, false);
         airdrop.setMerkleRoot(root, block.timestamp + 1 days);
         airdrop.fund(ALICE_AMOUNT);
 
@@ -87,7 +121,7 @@ contract MerkleAirdropTest is Test {
         bytes32[] memory proof = new bytes32[](0);
         vm.prank(alice);
         vm.expectRevert("MerkleAirdrop: EXPIRED");
-        airdrop.claim(ALICE_AMOUNT, proof);
+        airdrop.claim(ALICE_AMOUNT, 0, proof);
     }
 
     function test_RevertEmptyRoot() public {
@@ -101,7 +135,7 @@ contract MerkleAirdropTest is Test {
     }
 
     function test_RecoverUnclaimedAfterDeadline() public {
-        bytes32 root = _leaf(alice, ALICE_AMOUNT);
+        bytes32 root = _leaf(alice, ALICE_AMOUNT, 0, false);
         airdrop.setMerkleRoot(root, block.timestamp + 1 days);
         airdrop.fund(ALICE_AMOUNT + 1000e6);
 
@@ -113,7 +147,7 @@ contract MerkleAirdropTest is Test {
     }
 
     function test_RevertRecoverBeforeDeadline() public {
-        bytes32 root = _leaf(alice, ALICE_AMOUNT);
+        bytes32 root = _leaf(alice, ALICE_AMOUNT, 0, false);
         airdrop.setMerkleRoot(root, block.timestamp + 7 days);
         airdrop.fund(ALICE_AMOUNT);
 
@@ -122,21 +156,21 @@ contract MerkleAirdropTest is Test {
     }
 
     function test_NewRootAllowsClaimAfterPreviousRoot() public {
-        bytes32 root1 = _leaf(alice, ALICE_AMOUNT);
+        bytes32 root1 = _leaf(alice, ALICE_AMOUNT, 0, false);
         airdrop.setMerkleRoot(root1, block.timestamp + 7 days);
         airdrop.fund(ALICE_AMOUNT);
 
         bytes32[] memory proof = new bytes32[](0);
         vm.prank(alice);
-        airdrop.claim(ALICE_AMOUNT, proof);
+        airdrop.claim(ALICE_AMOUNT, 0, proof);
         assertTrue(airdrop.claimed(alice));
 
-        bytes32 root2 = _leaf(alice, BOB_AMOUNT);
+        bytes32 root2 = _leaf(alice, BOB_AMOUNT, 0, false);
         airdrop.setMerkleRoot(root2, block.timestamp + 7 days);
         airdrop.fund(BOB_AMOUNT);
 
         vm.prank(alice);
-        airdrop.claim(BOB_AMOUNT, proof);
+        airdrop.claim(BOB_AMOUNT, 0, proof);
         assertEq(token.balanceOf(alice), ALICE_AMOUNT + BOB_AMOUNT);
     }
 }

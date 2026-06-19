@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { CashdropTab } from "@/components/tabs/CashdropTab";
 
 vi.mock("@/lib/store", () => ({
@@ -30,30 +30,18 @@ vi.mock("@/lib/hooks/useDeFi", () => ({
     isPending: false,
     isSuccess: false,
   }),
-  useEpochCountdown: () => ({ formatted: "04h 22m 00s" }),
+  useEpochCountdown: () => ({ formatted: "04h 22m 00s", isClaimWindow: false }),
 }));
 
 describe("CashdropTab", () => {
-  it("renders cashdrop section and epoch countdown", () => {
+  it("renders cashdrop section and claim window countdown", () => {
     render(<CashdropTab />);
-    expect(screen.getByText("points.cashdropSection")).toBeInTheDocument();
+    expect(screen.getByText("cashdrop.title")).toBeInTheDocument();
     expect(screen.getByText("04h 22m 00s")).toBeInTheDocument();
   });
 
   it("shows connect wallet when disconnected and no rewards", () => {
     render(<CashdropTab />);
     expect(screen.getByText("common.connectWallet")).toBeInTheDocument();
-  });
-
-  it("calls navigation callbacks", () => {
-    const onGoToPoints = vi.fn();
-    const onGoToAffiliate = vi.fn();
-    render(<CashdropTab onGoToPoints={onGoToPoints} onGoToAffiliate={onGoToAffiliate} />);
-
-    fireEvent.click(screen.getByText("tabs.points"));
-    fireEvent.click(screen.getByText("tabs.affiliate"));
-
-    expect(onGoToPoints).toHaveBeenCalledOnce();
-    expect(onGoToAffiliate).toHaveBeenCalledOnce();
   });
 });

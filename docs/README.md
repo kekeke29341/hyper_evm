@@ -6,13 +6,14 @@
 
 | フォルダ | 対象 | 内容 |
 |---------|------|------|
-| **[本番運用/](./本番運用/README.md)** | **運営・DevOps** | **Testnet/本番の立ち上げ、Swap に必要な流動性、チェックリスト** |
+| **[本番運用/](./本番運用/README.md)** | **運営・DevOps** | **Testnet E2E、Vault LP、keeper、cron、チェックリスト** |
 
 ## ドキュメント一覧
 
 | ファイル | 対象読者 | 内容 |
 |---------|---------|------|
 | [app-overview.md](./app-overview.md) | **全員（最初に読む）** | **アプリ全体の説明・機能・構成・運用の入口** |
+| [hyperpool-guide.html](./hyperpool-guide.html) | **全員 / 運営** | **HTML 完全ガイド（初心者〜上級者 + 運営引き継ぎ）** |
 | [product-overview.md](./product-overview.md) | **全員（Product）** | **手数料・ポイント・日次収益の更新仕様** |
 | [architecture.md](./architecture.md) | 開発者・アーキテクト | システム全体像、コントラクト役割、データフロー |
 | [development.md](./development.md) | 開発者 | ローカル環境構築、日常開発フロー |

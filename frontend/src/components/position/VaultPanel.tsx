@@ -5,8 +5,6 @@ import { Loader2, Vault, Wallet } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
-type VaultAsset = "kHYPE" | "USDC";
-
 export function VaultPanel({
   khypeBalance,
   usdcBalance,
@@ -31,9 +29,9 @@ export function VaultPanel({
   withdrawing: boolean;
 }) {
   const { t } = useI18n();
-  const [asset, setAsset] = useState<VaultAsset>("USDC");
   const [mode, setMode] = useState<"deposit" | "withdraw">("deposit");
   const [withdrawShares, setWithdrawShares] = useState("");
+  const hasUserPosition = parseFloat(vaultShares) > 0;
 
   return (
     <div className="card-glass rounded-2xl p-4 border border-zinc-800">
@@ -47,7 +45,7 @@ export function VaultPanel({
               : "bg-zinc-800 text-zinc-500 border-zinc-700"
           )}
         >
-          <Vault className="w-3 h-3" /> {hasVault ? t("position.phase3Live") : t("position.phase3")}
+          <Vault className="w-3 h-3" /> {hasVault ? t("position.vaultLive") : t("position.vaultUnavailable")}
         </span>
       </div>
 
@@ -69,33 +67,19 @@ export function VaultPanel({
         ))}
       </div>
 
-      <div className="flex gap-1 mb-3">
-        {(["kHYPE", "USDC"] as const).map((a) => (
-          <button
-            key={a}
-            type="button"
-            onClick={() => setAsset(a)}
-            className={cn(
-              "flex-1 py-1.5 text-xs rounded-lg border transition-colors",
-              asset === a
-                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
-                : "border-zinc-700 text-zinc-500"
-            )}
-          >
-            {a}
-          </button>
-        ))}
-      </div>
-
       <div className="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800 text-xs text-zinc-500 space-y-2">
-        <div className="flex items-center gap-2 text-zinc-400">
-          <Wallet className="w-4 h-4 shrink-0" />
+        <div className="flex items-start gap-2 text-zinc-400">
+          <Wallet className="w-4 h-4 shrink-0 mt-0.5" />
           <span>
             {t("position.walletBalance")}:{" "}
-            {asset === "kHYPE" ? `${khypeBalance} kHYPE` : `${usdcBalance} USDC`}
+            {t("position.walletBalancesBoth")
+              .replace("{hype}", khypeBalance || "0")
+              .replace("{usdc}", usdcBalOrZero(usdcBalance))}
           </span>
         </div>
-        {hasVault ? (
+        {!hasVault ? (
+          <p>{t("position.vaultPhase3Hint")}</p>
+        ) : hasUserPosition ? (
           <div className="grid grid-cols-2 gap-2 pt-1">
             <div>
               <p className="text-zinc-600">{t("position.vaultShares")}</p>
@@ -106,7 +90,7 @@ export function VaultPanel({
               <p className="text-cyan-400 tabular-nums">${vaultValueUsd.toFixed(2)}</p>
             </div>
             <div>
-              <p className="text-zinc-600">kHYPE</p>
+              <p className="text-zinc-600">{t("position.hypeInVault")}</p>
               <p className="text-zinc-300 tabular-nums">{vaultKhype.toFixed(4)}</p>
             </div>
             <div>
@@ -115,11 +99,11 @@ export function VaultPanel({
             </div>
           </div>
         ) : (
-          <p>{t("position.vaultPhase3Hint")}</p>
+          <p className="text-zinc-400">{t("liquidity.noPositions")}</p>
         )}
       </div>
 
-      {mode === "withdraw" && hasVault && (
+      {mode === "withdraw" && hasVault && hasUserPosition && (
         <div className="mt-3">
           <input
             type="text"
@@ -141,21 +125,30 @@ export function VaultPanel({
 
       <button
         type="button"
-        disabled={!hasVault || withdrawing}
+        disabled={
+          !hasVault ||
+          withdrawing ||
+          (mode === "withdraw" && !hasUserPosition)
+        }
         onClick={() => {
           if (mode === "deposit") onDeposit();
           else onWithdraw(withdrawShares || vaultShares);
         }}
         className={cn(
           "mt-3 w-full py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2",
-          hasVault
+          hasVault && !(mode === "withdraw" && !hasUserPosition)
             ? "gradient-btn"
             : "border border-zinc-700 text-zinc-500 cursor-not-allowed"
         )}
       >
         {withdrawing && <Loader2 className="w-4 h-4 animate-spin" />}
-        {mode === "deposit" ? t("position.deposit") : t("position.withdraw")}
+        {mode === "deposit" ? t("position.createPosition") : t("position.withdraw")}
       </button>
     </div>
   );
+}
+
+function usdcBalOrZero(bal: string): string {
+  const n = parseFloat(bal);
+  return Number.isFinite(n) ? bal : "0";
 }

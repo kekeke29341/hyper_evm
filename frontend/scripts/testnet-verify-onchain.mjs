@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * RPC-level testnet smoke (no browser).
- * Usage: source ../scripts/testnet-env.sh && npm run verify:testnet
+ * RPC-level testnet smoke — HyperpoolVault + ProjectXAdapter (no browser).
+ * Usage: source ../../scripts/testnet-env.sh && npm run verify:testnet
  */
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
@@ -12,7 +12,6 @@ import {
   formatEther,
   formatUnits,
   parseAbi,
-  encodeFunctionData,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 
@@ -21,7 +20,7 @@ const ROOT = resolve(__dirname, "../..");
 const RPC = process.env.TESTNET_RPC ?? "https://rpcs.chain.link/hyperevm/testnet";
 const CHAIN_ID = 998;
 
-const pkRaw = process.env.PRIVATE_KEY ?? process.env.MAIN_PRIVATE_KEY ?? process.env.SYNPRESS_PRIVATE_KEY;
+const pkRaw = process.env.PRIVATE_KEY ?? process.env.MAIN_PRIVATE_KEY;
 if (!pkRaw) {
   console.error("Missing PRIVATE_KEY or MAIN_PRIVATE_KEY in env");
   process.exit(1);
@@ -29,15 +28,12 @@ if (!pkRaw) {
 const privateKey = pkRaw.startsWith("0x") ? pkRaw : `0x${pkRaw}`;
 const account = privateKeyToAccount(privateKey);
 
-const deployments = JSON.parse(
-  readFileSync(resolve(ROOT, "contracts/deployments/998.json"), "utf8")
-);
-
-const Router = deployments.router;
-const Pair = deployments.pair;
-const MerkleAirdrop = deployments.airdrop;
-const WHYPE = deployments.tokenKHYPE;
-const USDC = deployments.tokenUSDC;
+const d = JSON.parse(readFileSync(resolve(ROOT, "contracts/deployments/998.json"), "utf8"));
+const Vault = d.hyperpoolVault ?? d.liquidityVault;
+const Adapter = d.projectXAdapter;
+const MerkleAirdrop = d.airdrop;
+const WHYPE = d.tokenKHYPE;
+const USDC = d.tokenUSDC;
 
 const hyperEvmTestnet = {
   id: CHAIN_ID,
@@ -53,10 +49,16 @@ const erc20Abi = parseAbi([
   "function decimals() view returns (uint8)",
 ]);
 
-const pairAbi = parseAbi(["function getReserves() view returns (uint256,uint256)"]);
+const vaultAbi = parseAbi([
+  "function totalAssetsUsdc() view returns (uint256)",
+  "function balanceOf(address) view returns (uint256)",
+  "function totalSupply() view returns (uint256)",
+  "function paused() view returns (bool)",
+]);
 
-const routerAbi = parseAbi([
-  "function getAmountsOut(uint256 amountIn, address[] path) view returns (uint256[])",
+const adapterAbi = parseAbi([
+  "function positionTokenId() view returns (uint256)",
+  "function refPriceUsdc6PerHype18() view returns (uint256)",
 ]);
 
 const merkleAbi = parseAbi([
@@ -84,7 +86,18 @@ async function main() {
   });
   if (block > 0n) ok("RPC reachable", `block ${block}`);
 
-  for (const [name, addr] of Object.entries({ Router, Pair, MerkleAirdrop, WHYPE, USDC })) {
+  for (const [name, addr] of Object.entries({
+    Vault,
+    Adapter,
+    Oracle: d.oracle,
+    MerkleAirdrop,
+    WHYPE,
+    USDC,
+  })) {
+    if (!addr) {
+      fail(`${name} address`, "missing in 998.json");
+      continue;
+    }
     const code = await publicClient.getBytecode({ address: addr }).catch(() => undefined);
     if (code && code !== "0x") ok(`${name} deployed`, addr);
     else fail(`${name} deployed`, addr);
@@ -111,21 +124,47 @@ async function main() {
     ok(`${sym} balance`, formatUnits(bal, dec));
   }
 
-  const reserves = await publicClient.readContract({
-    address: Pair,
-    abi: pairAbi,
-    functionName: "getReserves",
+  const nav = await publicClient.readContract({
+    address: Vault,
+    abi: vaultAbi,
+    functionName: "totalAssetsUsdc",
   });
-  ok("LP reserves", `r0=${reserves[0]} r1=${reserves[1]}`);
+  ok("Vault NAV (totalAssetsUsdc)", `${formatUnits(nav, 6)} USDC`);
 
-  const amountIn = 10n ** 15n;
-  const amounts = await publicClient.readContract({
-    address: Router,
-    abi: routerAbi,
-    functionName: "getAmountsOut",
-    args: [amountIn, [WHYPE, USDC]],
+  const shares = await publicClient.readContract({
+    address: Vault,
+    abi: vaultAbi,
+    functionName: "balanceOf",
+    args: [account.address],
   });
-  ok("Router quote 0.001 WHYPE→USDC", formatUnits(amounts[1], 6));
+  const supply = await publicClient.readContract({
+    address: Vault,
+    abi: vaultAbi,
+    functionName: "totalSupply",
+  });
+  ok("Vault shares (wallet / total)", `${shares} / ${supply}`);
+
+  const paused = await publicClient.readContract({
+    address: Vault,
+    abi: vaultAbi,
+    functionName: "paused",
+  });
+  ok("Vault paused", paused ? "yes" : "no");
+
+  if (Adapter) {
+    const positionId = await publicClient.readContract({
+      address: Adapter,
+      abi: adapterAbi,
+      functionName: "positionTokenId",
+    });
+    const refPrice = await publicClient.readContract({
+      address: Adapter,
+      abi: adapterAbi,
+      functionName: "refPriceUsdc6PerHype18",
+    });
+    ok("Adapter LP position", positionId > 0n ? `tokenId ${positionId}` : "none");
+    ok("Adapter ref price", `${formatUnits(refPrice, 6)} USDC/HYPE`);
+  }
 
   const root = await publicClient.readContract({
     address: MerkleAirdrop,
@@ -139,36 +178,24 @@ async function main() {
     args: [account.address],
   });
   ok("Cashdrop merkle root set", root);
-  ok("Cashdrop claimed (deployer)", claimed ? "yes" : "no — eligible to claim in UI");
+  ok("Cashdrop claimed (wallet)", claimed ? "yes" : "no — eligible in UI");
 
-  const swapData = encodeFunctionData({
-    abi: parseAbi([
-      "function swapExactTokensForTokens(uint256 amountIn,uint256 amountOutMin,address[] path,address to,uint256 deadline) returns (uint256[])",
-    ]),
-    functionName: "swapExactTokensForTokens",
-    args: [amountIn, 0n, [WHYPE, USDC], account.address, BigInt(Math.floor(Date.now() / 1000) + 600)],
+  const airdropUsdc = await publicClient.readContract({
+    address: USDC,
+    abi: erc20Abi,
+    functionName: "balanceOf",
+    args: [MerkleAirdrop],
   });
+  if (d.airdropEntries?.length) {
+    const need = d.airdropEntries.reduce((s, e) => s + BigInt(e.amount), 0n);
+    if (airdropUsdc >= need) ok("Cashdrop funded", `${formatUnits(airdropUsdc, 6)} USDC`);
+    else ok("Cashdrop funded", `⚠ ${formatUnits(airdropUsdc, 6)} / ${formatUnits(need, 6)} USDC — run testnet-fund-airdrop.mjs`);
+  }
 
-  try {
-    await publicClient.call({
-      account: account.address,
-      to: Router,
-      data: swapData,
-    });
-    ok("Swap simulation (eth_call)", "would succeed for 0.001 WHYPE");
-  } catch (e) {
-    const whypeBal = await publicClient.readContract({
-      address: WHYPE,
-      abi: erc20Abi,
-      functionName: "balanceOf",
-      args: [account.address],
-    });
-    if (whypeBal === 0n) {
-      ok("Swap simulation (eth_call)", "skipped — wallet has 0 WHYPE (fund or wrap HYPE first)");
-    } else {
-      // eth_call omits prior approve — quote above confirms router path is live
-      ok("Swap simulation (eth_call)", "skipped — needs approve (router quote OK)");
-    }
+  if (shares > 0n) {
+    ok("Withdraw ready", "wallet holds vault shares");
+  } else {
+    ok("Withdraw ready", "no shares — deposit via UI or testnet-post-deploy.mjs");
   }
 
   console.log("\nDone.");

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useI18n } from "@/lib/i18n";
+import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
 
 function useLiveStat(base: number, variance: number, intervalMs = 3000) {
   const [value, setValue] = useState(base);
@@ -27,6 +28,7 @@ function formatCount(n: number) {
 
 export function SocialProofBar() {
   const { t } = useI18n();
+  const chainId = useEffectiveChainId();
   const tvl = useLiveStat(24_600_000, 50_000);
   const volume = useLiveStat(8_200_000, 30_000);
   const users = useLiveStat(12_450, 8);
@@ -36,6 +38,8 @@ export function SocialProofBar() {
     { label: t("socialProof.volume"), value: formatUsd(volume), color: "text-cyan-400" },
     { label: t("socialProof.users"), value: formatCount(users), color: "text-violet-400" },
   ];
+
+  if (chainId !== 31337) return null;
 
   return (
     <motion.div

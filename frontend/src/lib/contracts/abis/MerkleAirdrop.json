@@ -20,6 +20,11 @@
         "internalType": "uint256"
       },
       {
+        "name": "minShares",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
         "name": "proof",
         "type": "bytes32[]",
         "internalType": "bytes32[]"
@@ -196,6 +201,19 @@
   },
   {
     "type": "function",
+    "name": "setVaultShareToken",
+    "inputs": [
+      {
+        "name": "_vaultShareToken",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "transferOwnership",
     "inputs": [
       {
@@ -213,6 +231,19 @@
     "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "vaultShareToken",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IERC20"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "event",
@@ -292,6 +323,19 @@
         "name": "account",
         "type": "address",
         "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "VaultShareTokenUpdated",
+    "inputs": [
+      {
+        "name": "vaultShareToken",
+        "type": "address",
+        "indexed": true,
         "internalType": "address"
       }
     ],

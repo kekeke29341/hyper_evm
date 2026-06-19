@@ -7,6 +7,7 @@ import { TAB_IDS, type TabId } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { useApp } from "@/lib/store";
 import { useI18n } from "@/lib/i18n";
+import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
 import { ADMIN_ENABLED } from "@/lib/config";
 import { NetworkSelector } from "@/components/layout/NetworkSelector";
 import { SettingsModal } from "@/components/layout/SettingsModal";
@@ -50,6 +51,7 @@ export function Header({
 }) {
   const { displayAddress, isConnected, openWalletModal } = useApp();
   const { locale, setLocale, t } = useI18n();
+  const chainId = useEffectiveChainId();
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
@@ -68,14 +70,16 @@ export function Header({
             </div>
           </div>
 
-          <div className="hidden md:flex items-center gap-1.5 shrink-0">
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-              {t("header.phase2")}
-            </span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-500 border border-zinc-700 flex items-center gap-1">
-              <Lock className="w-3 h-3" /> {t("header.phase3")}
-            </span>
-          </div>
+          {chainId !== 998 && (
+            <div className="hidden md:flex items-center gap-1.5 shrink-0">
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                {t("header.phase2")}
+              </span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-500 border border-zinc-700 flex items-center gap-1">
+                <Lock className="w-3 h-3" /> {t("header.phase3")}
+              </span>
+            </div>
+          )}
 
           <nav
             className="hidden md:flex flex-1 overflow-x-auto scrollbar-thin flex gap-0.5 min-w-0"

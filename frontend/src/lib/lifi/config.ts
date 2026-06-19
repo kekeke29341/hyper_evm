@@ -22,8 +22,49 @@ export const BRIDGE_CHAINS: BridgeChainConfig[] = [
   { id: "arbitrum", label: "Arbitrum", lifiChainId: 42161, walletChainIds: [42161], isEvm: true },
   { id: "base", label: "Base", lifiChainId: 8453, walletChainIds: [8453], isEvm: true },
   { id: "polygon", label: "Polygon", lifiChainId: 137, walletChainIds: [137], isEvm: true },
-  { id: "solana", label: "Solana", lifiChainId: 1151111081099710, walletChainIds: [], isEvm: false },
 ];
+
+/** EVM chains available in swap/bridge UI (Solana excluded — not supported by wagmi Li.FI flow). */
+export const EVM_BRIDGE_CHAINS = BRIDGE_CHAINS.filter((c) => c.isEvm);
+
+export type SwapToken = "kHYPE" | "USDC" | "ETH" | "WETH" | "WBTC" | "DAI" | "USDT";
+
+const SWAP_TOKENS_BY_CHAIN: Record<string, SwapToken[]> = {
+  hyperevm: ["kHYPE", "USDC"],
+  ethereum: ["ETH", "USDC", "WETH", "WBTC", "DAI", "USDT"],
+  arbitrum: ["ETH", "USDC", "WETH", "WBTC", "DAI", "USDT"],
+  base: ["ETH", "USDC", "WETH", "DAI"],
+  polygon: ["ETH", "USDC", "WETH", "DAI", "USDT"],
+};
+
+export function getSwapTokensForChain(chainUiId: string): SwapToken[] {
+  return SWAP_TOKENS_BY_CHAIN[chainUiId] ?? ["USDC"];
+}
+
+export function pickDefaultSwapToken(chainUiId: string, exclude?: SwapToken): SwapToken {
+  const options = getSwapTokensForChain(chainUiId).filter((t) => t !== exclude);
+  return options[0] ?? "USDC";
+}
+
+export function cycleSwapToken(
+  current: SwapToken,
+  chainUiId: string,
+  exclude?: SwapToken
+): SwapToken {
+  const options = getSwapTokensForChain(chainUiId).filter((t) => t !== exclude);
+  if (options.length === 0) return "USDC";
+  const idx = options.indexOf(current);
+  return options[(idx + 1) % options.length];
+}
+
+export function isHyperEvmChain(chainUiId: string): boolean {
+  return chainUiId === "hyperevm";
+}
+
+/** Tokens that map to on-chain deployment balances (kHYPE/USDC on HyperEVM). */
+export function isDeploymentSwapToken(token: SwapToken): token is "kHYPE" | "USDC" {
+  return token === "kHYPE" || token === "USDC";
+}
 
 /** @deprecated use BRIDGE_CHAINS */
 export const CHAINS = BRIDGE_CHAINS.filter((c) => c.isEvm || c.id === "solana").map((c) => ({
@@ -85,7 +126,7 @@ export function isEvmBridgeRoute(fromChainId: string, toChainId: string): boolea
 
 export function hyperEvmLifiNotice(walletChainId: number): string | null {
   if (walletChainId === 998) {
-    return "Li.FI routes HyperEVM via mainnet (chain 999). Testnet (998) uses Hyperpool DEX for same-chain swaps.";
+    return "Li.FI routes HyperEVM via mainnet (chain 999). Use mainnet for bridge deposits.";
   }
   return null;
 }

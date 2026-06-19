@@ -17,10 +17,27 @@ describe("merkle", () => {
     expect(makeLeaf(ALICE, BigInt(1000))).toBe(leaf);
   });
 
+  it("makeLeaf supports gated format with minShares", () => {
+    const leaf = makeLeaf(ALICE, BigInt(1000), BigInt(500), true);
+    expect(leaf).toMatch(/^0x[a-f0-9]{64}$/);
+    expect(makeLeaf(ALICE, BigInt(1000), BigInt(500), true)).toBe(leaf);
+    expect(makeLeaf(ALICE, BigInt(1000), BigInt(0), false)).not.toBe(leaf);
+  });
+
   it("buildMerkleRoot matches OpenZeppelin double-hash format", () => {
     const root = buildMerkleRoot(entries);
     expect(root).toMatch(/^0x[a-f0-9]{64}$/);
     expect(buildMerkleRoot(entries)).toBe(root);
+  });
+
+  it("getMerkleProof returns minShares for gated tree", () => {
+    const gatedEntries = [
+      { address: ALICE, amount: BigInt(1000), minShares: BigInt(100) },
+      { address: BOB, amount: BigInt(500), minShares: BigInt(50) },
+    ];
+    const result = getMerkleProof(gatedEntries, ALICE, true);
+    expect(result).not.toBeNull();
+    expect(result!.minShares).toBe(BigInt(100));
   });
 
   it("getMerkleProof returns valid proof for member", () => {

@@ -62,11 +62,11 @@ test.describe("Wallet mock (injected)", () => {
     const modal = page.locator(".fixed.card-glass").filter({ hasText: "Connect Wallet" });
     await expect(modal).toBeVisible();
 
-    const metaMask = modal.getByRole("button", { name: /MetaMask/i });
+    const metaMask = modal.getByRole("button", { name: /^MetaMask/i }).first();
     await expect(metaMask).toBeVisible();
     await expect(metaMask).toContainText("MetaMask");
 
-    await expect(modal.getByRole("button", { name: /Browser Wallet/i })).toBeEnabled();
+    await expect(modal.getByRole("button", { name: /^Browser Wallet/i }).first()).toBeEnabled();
   });
 
   test("can select HyperEVM Testnet in wallet modal", async ({ context, page }) => {

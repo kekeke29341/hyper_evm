@@ -40,7 +40,7 @@ describe("GET /api/lifi/quote", () => {
     const calledUrl = (fetch as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
     expect(calledUrl).toContain("li.quest/v1/quote");
     expect(calledUrl).toContain("fee=0");
-    expect(calledUrl).toContain("integrator=projectx");
+    expect(calledUrl).toContain("integrator=hyperpool");
   });
 
   it("returns upstream error status", async () => {

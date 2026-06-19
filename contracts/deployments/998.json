@@ -1,22 +1,27 @@
 {
   "chainId": 998,
   "deployed": true,
-  "feeCollector": "0x7b6a9f9f8093ec11cf82cea4c4910fadc1c1eb3f",
-  "referralRegistry": "0x9a02f75bb1d6be9c88a30665f74c1478ce9c78d7",
-  "pointsDistributor": "0x3610f1d52efcd8250f0725b1c383866ea8e6f59d",
-  "oracle": "0x97508cd97243ae34a755cdbe970e8376e4548335",
-  "factory": "0x03217c77e905dcce74746163dd7e8ab6365287c3",
-  "router": "0xff772d424427396785131ac36fdd74b0a1038d0c",
-  "airdrop": "0x4d23645c54a8de81372ce37f6aa2cae0f6a8a44a",
-  "pair": "0x5b78443bacdf6d53b19a9bd5fc4db1f0239797e0",
-  "liquidityVault": "0xe66b5a845760bdc6b6fe2af768d5bf54b0c58866",
+  "hyperpoolVault": "0xebbe06612b584de0e0e7897afdbcfc2c3f069b34",
+  "liquidityVault": "0xebbe06612b584de0e0e7897afdbcfc2c3f069b34",
+  "oracle": "0xa3f52f8288ae7cadf1c794d03e8245b4bf5499a8",
+  "projectXAdapter": "0x3e77660ff881d56f8b592c29bd4de655b40373de",
+  "airdrop": "0x9447ebb20e9724c4bf64501f9e3652246d783178",
+  "projectXNpm": "0xb62965c1a4dc5f2386fbc0e5719d41ab85daaa87",
+  "referralRegistry": "0xbb6de80ae861f69f600f82f0e4827d5ccbc95665",
   "tokenKHYPE": "0x5555555555555555555555555555555555555555",
   "tokenUSDC": "0x2B3370eE501B4a559b57D449569354196457D8Ab",
+  "vaultShareHolders": [
+    {
+      "address": "0x0196f2949fbce973d54d2047e3b8bfade06e8cec",
+      "shares": "9000"
+    }
+  ],
   "airdropEntries": [
     {
       "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
-      "amount": "100000000"
+      "amount": "5000",
+      "minShares": "9000"
     }
   ],
-  "merkleRoot": "0x14266be6f050f137db2c4534cbe89d35196eb77c4a6af8519694d1da541cdc3b"
+  "merkleRoot": "0x2f13d37a03e73ae80d5a0d6910fb09eec3426ae576c1cb53f61911c15dbc94f0"
 }

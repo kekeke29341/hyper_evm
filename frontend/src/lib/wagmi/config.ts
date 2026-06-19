@@ -81,7 +81,7 @@ const connectors = [
           showQrModal: true,
           metadata: {
             name: "Hyperpool",
-            description: "HyperEVM DEX — Swap, Liquidity & Points",
+            description: "HyperEVM managed LP — Vault deposits & USDC Cashdrop",
             url: dappUrl,
             icons: [`${dappUrl}/favicon.ico`],
           },

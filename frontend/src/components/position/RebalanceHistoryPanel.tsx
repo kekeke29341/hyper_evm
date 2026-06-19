@@ -2,6 +2,7 @@
 
 import { useI18n } from "@/lib/i18n";
 import type { RebalanceEvent } from "@/lib/liquidity/history";
+import { cn } from "@/lib/utils";
 
 function formatRelative(ts: number): string {
   const diff = Date.now() - ts;
@@ -11,11 +12,17 @@ function formatRelative(ts: number): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-export function RebalanceHistoryPanel({ events }: { events: RebalanceEvent[] }) {
+export function RebalanceHistoryPanel({
+  events,
+  className,
+}: {
+  events: RebalanceEvent[];
+  className?: string;
+}) {
   const { t } = useI18n();
 
   return (
-    <div className="card-glass rounded-2xl p-4 border border-zinc-800">
+    <div className={cn("card-glass rounded-2xl p-4 border border-zinc-800", className)}>
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-white">{t("position.rebalanceHistory")}</h3>
         <span className="text-[10px] text-zinc-500">{events.length} {t("position.events")}</span>

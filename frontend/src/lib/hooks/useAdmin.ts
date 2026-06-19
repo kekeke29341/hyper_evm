@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { useConnection, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { type Address, parseUnits } from "viem";
-import { abis, getDeployment } from "@/lib/contracts";
+import { abis, getDeployment, getVaultAddress } from "@/lib/contracts";
 import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
 import MerkleAirdropAbi from "@/lib/contracts/abis/MerkleAirdrop.json";
 import ownableAbi from "@/lib/contracts/ownableAbi.json";
@@ -13,165 +13,111 @@ export function useAdminAuth() {
   const { address, isConnected } = useConnection();
   const chainId = useEffectiveChainId();
   const deployment = getDeployment(chainId);
-
-  const { data: pointsOwner } = useReadContract({
-    address: deployment?.pointsDistributor,
-    abi: ownableAbi,
-    functionName: "owner",
-    query: { enabled: !!deployment },
-  });
+  const vaultAddress = deployment ? getVaultAddress(deployment) : undefined;
 
   const { data: airdropOwner } = useReadContract({
     address: deployment?.airdrop,
     abi: ownableAbi,
     functionName: "owner",
-    query: { enabled: !!deployment },
-  });
-
-  const { data: feeToSetter } = useReadContract({
-    address: deployment?.factory,
-    abi: abis.factory,
-    functionName: "feeToSetter",
-    query: { enabled: !!deployment },
+    query: { enabled: !!deployment?.airdrop },
   });
 
   const { data: vaultOwner } = useReadContract({
-    address: deployment?.liquidityVault,
+    address: vaultAddress,
     abi: ownableAbi,
     functionName: "owner",
-    query: { enabled: !!deployment?.liquidityVault },
+    query: { enabled: !!vaultAddress },
   });
 
   const roles = useMemo(() => {
-    if (!address) return { isAdmin: false, isPointsOwner: false, isAirdropOwner: false, isFactoryAdmin: false, isVaultOwner: false };
+    if (!address) {
+      return { isAdmin: false, isAirdropOwner: false, isVaultOwner: false };
+    }
     const a = address.toLowerCase();
-    const isPointsOwner = pointsOwner ? (pointsOwner as string).toLowerCase() === a : false;
     const isAirdropOwner = airdropOwner ? (airdropOwner as string).toLowerCase() === a : false;
-    const isFactoryAdmin = feeToSetter ? (feeToSetter as string).toLowerCase() === a : false;
     const isVaultOwner = vaultOwner ? (vaultOwner as string).toLowerCase() === a : false;
     return {
-      isAdmin: isPointsOwner || isAirdropOwner || isFactoryAdmin || isVaultOwner,
-      isPointsOwner,
+      isAdmin: isAirdropOwner || isVaultOwner,
       isAirdropOwner,
-      isFactoryAdmin,
       isVaultOwner,
     };
-  }, [address, pointsOwner, airdropOwner, feeToSetter, vaultOwner]);
+  }, [address, airdropOwner, vaultOwner]);
 
-  return { ...roles, isConnected, address, deployment, pointsOwner, airdropOwner, feeToSetter };
+  return { ...roles, isConnected, address, deployment, vaultAddress, airdropOwner, vaultOwner };
 }
 
 export function useAdminAnalytics() {
   const chainId = useEffectiveChainId();
   const deployment = getDeployment(chainId);
-
-  const { data: reserves } = useReadContract({
-    address: deployment?.pair,
-    abi: abis.pair,
-    functionName: "getReserves",
-    query: { enabled: !!deployment, refetchInterval: 10_000 },
-  });
-
-  const { data: pairsLen } = useReadContract({
-    address: deployment?.factory,
-    abi: abis.factory,
-    functionName: "allPairsLength",
-    query: { enabled: !!deployment },
-  });
-
-  const { data: currentEpoch } = useReadContract({
-    address: deployment?.pointsDistributor,
-    abi: abis.points,
-    functionName: "currentEpoch",
-    query: { enabled: !!deployment },
-  });
-
-  const { data: totalDistributed } = useReadContract({
-    address: deployment?.pointsDistributor,
-    abi: abis.points,
-    functionName: "totalPointsDistributed",
-    query: { enabled: !!deployment },
-  });
-
-  const { data: epochFees } = useReadContract({
-    address: deployment?.pointsDistributor,
-    abi: abis.points,
-    functionName: "epochTotalFees",
-    args: currentEpoch !== undefined ? [currentEpoch] : undefined,
-    query: { enabled: !!deployment && currentEpoch !== undefined },
-  });
-
-  const { data: timeLeft } = useReadContract({
-    address: deployment?.pointsDistributor,
-    abi: abis.points,
-    functionName: "timeUntilNextEpoch",
-    query: { enabled: !!deployment, refetchInterval: 5_000 },
-  });
+  const vaultAddress = deployment ? getVaultAddress(deployment) : undefined;
 
   const { data: airdropBalance } = useReadContract({
     address: deployment?.tokenUSDC,
     abi: abis.erc20,
     functionName: "balanceOf",
     args: deployment?.airdrop ? [deployment.airdrop] : undefined,
-    query: { enabled: !!deployment },
+    query: { enabled: !!deployment?.airdrop },
   });
 
-  const { data: lpSupply } = useReadContract({
-    address: deployment?.pair,
-    abi: abis.erc20,
+  const { data: vaultSupply } = useReadContract({
+    address: vaultAddress,
+    abi: abis.vault,
     functionName: "totalSupply",
-    query: { enabled: !!deployment, refetchInterval: 10_000 },
+    query: { enabled: !!vaultAddress, refetchInterval: 10_000 },
   });
 
-  const { data: trustedRouter } = useReadContract({
-    address: deployment?.factory,
-    abi: abis.factory,
-    functionName: "trustedRouter",
-    query: { enabled: !!deployment },
+  const { data: vaultAssets } = useReadContract({
+    address: vaultAddress,
+    abi: abis.vault,
+    functionName: "totalAssetsUsdc",
+    query: { enabled: !!vaultAddress, refetchInterval: 10_000 },
   });
 
-  const { data: vaultPaused } = useReadContract({
-    address: deployment?.liquidityVault,
-    abi: abis.liquidityVault,
-    functionName: "paused",
-    query: { enabled: !!deployment?.liquidityVault },
+  const { data: pendingUserRewards } = useReadContract({
+    address: vaultAddress,
+    abi: abis.vault,
+    functionName: "pendingUserRewards",
+    query: { enabled: !!vaultAddress, refetchInterval: 10_000 },
+  });
+
+  const { data: operatorWallet } = useReadContract({
+    address: vaultAddress,
+    abi: abis.vault,
+    functionName: "operatorWallet",
+    query: { enabled: !!vaultAddress },
+  });
+
+  const { data: operatorFeeBps } = useReadContract({
+    address: vaultAddress,
+    abi: abis.vault,
+    functionName: "operatorFeeBps",
+    query: { enabled: !!vaultAddress },
   });
 
   const { data: vaultKeeper } = useReadContract({
-    address: deployment?.liquidityVault,
-    abi: abis.liquidityVault,
+    address: vaultAddress,
+    abi: abis.vault,
     functionName: "keeper",
-    query: { enabled: !!deployment?.liquidityVault },
-  });
-
-  const { data: vaultManagedLp } = useReadContract({
-    address: deployment?.liquidityVault,
-    abi: abis.liquidityVault,
-    functionName: "totalManagedLp",
-    query: { enabled: !!deployment?.liquidityVault, refetchInterval: 10_000 },
+    query: { enabled: !!vaultAddress },
   });
 
   const { data: airdropPaused } = useReadContract({
     address: deployment?.airdrop,
     abi: MerkleAirdropAbi,
     functionName: "paused",
-    query: { enabled: !!deployment },
+    query: { enabled: !!deployment?.airdrop },
   });
 
   return {
     deployment,
-    reserves,
-    pairsLen,
-    currentEpoch,
-    totalDistributed,
-    epochFees,
-    timeLeft,
+    vaultAddress,
     airdropBalance,
-    lpSupply,
-    trustedRouter,
-    vaultPaused,
+    vaultSupply,
+    vaultAssets,
+    pendingUserRewards,
+    operatorWallet,
+    operatorFeeBps,
     vaultKeeper,
-    vaultManagedLp,
     airdropPaused,
   };
 }
@@ -179,48 +125,9 @@ export function useAdminAnalytics() {
 export function useAdminActions() {
   const chainId = useEffectiveChainId();
   const deployment = getDeployment(chainId);
+  const vaultAddress = deployment ? getVaultAddress(deployment) : undefined;
   const { writeContractAsync, data: hash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
-
-  const createPair = async (tokenA: Address, tokenB: Address) => {
-    if (!deployment) throw new Error("No deployment");
-    await writeContractAsync({
-      address: deployment.factory,
-      abi: abis.factory,
-      functionName: "createPair",
-      args: [tokenA, tokenB],
-    });
-  };
-
-  const authorizePool = async (pool: Address) => {
-    if (!deployment) throw new Error("No deployment");
-    await writeContractAsync({
-      address: deployment.pointsDistributor,
-      abi: abis.points,
-      functionName: "authorizePool",
-      args: [pool],
-    });
-  };
-
-  const deauthorizePool = async (pool: Address) => {
-    if (!deployment) throw new Error("No deployment");
-    await writeContractAsync({
-      address: deployment.pointsDistributor,
-      abi: abis.points,
-      functionName: "deauthorizePool",
-      args: [pool],
-    });
-  };
-
-  const syncPairs = async (start: number, end: number) => {
-    if (!deployment) throw new Error("No deployment");
-    await writeContractAsync({
-      address: deployment.factory,
-      abi: abis.factory,
-      functionName: "syncPairs",
-      args: [BigInt(start), BigInt(end)],
-    });
-  };
 
   const setMerkleRoot = async (root: `0x${string}`, deadline: bigint) => {
     if (!deployment) throw new Error("No deployment");
@@ -277,81 +184,43 @@ export function useAdminActions() {
     });
   };
 
-  const setFeeCollector = async (addr: Address) => {
-    if (!deployment) throw new Error("No deployment");
-    await writeContractAsync({
-      address: deployment.factory,
-      abi: abis.factory,
-      functionName: "setFeeCollector",
-      args: [addr],
-    });
-  };
-
-  const setPointsDistributorOnFactory = async (addr: Address) => {
-    if (!deployment) throw new Error("No deployment");
-    await writeContractAsync({
-      address: deployment.factory,
-      abi: abis.factory,
-      functionName: "setPointsDistributor",
-      args: [addr],
-    });
-  };
-
-  const setTrustedRouter = async (addr: Address) => {
-    if (!deployment) throw new Error("No deployment");
-    await writeContractAsync({
-      address: deployment.factory,
-      abi: abis.factory,
-      functionName: "setTrustedRouter",
-      args: [addr],
-    });
-  };
-
-  const setFeeToSetter = async (addr: Address) => {
-    if (!deployment) throw new Error("No deployment");
-    await writeContractAsync({
-      address: deployment.factory,
-      abi: abis.factory,
-      functionName: "setFeeToSetter",
-      args: [addr],
-    });
-  };
-
-  const pauseVault = async () => {
-    if (!deployment?.liquidityVault) throw new Error("No vault");
-    await writeContractAsync({
-      address: deployment.liquidityVault,
-      abi: abis.liquidityVault,
-      functionName: "pause",
-    });
-  };
-
-  const unpauseVault = async () => {
-    if (!deployment?.liquidityVault) throw new Error("No vault");
-    await writeContractAsync({
-      address: deployment.liquidityVault,
-      abi: abis.liquidityVault,
-      functionName: "unpause",
-    });
-  };
-
   const setVaultKeeper = async (keeper: Address) => {
-    if (!deployment?.liquidityVault) throw new Error("No vault");
+    if (!vaultAddress) throw new Error("No vault");
     await writeContractAsync({
-      address: deployment.liquidityVault,
-      abi: abis.liquidityVault,
+      address: vaultAddress,
+      abi: abis.vault,
       functionName: "setKeeper",
       args: [keeper],
     });
   };
 
-  const setVaultTargetRange = async (bps: number) => {
-    if (!deployment?.liquidityVault) throw new Error("No vault");
+  const setOperatorWallet = async (wallet: Address) => {
+    if (!vaultAddress) throw new Error("No vault");
     await writeContractAsync({
-      address: deployment.liquidityVault,
-      abi: abis.liquidityVault,
-      functionName: "setTargetRangeBps",
-      args: [BigInt(bps)],
+      address: vaultAddress,
+      abi: abis.vault,
+      functionName: "setOperatorWallet",
+      args: [wallet],
+    });
+  };
+
+  const pullPendingRewards = async (to: Address, amountUsdc: string) => {
+    if (!vaultAddress) throw new Error("No vault");
+    const amount = parseUnits(amountUsdc, 6);
+    await writeContractAsync({
+      address: vaultAddress,
+      abi: abis.vault,
+      functionName: "pullPendingRewards",
+      args: [to, amount],
+    });
+  };
+
+  const harvestFees = async () => {
+    if (!vaultAddress) throw new Error("No vault");
+    await writeContractAsync({
+      address: vaultAddress,
+      abi: abis.vault,
+      functionName: "harvestFees",
     });
   };
 
@@ -364,23 +233,15 @@ export function useAdminActions() {
   };
 
   return {
-    createPair,
-    authorizePool,
-    deauthorizePool,
-    syncPairs,
     setMerkleRoot,
     fundAirdrop,
     pauseAirdrop,
     unpauseAirdrop,
     recoverAirdrop,
-    setFeeCollector,
-    setPointsDistributorOnFactory,
-    setTrustedRouter,
-    setFeeToSetter,
-    pauseVault,
-    unpauseVault,
     setVaultKeeper,
-    setVaultTargetRange,
+    setOperatorWallet,
+    pullPendingRewards,
+    harvestFees,
     generateAndSetRoot,
     isPending: isPending || isConfirming,
     isSuccess,

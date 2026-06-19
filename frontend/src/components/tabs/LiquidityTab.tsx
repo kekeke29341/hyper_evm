@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Plus, Droplets } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { useI18n } from "@/lib/i18n";
-import { POOLS } from "@/lib/constants";
+import { POOLS, PROJECT_X_POOL } from "@/lib/constants";
 import { VaultPanel } from "@/components/position/VaultPanel";
 import { RebalanceHistoryPanel } from "@/components/position/RebalanceHistoryPanel";
 import { ActivePositionPanel } from "@/components/position/ActivePositionPanel";
@@ -15,13 +15,13 @@ import {
   useDeployment,
   useLpBalance,
   usePoolStats,
-  useRemoveLiquidity,
   useTokenBalance,
   useVaultBalance,
   useVaultStats,
   useVaultWithdraw,
   useZapLiquidity,
 } from "@/lib/hooks/useDeFi";
+import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
 
 const RANGE_STORAGE_KEY = "hyperpool_position_range";
 
@@ -42,6 +42,7 @@ function storeRange(lower: number, upper: number, widthPct: number) {
 export function LiquidityTab() {
   const { isConnected, showToast, openWalletModal } = useApp();
   const { t } = useI18n();
+  const chainId = useEffectiveChainId();
   const deployment = useDeployment();
   const pool = usePoolStats();
   const khypeBal = useTokenBalance("kHYPE");
@@ -51,20 +52,28 @@ export function LiquidityTab() {
   const vaultBalance = useVaultBalance();
   const { withdraw: withdrawVault, isPending: withdrawingVault, isSuccess: withdrawVaultSuccess } = useVaultWithdraw();
   const { zap, isPending: zapping, isSuccess: zapSuccess } = useZapLiquidity();
-  const { removeLiquidity, isPending: removing, isSuccess: removeSuccess } = useRemoveLiquidity();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createMode, setCreateMode] = useState<"create" | "add">("create");
   const [history, setHistory] = useState<RebalanceEvent[]>([]);
 
   const price = poolPriceUsdcPerKhype(pool.reserveKhype, pool.reserveUsdc);
-  const defaultRange = rangeBounds(price, 3);
+  const defaultRange = rangeBounds(price, PROJECT_X_POOL.upperRangePct, PROJECT_X_POOL.lowerRangePct);
   const storedRange = readStoredRange();
   const rangeLower = storedRange?.lower ?? defaultRange.lower;
   const rangeUpper = storedRange?.upper ?? defaultRange.upper;
   const rangeWidthPct = storedRange?.widthPct ?? defaultRange.widthPct;
-  const livePool = POOLS.find((p) => p.live);
-  const poolApr = livePool?.aprNum ?? 124.5;
+  const poolApr = PROJECT_X_POOL.referenceAprNum;
+  const useLiveVaultMetrics = chainId === 998 || chainId === 999;
+  const displayTvl =
+    useLiveVaultMetrics && vaultStats.totalAssetsUsdc > 0
+      ? `$${Math.round(vaultStats.totalAssetsUsdc).toLocaleString()}`
+      : pool.reserveUsdc > 0
+        ? `$${(pool.reserveUsdc * 2).toFixed(0)}`
+        : "—";
+  const displayVolume = useLiveVaultMetrics ? "—" : PROJECT_X_POOL.volume24h;
+  const displayReferenceApr =
+    useLiveVaultMetrics && !vaultStats.hasVault ? "—" : PROJECT_X_POOL.referenceApr;
 
   useEffect(() => {
     setHistory(readRebalanceHistory());
@@ -80,13 +89,6 @@ export function LiquidityTab() {
       vaultBalance.refetch();
     }
   }, [zapSuccess, showToast, t, refetchLp, khypeBal, usdcBal, vaultStats, vaultBalance]);
-
-  useEffect(() => {
-    if (removeSuccess) {
-      showToast(t("liquidity.removeSuccess"));
-      refetchLp();
-    }
-  }, [removeSuccess, showToast, t, refetchLp]);
 
   useEffect(() => {
     if (withdrawVaultSuccess) {
@@ -111,13 +113,8 @@ export function LiquidityTab() {
     setCreateOpen(true);
   };
 
-  const handleZap = async (source: "kHYPE" | "USDC", amount: string, widthPct: number) => {
-    const half = widthPct / 2;
-    const bounds = {
-      lower: Math.round(price * (1 - half / 100)),
-      upper: Math.round(price * (1 + half / 100)),
-      widthPct,
-    };
+  const handleZap = async (source: "kHYPE" | "USDC", amount: string) => {
+    const bounds = rangeBounds(price, PROJECT_X_POOL.upperRangePct, PROJECT_X_POOL.lowerRangePct);
     storeRange(bounds.lower, bounds.upper, bounds.widthPct);
     try {
       await zap(source, amount);
@@ -125,7 +122,7 @@ export function LiquidityTab() {
         price: Math.round(price),
         lower: bounds.lower,
         upper: bounds.upper,
-        rangePct: half,
+        rangePct: bounds.widthPct,
         action: createMode === "add" ? "add" : "zap",
         amountUsd: parseFloat(amount),
       });
@@ -133,22 +130,6 @@ export function LiquidityTab() {
       showToast(t("position.createSuccess"));
     } catch {
       showToast(t("position.createFailed"));
-    }
-  };
-
-  const handleRemove = async () => {
-    if (!hasPosition || !deployment) return;
-    try {
-      await removeLiquidity(lpBalance);
-      appendRebalanceEvent({
-        price: Math.round(price),
-        lower: rangeLower,
-        upper: rangeUpper,
-        rangePct: rangeWidthPct / 2,
-        action: "remove",
-      });
-    } catch {
-      showToast(t("liquidity.removeFailed"));
     }
   };
 
@@ -166,6 +147,42 @@ export function LiquidityTab() {
     ? vaultStats.vaultLp * (parseFloat(vaultBalance.shares) / (vaultStats.shareSupplyFloat || 1))
     : parseFloat(lpBalance);
   const displayRangeWidth = vaultStats.hasVault ? vaultStats.targetRangeBps / 100 : rangeWidthPct;
+
+  const poolOverview = (
+    <div className="space-y-2">
+      {POOLS.map((poolItem) => (
+        <div
+          key={poolItem.id}
+          className="p-3 rounded-xl border border-cyan-500/20 bg-cyan-500/5"
+        >
+          <p className="font-medium text-white text-sm">
+            {poolItem.pair} <span className="text-zinc-500">{poolItem.feeTier}</span>
+          </p>
+          <div className="mt-2 grid grid-cols-3 gap-2 text-[10px]">
+            <div>
+              <p className="text-zinc-500">{t("position.apy")}</p>
+              <p className="text-emerald-400 font-semibold">{displayReferenceApr}</p>
+              <p className="text-zinc-600">
+                {t("position.netApy")} {poolItem.netAprEstimate}
+              </p>
+            </div>
+            <div>
+              <p className="text-zinc-500">{t("position.tvl")}</p>
+              <p className="text-zinc-300">{displayTvl}</p>
+            </div>
+            <div>
+              <p className="text-zinc-500">{t("position.volume24h")}</p>
+              <p className="text-zinc-300">{displayVolume}</p>
+            </div>
+          </div>
+          <p className="mt-2 text-[10px] text-zinc-500 tabular-nums">
+            {t("position.currentPrice")}: {Math.round(price).toLocaleString()} USDC/HYPE
+          </p>
+          <p className="mt-1 text-[10px] text-zinc-600">{t("position.feeSplitFootnote")}</p>
+        </div>
+      ))}
+    </div>
+  );
 
   return (
     <div className="max-w-6xl mx-auto w-full space-y-4">
@@ -197,7 +214,7 @@ export function LiquidityTab() {
             onWithdraw={handleVaultWithdraw}
             withdrawing={withdrawingVault}
           />
-          <RebalanceHistoryPanel events={history} />
+          <RebalanceHistoryPanel events={history} className="hidden sm:block" />
         </div>
 
         <div className="space-y-4">
@@ -220,9 +237,9 @@ export function LiquidityTab() {
                 rangeWidthPct={displayRangeWidth}
                 onAdd={() => openCreate("add")}
                 onCollectFees={() => showToast(t("position.feesAutoCompound"))}
-                onClose={() => (vaultBalance.hasVaultPosition ? handleVaultWithdraw(vaultBalance.shares) : handleRemove())}
+                onClose={() => (vaultBalance.hasVaultPosition ? handleVaultWithdraw(vaultBalance.shares) : showToast(t("liquidity.noPositions")))}
                 adding={false}
-                closing={removing || withdrawingVault}
+                closing={withdrawingVault}
               />
             ) : (
               <p className="text-sm text-zinc-500 text-center py-8 rounded-xl border border-dashed border-zinc-700">
@@ -232,41 +249,17 @@ export function LiquidityTab() {
           </div>
         </div>
 
-        <div className="card-glass rounded-2xl p-4 border border-zinc-800">
+        <details className="card-glass rounded-2xl border border-zinc-800 lg:hidden open:pb-4">
+          <summary className="p-4 cursor-pointer text-sm font-semibold text-white list-none flex items-center justify-between">
+            {t("position.poolOverviewToggle")}
+            <span className="text-zinc-500 text-xs">{t("position.poolOverview")}</span>
+          </summary>
+          <div className="px-4 pb-1">{poolOverview}</div>
+        </details>
+
+        <div className="hidden lg:block card-glass rounded-2xl p-4 border border-zinc-800">
           <h3 className="text-sm font-semibold text-white mb-3">{t("position.poolOverview")}</h3>
-          <div className="space-y-2">
-            {POOLS.filter((p) => p.live).map((poolItem) => (
-              <div
-                key={poolItem.id}
-                className="p-3 rounded-xl border border-cyan-500/20 bg-cyan-500/5"
-              >
-                <p className="font-medium text-white text-sm">
-                  {poolItem.pair} <span className="text-zinc-500">{poolItem.feeTier}</span>
-                </p>
-                <div className="mt-2 grid grid-cols-3 gap-2 text-[10px]">
-                  <div>
-                    <p className="text-zinc-500">{t("position.apy")}</p>
-                    <p className="text-emerald-400 font-semibold">{poolItem.apr}</p>
-                  </div>
-                  <div>
-                    <p className="text-zinc-500">{t("position.tvl")}</p>
-                    <p className="text-zinc-300">
-                      {pool.reserveUsdc > 0
-                        ? `$${(pool.reserveUsdc * 2).toFixed(0)}`
-                        : poolItem.tvl}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-zinc-500">{t("position.volume24h")}</p>
-                    <p className="text-zinc-300">{poolItem.volume24h}</p>
-                  </div>
-                </div>
-                <p className="mt-2 text-[10px] text-zinc-500 tabular-nums">
-                  {t("position.currentPrice")}: {Math.round(price).toLocaleString()} USDC/kHYPE
-                </p>
-              </div>
-            ))}
-          </div>
+          {poolOverview}
         </div>
       </div>
 

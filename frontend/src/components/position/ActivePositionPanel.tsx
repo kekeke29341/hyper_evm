@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2, Plus, Coins, X } from "lucide-react";
+import { PROJECT_X_POOL } from "@/lib/constants";
 import { useI18n } from "@/lib/i18n";
 import { PriceRangeBar } from "@/components/position/PriceRangeBar";
 import {
@@ -45,7 +46,7 @@ export function ActivePositionPanel({
   const { t } = useI18n();
   const price = poolPriceUsdcPerKhype(reserveKhype, reserveUsdc);
   const inRange = isPriceInRange(price, rangeLower, rangeUpper);
-  const { khype, usdc } = positionTokenAmounts(lpBalance, totalSupply, reserveKhype, reserveUsdc);
+  const { hype, usdc } = positionTokenAmounts(lpBalance, totalSupply, reserveKhype, reserveUsdc);
   const valueUsd = positionValueUsd(lpBalance, totalSupply, reserveKhype, reserveUsdc);
   const estApy = estimatedApyFromRange(poolApr, rangeWidthPct);
 
@@ -53,8 +54,10 @@ export function ActivePositionPanel({
     <div className="card-glass rounded-2xl p-4 border border-cyan-500/20 bg-cyan-500/5">
       <div className="flex items-start justify-between gap-2 mb-3">
         <div>
-          <p className="font-semibold text-white">kHYPE / USDC</p>
-          <p className="text-[10px] text-zinc-500 mt-0.5">0.3% · {t("position.fullRangeLp")}</p>
+          <p className="font-semibold text-white">{PROJECT_X_POOL.pair}</p>
+          <p className="text-[10px] text-zinc-500 mt-0.5">
+            {PROJECT_X_POOL.feeTier} · {t("position.managedLp")}
+          </p>
         </div>
         <span
           className={cn(
@@ -74,8 +77,8 @@ export function ActivePositionPanel({
           <span className="text-white font-semibold tabular-nums">{formatUsd(valueUsd)}</span>
         </div>
         <div className="flex justify-between text-zinc-400">
-          <span>{khype.toFixed(4)} kHYPE</span>
-          <span className="tabular-nums">{formatUsd(khype * 0.42)}</span>
+          <span>{hype.toFixed(4)} HYPE</span>
+          <span className="tabular-nums">{formatUsd(hype * price)}</span>
         </div>
         <div className="flex justify-between text-zinc-400">
           <span>{usdc.toFixed(2)} USDC</span>

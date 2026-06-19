@@ -1,71 +1,34 @@
-export type TabId = "swap" | "liquidity" | "portfolio" | "cashdrop" | "points" | "affiliate";
+/** Vault ERC20 shares use USDC-scale units (6 decimals), not 18 */
+export const VAULT_SHARE_DECIMALS = 6;
 
-export const TAB_IDS: TabId[] = ["swap", "liquidity", "portfolio", "cashdrop", "points", "affiliate"];
+/** Locked on first deposit — excluded from Cashdrop shareholder snapshots */
+export const VAULT_DEAD_SHARE_ADDRESS = "0x000000000000000000000000000000000000dEaD" as const;
 
-export { BRIDGE_CHAINS, CHAINS } from "@/lib/lifi/config";
+export type TabId = "dashboard" | "deposit" | "liquidity" | "cashdrop" | "affiliate";
 
-export const TOKENS = [
-  { symbol: "kHYPE", name: "kHYPE", color: "bg-emerald-500" },
-  { symbol: "HYPE", name: "HYPE", color: "bg-cyan-500" },
-  { symbol: "USDC", name: "USDC", color: "bg-blue-500" },
-  { symbol: "HPOOL", name: "HPOOL", color: "bg-violet-500" },
-  { symbol: "ETH", name: "ETH", color: "bg-indigo-500" },
-];
+export const TAB_IDS: TabId[] = ["dashboard", "deposit", "liquidity", "cashdrop", "affiliate"];
 
-export const POOLS = [
-  {
-    id: "khype-usdc-03",
-    pair: "kHYPE/USDC",
-    feeTier: "0.3%",
-    apr: "124.5%",
-    aprNum: 124.5,
-    tvl: "$12.4M",
-    volume24h: "$8.2M",
-    featured: true,
-    live: true,
-  },
-  {
-    id: "hype-usdc-03",
-    pair: "HYPE/USDC",
-    feeTier: "0.3%",
-    apr: "98.2%",
-    aprNum: 98.2,
-    tvl: "$8.1M",
-    volume24h: "$5.1M",
-    featured: true,
-    live: false,
-  },
-  {
-    id: "hpool-usdc-03",
-    pair: "HPOOL/USDC",
-    feeTier: "0.3%",
-    apr: "156.0%",
-    aprNum: 156,
-    tvl: "$3.2M",
-    volume24h: "$2.4M",
-    featured: false,
-    live: false,
-  },
-  {
-    id: "eth-usdc-05",
-    pair: "ETH/USDC",
-    feeTier: "0.05%",
-    apr: "42.8%",
-    aprNum: 42.8,
-    tvl: "$1.9M",
-    volume24h: "$1.1M",
-    featured: false,
-    live: false,
-  },
-];
+export { BRIDGE_CHAINS, CHAINS, EVM_BRIDGE_CHAINS } from "@/lib/lifi/config";
 
-export const LEADERBOARD = [
-  { rank: 1, address: "0x1a2b...3c4d", points: "892,400", multiplier: "×3.0" },
-  { rank: 2, address: "0x5e6f...7a8b", points: "756,200", multiplier: "×3.0" },
-  { rank: 3, address: "0x9c0d...1e2f", points: "621,800", multiplier: "×2.0" },
-  { rank: 4, address: "0x3a4b...5c6d", points: "498,300", multiplier: "×2.0" },
-  { rank: 5, address: "0x7e8f...9a0b", points: "412,100", multiplier: "×1.5" },
-];
+/** Project X WHYPE/USDC 0.05% pool — reference metrics (GeckoTerminal, 2026-06) */
+export const PROJECT_X_POOL = {
+  id: "whype-usdc-005",
+  pair: "HYPE/USDC",
+  poolAddress: "0x6c9A33E3b592C0d65B3Ba59355d5Be0d38259285",
+  feeTier: "0.05%",
+  referenceApr: "75%",
+  referenceAprNum: 75,
+  netAprEstimate: "52.5%",
+  netAprNum: 52.5,
+  userShareBps: 7000,
+  operatorShareBps: 3000,
+  tvl: "$14.3M",
+  volume24h: "$151M",
+  upperRangePct: 10,
+  lowerRangePct: 30,
+} as const;
+
+export const POOLS = [PROJECT_X_POOL];
 
 export const AFFILIATE_LEADERBOARD = [
   { rank: 1, address: "0x1a...3b", reward: "1,240 USDC" },
@@ -75,19 +38,16 @@ export const AFFILIATE_LEADERBOARD = [
   { rank: 5, address: "0x2c...3d", reward: "410 USDC" },
 ];
 
-export const CHART_DATA = [
-  { day: "Mon", pts: 1200 },
-  { day: "Tue", pts: 1800 },
-  { day: "Wed", pts: 1400 },
-  { day: "Thu", pts: 2200 },
-  { day: "Fri", pts: 1900 },
-  { day: "Sat", pts: 2600 },
-  { day: "Sun", pts: 2400 },
-];
-
 export const WALLETS = [
   { name: "MetaMask", chains: ["HyperEVM", "Ethereum"] },
   { name: "Phantom", chains: ["Solana", "HyperEVM"] },
   { name: "WalletConnect", chains: ["Multi-chain"] },
   { name: "Coinbase Wallet", chains: ["Ethereum", "Base"] },
 ];
+
+/** JST claim window for daily USDC cashdrop */
+export const CASHDROP_JST = {
+  startHour: 7,
+  endHour: 9,
+  timezone: "Asia/Tokyo",
+} as const;

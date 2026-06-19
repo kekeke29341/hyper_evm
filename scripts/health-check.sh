@@ -66,7 +66,7 @@ done
 echo ""
 echo "==> Contract artifacts"
 check "forge build output" test -d "$ROOT/contracts/out"
-check "frontend ABIs synced" test -f "$ROOT/frontend/src/lib/contracts/abis/ProjectXRouter.json"
+check "frontend ABIs synced" test -f "$ROOT/frontend/src/lib/contracts/abis/HyperpoolVault.json"
 
 echo ""
 if [[ $fail -eq 0 ]]; then

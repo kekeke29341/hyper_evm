@@ -6,7 +6,7 @@ import { keccak256, toBytes } from "viem";
 import { useApp } from "@/lib/store";
 import { useI18n } from "@/lib/i18n";
 import { useDeployment, useEnterInvitationCode } from "@/lib/hooks/useDeFi";
-import { useReferralStats, useReferralLeaderboard } from "@/lib/hooks/usePointsAnalytics";
+import { useReferralStats, useReferralLeaderboard } from "@/lib/hooks/useReferralAnalytics";
 import { MainCard } from "@/components/ui/shared";
 
 export function AffiliateTab() {
@@ -35,10 +35,8 @@ export function AffiliateTab() {
   const shareOnX = () => {
     const text =
       locale === "ja"
-        ? encodeURIComponent("Hyperpool — 手数料0%のHyperEVM DEX。私のリンクから参加:")
-        : encodeURIComponent(
-            "Trade on Hyperpool — HyperEVM's community DEX with 0% fees. Join via my link:"
-          );
+        ? encodeURIComponent("Hyperpool — Project X 代理 LP。私のリンクから参加:")
+        : encodeURIComponent("Hyperpool — managed LP on Project X. Join via my link:");
     window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(refUrl)}`, "_blank");
   };
 
@@ -53,7 +51,7 @@ export function AffiliateTab() {
       await enterCode(code);
       showToast(t("affiliate.applySuccess"));
     } catch {
-      showToast(t("portfolio.inviteFailed"));
+      showToast(t("affiliate.inviteFailed"));
     }
   };
 
@@ -110,16 +108,16 @@ export function AffiliateTab() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 mb-6">
+      <div className="grid grid-cols-3 gap-2 mb-3">
         {[
           { label: t("affiliate.totalReferred"), value: referredLabel },
           {
             label: t("affiliate.commissionRate"),
-            value: registered ? "15% Tier 2" : hasDeployment ? "—" : "15% Tier 2",
+            value: registered || hasDeployment ? "15%" : "—",
           },
           {
             label: t("affiliate.totalCommissions"),
-            value: hasDeployment ? `${referralCount * 15}% ${t("affiliate.ptsBonus")}` : "—",
+            value: t("affiliate.commissionPending"),
           },
         ].map((s) => (
           <div key={s.label} className="p-3 rounded-xl bg-zinc-800/50 border border-zinc-700 text-center">
@@ -128,6 +126,8 @@ export function AffiliateTab() {
           </div>
         ))}
       </div>
+      <p className="text-[10px] text-zinc-600 mb-2 leading-relaxed">{t("affiliate.commissionNote")}</p>
+      <p className="text-[10px] text-amber-500/80 mb-6 leading-relaxed">{t("affiliate.normalizeNote")}</p>
 
       <div className="mb-6 pt-4 border-t border-zinc-800">
         <label className="text-sm text-zinc-300 block mb-1">{t("affiliate.haveCode")}</label>

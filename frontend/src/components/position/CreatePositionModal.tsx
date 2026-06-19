@@ -3,16 +3,13 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Loader2, ChevronRight } from "lucide-react";
-import { POOLS } from "@/lib/constants";
+import { PROJECT_X_POOL } from "@/lib/constants";
 import { useI18n } from "@/lib/i18n";
 import { useTokenBalance } from "@/lib/hooks/useDeFi";
 import {
   formatUsd,
   poolPriceUsdcPerKhype,
-  poolTvlUsd,
   rangeBounds,
-  splitZapAmount,
-  type RangePreset,
 } from "@/lib/liquidity/metrics";
 import { cn } from "@/lib/utils";
 
@@ -40,33 +37,22 @@ export function CreatePositionModal({
   const usdcBal = useTokenBalance("USDC");
 
   const [step, setStep] = useState<"form" | "confirm">("form");
-  const [selectedPoolId, setSelectedPoolId] = useState(POOLS[0].id);
   const [funding, setFunding] = useState<FundingSource>("wallet-usdc");
-  const [amount, setAmount] = useState("2000");
-  const [rangePreset, setRangePreset] = useState<RangePreset>(3);
+  const [amount, setAmount] = useState("");
 
-  const selectedPool = POOLS.find((p) => p.id === selectedPoolId) ?? POOLS[0];
   const price = poolPriceUsdcPerKhype(reserveKhype, reserveUsdc);
-  const bounds = rangeBounds(price, rangePreset);
-  const liveTvl = poolTvlUsd(reserveKhype, reserveUsdc);
+  const bounds = rangeBounds(price, PROJECT_X_POOL.upperRangePct, PROJECT_X_POOL.lowerRangePct);
 
   const sourceToken: "kHYPE" | "USDC" = funding === "wallet-khype" ? "kHYPE" : "USDC";
   const balance = funding === "wallet-khype" ? khypeBal.balance : usdcBal.balance;
   const amountNum = parseFloat(amount) || 0;
-  const zapSplit = splitZapAmount(amountNum);
 
-  const canSubmit =
-    selectedPool.live &&
-    funding !== "vault" &&
-    amountNum > 0 &&
-    amountNum <= parseFloat(balance || "0");
+  const canSubmit = funding !== "vault" && amountNum > 0 && amountNum <= parseFloat(balance || "0");
 
   const reset = () => {
     setStep("form");
-    setAmount("2000");
-    setRangePreset(3);
+    setAmount("");
     setFunding("wallet-usdc");
-    setSelectedPoolId(POOLS[0].id);
   };
 
   const handleClose = () => {
@@ -124,53 +110,29 @@ export function CreatePositionModal({
               <div className="p-4 space-y-5">
                 <section>
                   <p className="text-xs text-zinc-500 mb-2">{t("position.poolSelect")}</p>
-                  <div className="space-y-2">
-                    {POOLS.map((pool) => (
-                      <button
-                        key={pool.id}
-                        type="button"
-                        disabled={!pool.live}
-                        onClick={() => setSelectedPoolId(pool.id)}
-                        className={cn(
-                          "w-full text-left p-3 rounded-xl border transition-colors",
-                          selectedPoolId === pool.id
-                            ? "border-cyan-500/40 bg-cyan-500/10"
-                            : "border-zinc-700 bg-zinc-800/40",
-                          !pool.live && "opacity-50 cursor-not-allowed"
-                        )}
-                      >
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="font-medium text-white text-sm">
-                              {pool.pair} <span className="text-zinc-500">{pool.feeTier}</span>
-                            </p>
-                            {!pool.live && (
-                              <span className="text-[10px] text-amber-400">{t("position.comingSoon")}</span>
-                            )}
-                          </div>
-                          <span className="text-[10px] text-zinc-500">{pool.feeTier}</span>
-                        </div>
-                        <div className="mt-2 grid grid-cols-3 gap-2 text-[10px]">
-                          <div>
-                            <p className="text-zinc-500">{t("position.apy")}</p>
-                            <p className="text-emerald-400 font-semibold">{pool.apr}</p>
-                          </div>
-                          <div>
-                            <p className="text-zinc-500">{t("position.tvl")}</p>
-                            <p className="text-zinc-300">
-                              {pool.live && reserveUsdc > 0 ? formatUsd(liveTvl) : pool.tvl}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-zinc-500">{t("position.volume24h")}</p>
-                            <p className="text-zinc-300">{pool.volume24h}</p>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
+                  <div className="p-3 rounded-xl border border-cyan-500/40 bg-cyan-500/10">
+                    <p className="font-medium text-white text-sm">
+                      {PROJECT_X_POOL.pair}{" "}
+                      <span className="text-zinc-500">{PROJECT_X_POOL.feeTier}</span>
+                    </p>
+                    <div className="mt-2 grid grid-cols-3 gap-2 text-[10px]">
+                      <div>
+                        <p className="text-zinc-500">{t("position.apy")}</p>
+                        <p className="text-emerald-400 font-semibold">{PROJECT_X_POOL.referenceApr}</p>
+                      </div>
+                      <div>
+                        <p className="text-zinc-500">{t("position.tvl")}</p>
+                        <p className="text-zinc-300">{PROJECT_X_POOL.tvl}</p>
+                      </div>
+                      <div>
+                        <p className="text-zinc-500">{t("position.volume24h")}</p>
+                        <p className="text-zinc-300">{PROJECT_X_POOL.volume24h}</p>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-[10px] text-zinc-600">{t("position.feeSplitFootnote")}</p>
                   </div>
                   <p className="mt-2 text-xs text-zinc-500">
-                    USDC/kHYPE {t("position.currentPrice")}:{" "}
+                    HYPE/USDC {t("position.currentPrice")}:{" "}
                     <span className="text-zinc-300 tabular-nums">{Math.round(price).toLocaleString()}</span>
                   </p>
                 </section>
@@ -221,32 +183,20 @@ export function CreatePositionModal({
                       ))}
                     </div>
                     <p className="mt-2 text-xs text-zinc-500">
-                      ≈ {formatUsd(sourceToken === "USDC" ? amountNum : amountNum * 0.42)} ·{" "}
+                      ≈ {formatUsd(sourceToken === "USDC" ? amountNum : amountNum * price)} ·{" "}
                       {t("common.balance")}: {balance} {sourceToken}
                     </p>
                   </div>
-                  <p className="mt-2 text-[11px] text-zinc-500">{t("position.zapHint")}</p>
+                  <p className="mt-2 text-[11px] text-zinc-500">
+                    {t("position.zapHint")} {t("position.rangeV2Note")}
+                  </p>
                 </section>
 
                 <section>
                   <p className="text-xs text-zinc-500 mb-2">{t("position.rangeWidth")}</p>
-                  <div className="flex gap-2 flex-wrap">
-                    {([3, 6, 10] as RangePreset[]).map((p) => (
-                      <button
-                        key={p}
-                        type="button"
-                        onClick={() => setRangePreset(p)}
-                        className={cn(
-                          "px-3 py-1.5 text-xs rounded-lg border transition-colors",
-                          rangePreset === p
-                            ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-400"
-                            : "border-zinc-700 text-zinc-400"
-                        )}
-                      >
-                        ±{p}%
-                      </button>
-                    ))}
-                  </div>
+                  <p className="text-sm text-cyan-400 font-medium">
+                    +{PROJECT_X_POOL.upperRangePct}% / −{PROJECT_X_POOL.lowerRangePct}%
+                  </p>
                   <p className="mt-2 text-[10px] text-zinc-500">{t("position.rangeV2Note")}</p>
                   <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                     <div className="p-2 rounded-lg bg-zinc-900/60 border border-zinc-800">
@@ -272,17 +222,15 @@ export function CreatePositionModal({
             ) : (
               <div className="p-4 space-y-4">
                 <div className="p-4 rounded-xl bg-zinc-900/60 border border-zinc-800 space-y-2 text-sm">
-                  <p className="text-white font-medium">{selectedPool.pair}</p>
+                  <p className="text-white font-medium">{PROJECT_X_POOL.pair}</p>
                   <p className="text-zinc-400">
-                    {amount} {sourceToken} → {t("position.zapSummary")}
+                    {amount} {sourceToken === "kHYPE" ? "HYPE" : sourceToken} → Vault
                   </p>
                   <p className="text-zinc-500 text-xs">
-                    {t("position.swapHalf")}: {zapSplit.swap.toFixed(2)} {sourceToken}
+                    {t("position.rangeWidth")}: +{PROJECT_X_POOL.upperRangePct}% / −
+                    {PROJECT_X_POOL.lowerRangePct}% ({bounds.lower} – {bounds.upper})
                   </p>
-                  <p className="text-zinc-500 text-xs">
-                    {t("position.rangeWidth")}: ±{bounds.widthPct / 2}% ({bounds.lower} – {bounds.upper})
-                  </p>
-                  <p className="text-[10px] text-amber-400/90">{t("position.onChainFullRange")}</p>
+                  <p className="text-[10px] text-zinc-500">{t("position.feeSplitFootnote")}</p>
                 </div>
                 <div className="flex gap-2">
                   <button

@@ -16,7 +16,7 @@ if [[ -n "${GAS_PRICE:-}" ]]; then
   FORGE_ARGS+=(--gas-price "$GAS_PRICE")
 fi
 
-forge script script/DeployProjectX.s.sol:DeployProjectX "${FORGE_ARGS[@]}"
+forge script script/DeployHyperpool.s.sol:DeployHyperpool "${FORGE_ARGS[@]}"
 
 node "$ROOT/scripts/finalize-deployment.mjs" 999 hyperEVM_mainnet
 node "$ROOT/scripts/sync-abi.mjs"

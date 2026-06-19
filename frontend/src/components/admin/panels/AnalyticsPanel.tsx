@@ -1,25 +1,22 @@
 "use client";
 
 import { formatUnits } from "viem";
+import { VAULT_SHARE_DECIMALS } from "@/lib/constants";
 import { useAdminAnalytics } from "@/lib/hooks/useAdmin";
 import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
+import { getVaultAddress } from "@/lib/contracts";
 import { AdminCard, StatBox, AddressRow } from "../AdminUi";
 
 export function AnalyticsPanel() {
   const chainId = useEffectiveChainId();
   const {
     deployment,
-    reserves,
-    pairsLen,
-    currentEpoch,
-    totalDistributed,
-    epochFees,
-    timeLeft,
     airdropBalance,
-    lpSupply,
-    trustedRouter,
-    vaultPaused,
-    vaultManagedLp,
+    vaultSupply,
+    vaultAssets,
+    pendingUserRewards,
+    operatorFeeBps,
+    operatorWallet,
     airdropPaused,
   } = useAdminAnalytics();
 
@@ -31,74 +28,58 @@ export function AnalyticsPanel() {
     );
   }
 
-  const r0 = reserves ? (reserves as readonly [bigint, bigint, number])[0] : BigInt(0);
-  const r1 = reserves ? (reserves as readonly [bigint, bigint, number])[1] : BigInt(0);
-  const usdcReserve = parseFloat(formatUnits(r1, 6));
-  const hoursLeft = timeLeft !== undefined ? Number(timeLeft) / 3600 : 0;
+  const userSharePct =
+    operatorFeeBps !== undefined ? ((10000 - Number(operatorFeeBps)) / 100).toFixed(0) : "70";
 
   return (
     <div className="space-y-4">
-      <AdminCard title="Platform analytics" subtitle="Live on-chain reads (10s refresh on reserves)">
+      <AdminCard title="Platform analytics" subtitle="Live on-chain reads (10s refresh)">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <StatBox label="Pools" value={pairsLen !== undefined ? String(pairsLen) : "—"} sub="Factory allPairs" />
-          <StatBox label="kHYPE reserve" value={formatUnits(r0, 18)} sub="Primary pair" />
-          <StatBox label="USDC reserve" value={formatUnits(r1, 6)} sub="Primary pair" />
           <StatBox
-            label="Pool TVL (approx)"
-            value={`$${(usdcReserve * 2).toFixed(2)}`}
-            sub="2× USDC side"
+            label="Vault shares"
+            value={vaultSupply !== undefined ? formatUnits(vaultSupply as bigint, VAULT_SHARE_DECIMALS) : "—"}
+            sub="hp-VAULT"
           />
-        </div>
-
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
           <StatBox
-            label="LP supply"
-            value={lpSupply !== undefined ? formatUnits(lpSupply as bigint, 18) : "—"}
-            sub="Pair ERC20"
+            label="Vault assets"
+            value={vaultAssets !== undefined ? formatUnits(vaultAssets as bigint, 6) : "—"}
+            sub="USDC equivalent"
+          />
+          <StatBox
+            label="Pending user rewards"
+            value={pendingUserRewards !== undefined ? formatUnits(pendingUserRewards as bigint, 6) : "—"}
+            sub={`${userSharePct}% fee pool`}
           />
           <StatBox
             label="Airdrop USDC"
             value={airdropBalance !== undefined ? formatUnits(airdropBalance as bigint, 6) : "—"}
             sub={airdropPaused ? "Paused" : "Active"}
           />
-          <StatBox
-            label="Vault managed LP"
-            value={vaultManagedLp !== undefined ? formatUnits(vaultManagedLp as bigint, 18) : "—"}
-            sub={vaultPaused ? "Vault paused" : deployment.liquidityVault ? "Phase 3" : "N/A"}
-          />
-          <StatBox label="Trusted router" value={String(trustedRouter ?? deployment.router).slice(0, 12) + "…"} />
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
-          <StatBox label="Current epoch" value={currentEpoch !== undefined ? String(currentEpoch) : "—"} />
-          <StatBox
-            label="Epoch fees"
-            value={epochFees !== undefined ? formatUnits(epochFees as bigint, 18) : "—"}
-            sub="Fee-weighted volume"
-          />
-          <StatBox
-            label="Total PTS distributed"
-            value={totalDistributed !== undefined ? formatUnits(totalDistributed as bigint, 18) : "—"}
-          />
+          <StatBox label="Operator share" value="30%" sub={String(operatorWallet ?? "—").slice(0, 14) + "…"} />
+          <StatBox label="User Merkle share" value="70%" sub="JST 7:00–9:00 claim" />
+          <StatBox label="LP range" value="+10% / −30%" sub="Project X WHYPE/USDC" />
         </div>
-
-        <p className="text-xs text-zinc-500 mt-4">
-          Next epoch in ~{hoursLeft.toFixed(1)}h (auto-advances on next swap fee record)
-        </p>
       </AdminCard>
 
       <AdminCard title="Contract addresses">
         <div className="space-y-1">
-          <AddressRow label="Factory" address={deployment.factory} />
-          <AddressRow label="Router" address={deployment.router} />
-          <AddressRow label="Pair" address={deployment.pair} />
-          <AddressRow label="Points" address={deployment.pointsDistributor} />
-          <AddressRow label="Airdrop" address={deployment.airdrop} />
-          <AddressRow label="Referral" address={deployment.referralRegistry} />
-          {deployment.liquidityVault && (
-            <AddressRow label="Vault" address={deployment.liquidityVault} />
+          {getVaultAddress(deployment) && (
+            <AddressRow label="HyperpoolVault" address={getVaultAddress(deployment)!} />
           )}
-          <AddressRow label="kHYPE" address={deployment.tokenKHYPE} />
+          {deployment.projectXAdapter && (
+            <AddressRow label="ProjectXAdapter" address={deployment.projectXAdapter} />
+          )}
+          {deployment.projectXPool && (
+            <AddressRow label="Project X pool" address={deployment.projectXPool} />
+          )}
+          <AddressRow label="Airdrop" address={deployment.airdrop} />
+          {deployment.referralRegistry && (
+            <AddressRow label="Referral" address={deployment.referralRegistry} />
+          )}
+          <AddressRow label="HYPE" address={deployment.tokenKHYPE} />
           <AddressRow label="USDC" address={deployment.tokenUSDC} />
         </div>
       </AdminCard>

@@ -18,7 +18,7 @@ export default defineConfig({
   projects: [
     {
       name: "smoke",
-      testMatch: /smoke\.spec\.ts/,
+      testMatch: /(smoke|financial)\.spec\.ts/,
       fullyParallel: true,
     },
     {

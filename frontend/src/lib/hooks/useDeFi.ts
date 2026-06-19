@@ -1,28 +1,31 @@
 "use client";
 
-import { useCallback, useState, useMemo } from "react";
+import { useCallback, useState, useMemo, useEffect, useRef } from "react";
 import {
   useConnection,
+  useChainId,
   usePublicClient,
   useReadContract,
   useWriteContract,
   useWaitForTransactionReceipt,
-  useChainId,
 } from "wagmi";
 import { parseUnits, formatUnits, zeroAddress } from "viem";
+import { VAULT_SHARE_DECIMALS } from "@/lib/constants";
 import {
   abis,
   getDeployment,
+  getVaultAddress,
   getTokenAddress,
   getTokenDecimals,
   type TokenSymbol,
 } from "@/lib/contracts";
+import { PROJECT_X_POOL } from "@/lib/constants";
+import { appendEarningsClaim, earningsStorageKey } from "@/lib/earnings/history";
 import { getMerkleProof } from "@/lib/admin/merkle";
 import MerkleAirdropAbi from "@/lib/contracts/abis/MerkleAirdrop.json";
 import { ensureExactAllowance } from "@/lib/erc20";
-import { getSlippageBps } from "@/components/layout/SettingsModal";
 import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
-import { WRONG_NETWORK_ERROR } from "@/lib/hooks/useAppChain";
+import { useI18n } from "@/lib/i18n";
 
 export function useDeployment() {
   return getDeployment(useEffectiveChainId());
@@ -45,42 +48,6 @@ function useDeploymentPublicClient() {
   return usePublicClient({ chainId });
 }
 
-function applySlippage(amount: bigint, slippageBps: number) {
-  return (amount * BigInt(10000 - slippageBps)) / BigInt(10000);
-}
-
-async function getPoolTokenBreakdown(
-  publicClient: NonNullable<ReturnType<typeof usePublicClient>>,
-  deployment: NonNullable<ReturnType<typeof useDeployment>>,
-  liquidity: bigint
-) {
-  const [reserve0, reserve1] = (await publicClient.readContract({
-    address: deployment.pair,
-    abi: abis.pair,
-    functionName: "getReserves",
-  })) as [bigint, bigint];
-
-  const totalSupply = (await publicClient.readContract({
-    address: deployment.pair,
-    abi: abis.erc20,
-    functionName: "totalSupply",
-  })) as bigint;
-
-  const token0 = (await publicClient.readContract({
-    address: deployment.pair,
-    abi: abis.pair,
-    functionName: "token0",
-  })) as `0x${string}`;
-
-  const reserveKhype = token0.toLowerCase() === deployment.tokenKHYPE.toLowerCase() ? reserve0 : reserve1;
-  const reserveUsdc = token0.toLowerCase() === deployment.tokenKHYPE.toLowerCase() ? reserve1 : reserve0;
-
-  return {
-    khype: (liquidity * reserveKhype) / totalSupply,
-    usdc: (liquidity * reserveUsdc) / totalSupply,
-  };
-}
-
 export function useTokenBalance(symbol: TokenSymbol) {
   const { address } = useConnection();
   const deployment = useDeployment();
@@ -100,188 +67,34 @@ export function useTokenBalance(symbol: TokenSymbol) {
   return { balance: formatted, raw: data as bigint | undefined, refetch };
 }
 
-export function useSwapQuote(fromSymbol: TokenSymbol, toSymbol: TokenSymbol, amountIn: string) {
-  const deployment = useDeployment();
-  const from = deployment ? getTokenAddress(deployment, fromSymbol) : undefined;
-  const to = deployment ? getTokenAddress(deployment, toSymbol) : undefined;
-
-  let parsedIn: bigint | undefined;
-  try {
-    parsedIn =
-      amountIn && parseFloat(amountIn) > 0
-        ? parseUnits(amountIn, getTokenDecimals(fromSymbol))
-        : undefined;
-  } catch {
-    parsedIn = undefined;
-  }
-
-  const { data: amounts } = useDeploymentReadContract({
-    address: deployment?.router,
-    abi: abis.router,
-    functionName: "getAmountsOut",
-    args: parsedIn && from && to ? [parsedIn, [from, to]] : undefined,
-    query: { enabled: !!deployment && !!parsedIn && !!from && !!to },
-  });
-
-  const amountOut =
-    amounts && Array.isArray(amounts) && amounts.length > 1
-      ? formatUnits(amounts[1] as bigint, getTokenDecimals(toSymbol))
-      : "";
-
-  return { amountOut, amountsOut: amounts as bigint[] | undefined };
+/** @deprecated Local DEX removed — use Li.FI bridge + Vault deposit */
+export function useSwapQuote(..._args: [TokenSymbol?, TokenSymbol?, string?]) {
+  void _args;
+  return { amountOut: "", amountsOut: undefined };
 }
 
-export function useSwap(fromSymbol: TokenSymbol, toSymbol: TokenSymbol) {
-  const { address } = useConnection();
-  const walletChainId = useChainId();
-  const appChainId = useEffectiveChainId();
-  const deployment = useDeployment();
-  const publicClient = useDeploymentPublicClient();
-  const { writeContractAsync, data: hash, isPending } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
-  const [error, setError] = useState<string | null>(null);
-
-  const swap = useCallback(
-    async (amountIn: string, slippageBps = 50) => {
-      if (!deployment || !address || !publicClient) throw new Error("Wallet not connected");
-      if (walletChainId !== appChainId) {
-        const err = new Error(WRONG_NETWORK_ERROR);
-        setError(WRONG_NETWORK_ERROR);
-        throw err;
-      }
-      setError(null);
-      try {
-        const from = getTokenAddress(deployment, fromSymbol);
-        const to = getTokenAddress(deployment, toSymbol);
-        const amountInWei = parseUnits(amountIn, getTokenDecimals(fromSymbol));
-
-        const amounts = (await publicClient.readContract({
-          address: deployment.router,
-          abi: abis.router,
-          functionName: "getAmountsOut",
-          args: [amountInWei, [from, to]],
-        })) as bigint[];
-
-        const out = amounts[1];
-        const amountOutMin = (out * BigInt(10000 - slippageBps)) / BigInt(10000);
-        const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
-
-        await ensureExactAllowance(
-          publicClient,
-          writeContractAsync,
-          from,
-          abis.erc20,
-          address,
-          deployment.router,
-          amountInWei
-        );
-
-        await writeContractAsync({
-          address: deployment.router,
-          abi: abis.router,
-          functionName: "swapExactTokensForTokens",
-          args: [amountInWei, amountOutMin, [from, to], address, deadline],
-        });
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : "Swap failed";
-        setError(msg);
-        throw e;
-      }
+/** @deprecated Local DEX removed */
+export function useSwap(..._args: [TokenSymbol?, TokenSymbol?]) {
+  void _args;
+  return {
+    swap: async () => {
+      throw new Error("Local swap removed — use Deposit tab");
     },
-    [deployment, address, publicClient, walletChainId, appChainId, fromSymbol, toSymbol, writeContractAsync]
-  );
-
-  return { swap, isPending: isPending || isConfirming, isSuccess, error, hash };
+    isPending: false,
+    isSuccess: false,
+    error: null,
+    hash: undefined,
+  };
 }
 
+/** @deprecated Use useZapLiquidity / Vault deposit */
 export function useAddLiquidity() {
-  const { address } = useConnection();
-  const deployment = useDeployment();
-  const publicClient = useDeploymentPublicClient();
-  const { writeContractAsync, data: hash, isPending } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
-
-  const addLiquidity = useCallback(
-    async (amountKHYPE: string, amountUSDC: string) => {
-      if (!deployment || !address || !publicClient) throw new Error("Wallet not connected");
-      const khype = deployment.tokenKHYPE;
-      const usdc = deployment.tokenUSDC;
-      const a = parseUnits(amountKHYPE, 18);
-      const b = parseUnits(amountUSDC, 6);
-      const slippageBps = getSlippageBps();
-      const aMin = (a * BigInt(10000 - slippageBps)) / BigInt(10000);
-      const bMin = (b * BigInt(10000 - slippageBps)) / BigInt(10000);
-      const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
-
-      for (const [token, amount] of [
-        [khype, a],
-        [usdc, b],
-      ] as const) {
-        await ensureExactAllowance(
-          publicClient,
-          writeContractAsync,
-          token,
-          abis.erc20,
-          address,
-          deployment.router,
-          amount
-        );
-      }
-
-      await writeContractAsync({
-        address: deployment.router,
-        abi: abis.router,
-        functionName: "addLiquidity",
-        args: [khype, usdc, a, b, aMin, bMin, address, deadline],
-      });
-    },
-    [deployment, address, publicClient, writeContractAsync]
-  );
-
-  return { addLiquidity, isPending: isPending || isConfirming, isSuccess, hash };
+  return { addLiquidity: async () => {}, isPending: false, isSuccess: false, hash: undefined };
 }
 
+/** @deprecated Use useVaultWithdraw */
 export function useRemoveLiquidity() {
-  const { address } = useConnection();
-  const deployment = useDeployment();
-  const publicClient = useDeploymentPublicClient();
-  const { writeContractAsync, data: hash, isPending } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
-
-  const removeLiquidity = useCallback(
-    async (lpAmount: string) => {
-      if (!deployment || !address || !publicClient) throw new Error("Wallet not connected");
-      const khype = deployment.tokenKHYPE;
-      const usdc = deployment.tokenUSDC;
-      const liquidity = parseUnits(lpAmount, 18);
-      const slippageBps = getSlippageBps();
-      const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
-
-      const expected = await getPoolTokenBreakdown(publicClient, deployment, liquidity);
-      const khypeMin = applySlippage(expected.khype, slippageBps);
-      const usdcMin = applySlippage(expected.usdc, slippageBps);
-
-      await ensureExactAllowance(
-        publicClient,
-        writeContractAsync,
-        deployment.pair,
-        abis.erc20,
-        address,
-        deployment.router,
-        liquidity
-      );
-
-      await writeContractAsync({
-        address: deployment.router,
-        abi: abis.router,
-        functionName: "removeLiquidity",
-        args: [khype, usdc, liquidity, khypeMin, usdcMin, address, deadline],
-      });
-    },
-    [deployment, address, publicClient, writeContractAsync]
-  );
-
-  return { removeLiquidity, isPending: isPending || isConfirming, isSuccess, hash };
+  return { removeLiquidity: async () => {}, isPending: false, isSuccess: false, hash: undefined };
 }
 
 export function useEnterInvitationCode() {
@@ -292,6 +105,7 @@ export function useEnterInvitationCode() {
   const enterCode = useCallback(
     async (code: `0x${string}`) => {
       if (!deployment) throw new Error("Contracts not deployed on this network");
+      if (!deployment.referralRegistry) throw new Error("Referral registry not deployed");
       await writeContractAsync({
         address: deployment.referralRegistry,
         abi: abis.referral,
@@ -313,6 +127,7 @@ export function useRegisterReferralCode() {
   const registerCode = useCallback(
     async (code: `0x${string}`) => {
       if (!deployment) throw new Error("Contracts not deployed on this network");
+      if (!deployment.referralRegistry) throw new Error("Referral registry not deployed");
       await writeContractAsync({
         address: deployment.referralRegistry,
         abi: abis.referral,
@@ -326,105 +141,40 @@ export function useRegisterReferralCode() {
   return { registerCode, isPending: isPending || isConfirming, isSuccess, hash };
 }
 
-export function useOnChainPoints() {
-  const { address } = useConnection();
-  const deployment = useDeployment();
-
-  const { data: currentEpoch } = useDeploymentReadContract({
-    address: deployment?.pointsDistributor,
-    abi: abis.points,
-    functionName: "currentEpoch",
-    query: { enabled: !!deployment, refetchInterval: 30000 },
-  });
-
-  const { data, refetch } = useDeploymentReadContract({
-    address: deployment?.pointsDistributor,
-    abi: abis.points,
-    functionName: "getUserPoints",
-    args: address ? [address] : undefined,
-    query: { enabled: !!address && !!deployment, refetchInterval: 5000 },
-  });
-
-  const { data: previewEpoch } = useDeploymentReadContract({
-    address: deployment?.pointsDistributor,
-    abi: abis.points,
-    functionName: "previewEpochPoints",
-    args:
-      address && currentEpoch !== undefined
-        ? [currentEpoch as bigint, address]
-        : undefined,
-    query: { enabled: !!address && !!deployment && currentEpoch !== undefined, refetchInterval: 5000 },
-  });
-
-  const claimed = data as bigint | undefined;
-  const pending = previewEpoch as bigint | undefined;
-  const totalWei =
-    claimed !== undefined ? claimed + (pending ?? 0n) : undefined;
-
-  return {
-    points: totalWei !== undefined ? Number(formatUnits(totalWei, 18)) : null,
-    claimedPoints: claimed !== undefined ? Number(formatUnits(claimed, 18)) : null,
-    pendingEpochPoints: pending !== undefined ? Number(formatUnits(pending, 18)) : null,
-    refetch,
-    hasDeployment: !!deployment,
-  };
-}
-
 export function usePoolReserves() {
-  const deployment = useDeployment();
-  const { data } = useDeploymentReadContract({
-    address: deployment?.pair,
-    abi: abis.pair,
-    functionName: "getReserves",
-    query: { enabled: !!deployment, refetchInterval: 10000 },
-  });
-
-  if (!data || !Array.isArray(data)) return null;
-  return {
-    reserveKHYPE: formatUnits(data[0] as bigint, 18),
-    reserveUSDC: formatUnits(data[1] as bigint, 6),
-    rawReserve0: data[0] as bigint,
-    rawReserve1: data[1] as bigint,
-  };
+  return null;
 }
 
 export function usePoolStats() {
   const deployment = useDeployment();
-  const reserves = usePoolReserves();
+  const vaultAddr = deployment ? getVaultAddress(deployment) : undefined;
+
+  const { data: vaultUsdcBal } = useDeploymentReadContract({
+    address: vaultAddr,
+    abi: abis.vault,
+    functionName: "totalAssetsUsdc",
+    query: { enabled: !!vaultAddr, refetchInterval: 10000 },
+  });
 
   const { data: totalSupply } = useDeploymentReadContract({
-    address: deployment?.pair,
-    abi: abis.erc20,
+    address: vaultAddr,
+    abi: abis.vault,
     functionName: "totalSupply",
-    query: { enabled: !!deployment, refetchInterval: 10000 },
+    query: { enabled: !!vaultAddr, refetchInterval: 10000 },
   });
 
-  const { data: token0 } = useDeploymentReadContract({
-    address: deployment?.pair,
-    abi: abis.pair,
-    functionName: "token0",
-    query: { enabled: !!deployment },
-  });
-
-  const supply = totalSupply !== undefined ? formatUnits(totalSupply as bigint, 18) : "0";
-  const supplyRaw = totalSupply as bigint | undefined;
-
-  let reserveKhype = reserves ? parseFloat(reserves.reserveKHYPE) : 0;
-  let reserveUsdc = reserves ? parseFloat(reserves.reserveUSDC) : 0;
-
-  if (reserves && token0 && deployment) {
-    const t0 = token0 as string;
-    if (t0.toLowerCase() !== deployment.tokenKHYPE.toLowerCase()) {
-      reserveKhype = parseFloat(reserves.reserveUSDC);
-      reserveUsdc = parseFloat(reserves.reserveKHYPE);
-    }
-  }
+  const supply = totalSupply !== undefined ? formatUnits(totalSupply as bigint, VAULT_SHARE_DECIMALS) : "0";
+  const reserveUsdc =
+    vaultUsdcBal !== undefined
+      ? parseFloat(formatUnits(vaultUsdcBal as bigint, 6))
+      : parseFloat(PROJECT_X_POOL.tvl.replace(/[$MK]/g, "")) * (PROJECT_X_POOL.tvl.includes("M") ? 1_000_000 : 1_000);
+  const reserveKhype = reserveUsdc > 0 ? reserveUsdc / 42 : 0;
 
   return {
     reserveKhype,
     reserveUsdc,
     totalSupply: parseFloat(supply),
-    totalSupplyRaw: supplyRaw,
+    totalSupplyRaw: totalSupply as bigint | undefined,
     hasDeployment: !!deployment,
   };
 }
@@ -440,184 +190,31 @@ export function useZapLiquidity() {
   const zap = useCallback(
     async (source: "kHYPE" | "USDC", totalAmount: string) => {
       if (!deployment || !address || !publicClient) throw new Error("Wallet not connected");
+      const vaultAddr = getVaultAddress(deployment);
+      if (!vaultAddr) throw new Error("Vault unavailable");
       setError(null);
 
-      const khype = deployment.tokenKHYPE;
-      const usdc = deployment.tokenUSDC;
-      const slippageBps = getSlippageBps();
-      const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
-      const total = parseFloat(totalAmount);
-      if (!total || total <= 0) throw new Error("Invalid amount");
+      const tokenIn = source === "USDC" ? deployment.tokenUSDC : deployment.tokenKHYPE;
+      const decimals = source === "USDC" ? 6 : 18;
+      const amountIn = parseUnits(totalAmount, decimals);
+      const fn = source === "USDC" ? "depositUSDC" : "depositHYPE";
 
-      try {
-        if (deployment.liquidityVault) {
-          const tokenIn = source === "USDC" ? usdc : khype;
-          const decimals = source === "USDC" ? 6 : 18;
-          const amountIn = parseUnits(totalAmount, decimals);
-          const swapAmount = amountIn / BigInt(2);
-          const keepAmount = amountIn - swapAmount;
-          const path = source === "USDC" ? [usdc, khype] : [khype, usdc];
-          const amounts = (await publicClient.readContract({
-            address: deployment.router,
-            abi: abis.router,
-            functionName: "getAmountsOut",
-            args: [swapAmount, path],
-          })) as bigint[];
-          const amountOutMin = applySlippage(amounts[1], slippageBps);
-          const expectedKhype = source === "USDC" ? amounts[1] : keepAmount;
-          const expectedUsdc = source === "USDC" ? keepAmount : amounts[1];
-          const khypeMin = applySlippage(expectedKhype, slippageBps);
-          const usdcMin = applySlippage(expectedUsdc, slippageBps);
+      await ensureExactAllowance(
+        publicClient,
+        writeContractAsync,
+        tokenIn,
+        abis.erc20,
+        address,
+        vaultAddr,
+        amountIn
+      );
 
-          await ensureExactAllowance(
-            publicClient,
-            writeContractAsync,
-            tokenIn,
-            abis.erc20,
-            address,
-            deployment.liquidityVault,
-            amountIn
-          );
-
-          await writeContractAsync({
-            address: deployment.liquidityVault,
-            abi: abis.liquidityVault,
-            functionName: "depositSingle",
-            args: [tokenIn, amountIn, amountOutMin, khypeMin, usdcMin, address, deadline],
-          });
-          return;
-        }
-
-        if (source === "USDC") {
-          const swapAmount = total / 2;
-          const swapWei = parseUnits(String(swapAmount), 6);
-          const amounts = (await publicClient.readContract({
-            address: deployment.router,
-            abi: abis.router,
-            functionName: "getAmountsOut",
-            args: [swapWei, [usdc, khype]],
-          })) as bigint[];
-          const khypeOut = amounts[1];
-          const khypeOutMin = (khypeOut * BigInt(10000 - slippageBps)) / BigInt(10000);
-
-          await ensureExactAllowance(
-            publicClient,
-            writeContractAsync,
-            usdc,
-            abis.erc20,
-            address,
-            deployment.router,
-            swapWei
-          );
-
-          const swapHash = await writeContractAsync({
-            address: deployment.router,
-            abi: abis.router,
-            functionName: "swapExactTokensForTokens",
-            args: [swapWei, khypeOutMin, [usdc, khype], address, deadline],
-          });
-          await publicClient.waitForTransactionReceipt({ hash: swapHash });
-
-          const khypeAmount = formatUnits(khypeOut, 18);
-          const usdcKeep = String(swapAmount);
-          const a = parseUnits(khypeAmount, 18);
-          const b = parseUnits(usdcKeep, 6);
-          const aMin = (a * BigInt(10000 - slippageBps)) / BigInt(10000);
-          const bMin = (b * BigInt(10000 - slippageBps)) / BigInt(10000);
-
-          await ensureExactAllowance(
-            publicClient,
-            writeContractAsync,
-            khype,
-            abis.erc20,
-            address,
-            deployment.router,
-            a
-          );
-          await ensureExactAllowance(
-            publicClient,
-            writeContractAsync,
-            usdc,
-            abis.erc20,
-            address,
-            deployment.router,
-            b
-          );
-
-          await writeContractAsync({
-            address: deployment.router,
-            abi: abis.router,
-            functionName: "addLiquidity",
-            args: [khype, usdc, a, b, aMin, bMin, address, deadline],
-          });
-        } else {
-          const swapAmount = total / 2;
-          const swapWei = parseUnits(String(swapAmount), 18);
-          const amounts = (await publicClient.readContract({
-            address: deployment.router,
-            abi: abis.router,
-            functionName: "getAmountsOut",
-            args: [swapWei, [khype, usdc]],
-          })) as bigint[];
-          const usdcOut = amounts[1];
-          const usdcOutMin = (usdcOut * BigInt(10000 - slippageBps)) / BigInt(10000);
-
-          await ensureExactAllowance(
-            publicClient,
-            writeContractAsync,
-            khype,
-            abis.erc20,
-            address,
-            deployment.router,
-            swapWei
-          );
-
-          const swapHash = await writeContractAsync({
-            address: deployment.router,
-            abi: abis.router,
-            functionName: "swapExactTokensForTokens",
-            args: [swapWei, usdcOutMin, [khype, usdc], address, deadline],
-          });
-          await publicClient.waitForTransactionReceipt({ hash: swapHash });
-
-          const usdcAmount = formatUnits(usdcOut, 6);
-          const khypeKeep = String(swapAmount);
-          const a = parseUnits(khypeKeep, 18);
-          const b = parseUnits(usdcAmount, 6);
-          const aMin = (a * BigInt(10000 - slippageBps)) / BigInt(10000);
-          const bMin = (b * BigInt(10000 - slippageBps)) / BigInt(10000);
-
-          await ensureExactAllowance(
-            publicClient,
-            writeContractAsync,
-            khype,
-            abis.erc20,
-            address,
-            deployment.router,
-            a
-          );
-          await ensureExactAllowance(
-            publicClient,
-            writeContractAsync,
-            usdc,
-            abis.erc20,
-            address,
-            deployment.router,
-            b
-          );
-
-          await writeContractAsync({
-            address: deployment.router,
-            abi: abis.router,
-            functionName: "addLiquidity",
-            args: [khype, usdc, a, b, aMin, bMin, address, deadline],
-          });
-        }
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : "Zap failed";
-        setError(msg);
-        throw e;
-      }
+      await writeContractAsync({
+        address: vaultAddr,
+        abi: abis.vault,
+        functionName: fn,
+        args: [amountIn, address],
+      });
     },
     [deployment, address, publicClient, writeContractAsync]
   );
@@ -632,69 +229,62 @@ export function useZapLiquidity() {
 }
 
 export function useLpBalance() {
-  const { address } = useConnection();
-  const deployment = useDeployment();
-
-  const { data, refetch } = useDeploymentReadContract({
-    address: deployment?.pair,
-    abi: abis.erc20,
-    functionName: "balanceOf",
-    args: address ? [address] : undefined,
-    query: { enabled: !!address && !!deployment, refetchInterval: 10000 },
-  });
-
-  const balance = data !== undefined ? formatUnits(data as bigint, 18) : "0";
-  const hasPosition = data !== undefined && (data as bigint) > BigInt(0);
-
-  return { balance, hasPosition, refetch };
+  return { balance: "0", hasPosition: false, refetch: () => {} };
 }
 
 export function useVaultStats() {
   const deployment = useDeployment();
-  const { reserveKhype, reserveUsdc, totalSupply } = usePoolStats();
-
-  const { data: vaultLp, refetch: refetchVaultLp } = useDeploymentReadContract({
-    address: deployment?.pair,
-    abi: abis.erc20,
-    functionName: "balanceOf",
-    args: deployment?.liquidityVault ? [deployment.liquidityVault] : undefined,
-    query: { enabled: !!deployment?.liquidityVault, refetchInterval: 10000 },
-  });
+  const vaultAddr = deployment ? getVaultAddress(deployment) : undefined;
 
   const { data: vaultShareSupply, refetch: refetchShareSupply } = useDeploymentReadContract({
-    address: deployment?.liquidityVault,
-    abi: abis.liquidityVault,
+    address: vaultAddr,
+    abi: abis.vault,
     functionName: "totalSupply",
-    query: { enabled: !!deployment?.liquidityVault, refetchInterval: 10000 },
+    query: { enabled: !!vaultAddr, refetchInterval: 10000 },
   });
 
-  const { data: targetRangeBps } = useDeploymentReadContract({
-    address: deployment?.liquidityVault,
-    abi: abis.liquidityVault,
-    functionName: "targetRangeBps",
-    query: { enabled: !!deployment?.liquidityVault, refetchInterval: 30000 },
+  const { data: pendingRewards } = useDeploymentReadContract({
+    address: vaultAddr,
+    abi: abis.vault,
+    functionName: "pendingUserRewards",
+    query: { enabled: !!vaultAddr, refetchInterval: 10000 },
   });
 
-  const vaultLpFloat = vaultLp !== undefined ? parseFloat(formatUnits(vaultLp as bigint, 18)) : 0;
-  const shareSupply = vaultShareSupply !== undefined ? formatUnits(vaultShareSupply as bigint, 18) : "0";
+  const { data: totalAssetsRaw } = useDeploymentReadContract({
+    address: vaultAddr,
+    abi: abis.vault,
+    functionName: "totalAssetsUsdc",
+    query: { enabled: !!vaultAddr, refetchInterval: 10000 },
+  });
+
+  const { data: upperRangeBps } = useDeploymentReadContract({
+    address: deployment?.projectXAdapter,
+    abi: abis.adapter,
+    functionName: "upperRangeBps",
+    query: { enabled: !!deployment?.projectXAdapter, refetchInterval: 30000 },
+  });
+
+  const shareSupply = vaultShareSupply !== undefined ? formatUnits(vaultShareSupply as bigint, VAULT_SHARE_DECIMALS) : "0";
   const shareSupplyFloat = parseFloat(shareSupply);
-  const lpShare = totalSupply > 0 ? vaultLpFloat / totalSupply : 0;
-  const vaultKhype = reserveKhype * lpShare;
-  const vaultUsdc = reserveUsdc * lpShare;
+  const pendingUsdc =
+    pendingRewards !== undefined ? parseFloat(formatUnits(pendingRewards as bigint, 6)) : 0;
+  const totalAssetsUsdc =
+    totalAssetsRaw !== undefined ? parseFloat(formatUnits(totalAssetsRaw as bigint, 6)) : 0;
 
   return {
-    hasVault: !!deployment?.liquidityVault && deployment.liquidityVault !== zeroAddress,
-    vaultAddress: deployment?.liquidityVault,
-    vaultLp: vaultLpFloat,
-    vaultLpRaw: vaultLp as bigint | undefined,
+    hasVault: !!vaultAddr && vaultAddr !== zeroAddress,
+    vaultAddress: vaultAddr,
+    vaultLp: 0,
+    vaultLpRaw: undefined,
     shareSupply,
     shareSupplyFloat,
-    vaultKhype,
-    vaultUsdc,
-    vaultTvlUsd: vaultUsdc * 2,
-    targetRangeBps: targetRangeBps !== undefined ? Number(targetRangeBps) : 600,
+    vaultKhype: 0,
+    vaultUsdc: pendingUsdc,
+    pendingRewardsUsdc: pendingUsdc,
+    totalAssetsUsdc,
+    vaultTvlUsd: totalAssetsUsdc,
+    targetRangeBps: upperRangeBps !== undefined ? Number(upperRangeBps) : 1000,
     refetch: () => {
-      refetchVaultLp();
       refetchShareSupply();
     },
   };
@@ -704,77 +294,44 @@ export function useVaultBalance() {
   const { address } = useConnection();
   const deployment = useDeployment();
   const stats = useVaultStats();
+  const vaultAddr = deployment ? getVaultAddress(deployment) : undefined;
 
   const { data, refetch } = useDeploymentReadContract({
-    address: deployment?.liquidityVault,
-    abi: abis.liquidityVault,
+    address: vaultAddr,
+    abi: abis.vault,
     functionName: "balanceOf",
     args: address ? [address] : undefined,
     query: { enabled: !!address && stats.hasVault, refetchInterval: 10000 },
   });
 
   const sharesRaw = data as bigint | undefined;
-  const shares = sharesRaw !== undefined ? formatUnits(sharesRaw, 18) : "0";
+  const shares = sharesRaw !== undefined ? formatUnits(sharesRaw, VAULT_SHARE_DECIMALS) : "0";
   const share = stats.shareSupplyFloat > 0 ? parseFloat(shares) / stats.shareSupplyFloat : 0;
+
+  const assetsUsd = stats.totalAssetsUsdc * share;
 
   return {
     shares,
     sharesRaw,
     hasVaultPosition: sharesRaw !== undefined && sharesRaw > BigInt(0),
-    khype: stats.vaultKhype * share,
-    usdc: stats.vaultUsdc * share,
-    valueUsd: stats.vaultTvlUsd * share,
+    khype: 0,
+    usdc: assetsUsd,
+    valueUsd: assetsUsd,
     refetch,
   };
 }
 
 export function useVaultDepositDual() {
-  const { address } = useConnection();
-  const deployment = useDeployment();
-  const publicClient = useDeploymentPublicClient();
-  const { writeContractAsync, data: hash, isPending } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
-
-  const depositDual = useCallback(
-    async (amountKHYPE: string, amountUSDC: string) => {
-      if (!deployment?.liquidityVault || !address || !publicClient) throw new Error("Vault unavailable");
-      const khypeAmount = parseUnits(amountKHYPE, 18);
-      const usdcAmount = parseUnits(amountUSDC, 6);
-      const slippageBps = getSlippageBps();
-      const khypeMin = (khypeAmount * BigInt(10000 - slippageBps)) / BigInt(10000);
-      const usdcMin = (usdcAmount * BigInt(10000 - slippageBps)) / BigInt(10000);
-      const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
-
-      await ensureExactAllowance(
-        publicClient,
-        writeContractAsync,
-        deployment.tokenKHYPE,
-        abis.erc20,
-        address,
-        deployment.liquidityVault,
-        khypeAmount
-      );
-      await ensureExactAllowance(
-        publicClient,
-        writeContractAsync,
-        deployment.tokenUSDC,
-        abis.erc20,
-        address,
-        deployment.liquidityVault,
-        usdcAmount
-      );
-
-      await writeContractAsync({
-        address: deployment.liquidityVault,
-        abi: abis.liquidityVault,
-        functionName: "depositDual",
-        args: [khypeAmount, usdcAmount, khypeMin, usdcMin, address, deadline],
-      });
+  const { zap, isPending, isSuccess, hash } = useZapLiquidity();
+  return {
+    depositDual: async (amountKHYPE: string, amountUSDC: string) => {
+      if (parseFloat(amountUSDC) > 0) await zap("USDC", amountUSDC);
+      else if (parseFloat(amountKHYPE) > 0) await zap("kHYPE", amountKHYPE);
     },
-    [deployment, address, publicClient, writeContractAsync]
-  );
-
-  return { depositDual, isPending: isPending || isConfirming, isSuccess, hash };
+    isPending,
+    isSuccess,
+    hash,
+  };
 }
 
 export function useVaultWithdraw() {
@@ -786,34 +343,15 @@ export function useVaultWithdraw() {
 
   const withdraw = useCallback(
     async (shares: string) => {
-      if (!deployment?.liquidityVault || !address || !publicClient) throw new Error("Vault unavailable");
-      const shareAmount = parseUnits(shares, 18);
-      const slippageBps = getSlippageBps();
-      const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
-
-      const [vaultLp, shareSupply] = await Promise.all([
-        publicClient.readContract({
-          address: deployment.pair,
-          abi: abis.erc20,
-          functionName: "balanceOf",
-          args: [deployment.liquidityVault],
-        }) as Promise<bigint>,
-        publicClient.readContract({
-          address: deployment.liquidityVault,
-          abi: abis.liquidityVault,
-          functionName: "totalSupply",
-        }) as Promise<bigint>,
-      ]);
-      const liquidity = (vaultLp * shareAmount) / shareSupply;
-      const expected = await getPoolTokenBreakdown(publicClient, deployment, liquidity);
-      const khypeMin = applySlippage(expected.khype, slippageBps);
-      const usdcMin = applySlippage(expected.usdc, slippageBps);
+      const vaultAddr = deployment ? getVaultAddress(deployment) : undefined;
+      if (!vaultAddr || !address || !publicClient) throw new Error("Vault unavailable");
+      const shareAmount = parseUnits(shares, VAULT_SHARE_DECIMALS);
 
       await writeContractAsync({
-        address: deployment.liquidityVault,
-        abi: abis.liquidityVault,
+        address: vaultAddr,
+        abi: abis.vault,
         functionName: "withdraw",
-        args: [shareAmount, khypeMin, usdcMin, address, deadline],
+        args: [shareAmount, address],
       });
     },
     [deployment, address, publicClient, writeContractAsync]
@@ -822,29 +360,66 @@ export function useVaultWithdraw() {
   return { withdraw, isPending: isPending || isConfirming, isSuccess, hash };
 }
 
-export function useEpochCountdown() {
-  const deployment = useDeployment();
+export type EpochCountdown = {
+  h: number;
+  m: number;
+  s: number;
+  formatted: string;
+  isClaimWindow: boolean;
+};
 
-  const { data: secondsLeft } = useDeploymentReadContract({
-    address: deployment?.pointsDistributor,
-    abi: abis.points,
-    functionName: "timeUntilNextEpoch",
-    query: { enabled: !!deployment, refetchInterval: 5000 },
-  });
+export function computeEpochCountdown(now = Date.now(), claimOpenLabel: string): EpochCountdown {
+  const nowJst = new Date(new Date(now).toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
+  const start = new Date(nowJst);
+  start.setHours(7, 0, 0, 0);
+  const end = new Date(nowJst);
+  end.setHours(9, 0, 0, 0);
 
-  if (secondsLeft === undefined) return null;
-  const total = Number(secondsLeft);
+  if (nowJst >= start && nowJst < end) {
+    return { h: 0, m: 0, s: 0, formatted: claimOpenLabel, isClaimWindow: true };
+  }
+
+  let target = start;
+  if (nowJst >= end) {
+    target = new Date(start);
+    target.setDate(target.getDate() + 1);
+  }
+
+  const total = Math.max(0, Math.floor((target.getTime() - nowJst.getTime()) / 1000));
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);
   const s = total % 60;
-  return { h, m, s, formatted: `${String(h).padStart(2, "0")}h ${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s` };
+  return {
+    h,
+    m,
+    s,
+    formatted: `${String(h).padStart(2, "0")}h ${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`,
+    isClaimWindow: false,
+  };
+}
+
+export function useEpochCountdown() {
+  const { t } = useI18n();
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  return useMemo(
+    () => computeEpochCountdown(now, t("cashdrop.claimWindowOpen")),
+    [now, t]
+  );
 }
 
 export function useCashdrop() {
   const { address } = useConnection();
+  const chainId = useChainId();
   const deployment = useDeployment();
   const { writeContractAsync, data: hash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const claimedAmountRef = useRef<string>("0");
 
   const { data: merkleRoot } = useDeploymentReadContract({
     address: deployment?.airdrop,
@@ -876,24 +451,45 @@ export function useCashdrop() {
     query: { enabled: !!deployment, refetchInterval: 10000 },
   });
 
+  const { data: vaultShareToken } = useDeploymentReadContract({
+    address: deployment?.airdrop,
+    abi: MerkleAirdropAbi,
+    functionName: "vaultShareToken",
+    query: { enabled: !!deployment?.airdrop },
+  });
+
   const claimable = useMemo(() => {
     if (!deployment?.airdropEntries || !address) return null;
+    const gated =
+      vaultShareToken !== undefined &&
+      vaultShareToken !== null &&
+      (vaultShareToken as string).toLowerCase() !== zeroAddress.toLowerCase();
     const entries = deployment.airdropEntries.map((e) => ({
       address: e.address,
       amount: BigInt(e.amount),
+      minShares: e.minShares ? BigInt(e.minShares) : undefined,
     }));
-    return getMerkleProof(entries, address);
-  }, [deployment, address]);
+    return getMerkleProof(entries, address, gated);
+  }, [deployment, address, vaultShareToken]);
 
   const claim = useCallback(async () => {
     if (!deployment || !claimable) throw new Error("Nothing to claim");
+    claimedAmountRef.current = formatUnits(claimable.amount, 6);
     await writeContractAsync({
       address: deployment.airdrop,
       abi: MerkleAirdropAbi,
       functionName: "claim",
-      args: [claimable.amount, claimable.proof],
+      args: [claimable.amount, claimable.minShares, claimable.proof],
     });
   }, [deployment, claimable, writeContractAsync]);
+
+  useEffect(() => {
+    if (!isSuccess || !address || !chainId) return;
+    const amount = parseFloat(claimedAmountRef.current);
+    if (amount > 0) {
+      appendEarningsClaim(earningsStorageKey(chainId, address), amount);
+    }
+  }, [isSuccess, address, chainId]);
 
   const rootSet =
     merkleRoot !== undefined &&

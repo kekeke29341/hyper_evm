@@ -5,8 +5,10 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="$ROOT/.env.testnet"
 
 if [[ -f "$ENV_FILE" ]]; then
+  set -a
   # shellcheck disable=SC1090
   source "$ENV_FILE"
+  set +a
 fi
 
 if [[ -n "${MAIN_PRIVATE_KEY:-}" ]]; then
@@ -17,7 +19,10 @@ if [[ -n "${MAIN_PRIVATE_KEY:-}" ]]; then
   else
     export PRIVATE_KEY="0x$MAIN_PRIVATE_KEY"
   fi
-  export ADDRESS="${MAIN_ADDRESS:-}"
-elif [[ -n "${PRIVATE_KEY:-}" && "${PRIVATE_KEY}" != 0x* ]]; then
-  export PRIVATE_KEY="0x$PRIVATE_KEY"
+  export ADDRESS="${MAIN_ADDRESS:-${ADDRESS:-}}"
+elif [[ -n "${PRIVATE_KEY:-}" ]]; then
+  if [[ "$PRIVATE_KEY" != 0x* ]]; then
+    export PRIVATE_KEY="0x$PRIVATE_KEY"
+  fi
+  export ADDRESS="${ADDRESS:-${MAIN_ADDRESS:-}}"
 fi

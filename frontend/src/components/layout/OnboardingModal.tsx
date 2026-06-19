@@ -25,13 +25,6 @@ export function OnboardingModal() {
 
   useEffect(() => {
     if (isMobile === null) return;
-
-    if (isMobile) {
-      localStorage.setItem(STORAGE_KEY, "1");
-      setOpen(false);
-      return;
-    }
-
     if (!localStorage.getItem(STORAGE_KEY)) setOpen(true);
   }, [isMobile]);
 

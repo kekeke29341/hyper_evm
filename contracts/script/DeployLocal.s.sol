@@ -3,17 +3,16 @@ pragma solidity ^0.8.24;
 
 import {Script, console2} from "forge-std/Script.sol";
 import {MockERC20} from "../src/mocks/MockERC20.sol";
-import {FeeCollector} from "../src/core/FeeCollector.sol";
-import {ReferralRegistry} from "../src/core/ReferralRegistry.sol";
-import {PointsDistributor} from "../src/core/PointsDistributor.sol";
-import {ProjectXFactory} from "../src/core/ProjectXFactory.sol";
-import {ProjectXRouter} from "../src/core/ProjectXRouter.sol";
-import {ProjectXPair} from "../src/core/ProjectXPair.sol";
+import {MockProjectXNPM} from "../src/mocks/MockProjectXNPM.sol";
 import {MerkleAirdrop} from "../src/core/MerkleAirdrop.sol";
 import {HyperCoreOracle} from "../src/core/HyperCoreOracle.sol";
-import {HyperpoolLiquidityVault} from "../src/core/HyperpoolLiquidityVault.sol";
+import {ProjectXAdapter} from "../src/core/ProjectXAdapter.sol";
+import {HyperpoolVault} from "../src/core/HyperpoolVault.sol";
+import {ReferralRegistry} from "../src/core/ReferralRegistry.sol";
+import {HyperCoreConstants} from "../src/libraries/HyperCoreConstants.sol";
+import {ProjectXConstants} from "../src/libraries/ProjectXConstants.sol";
 
-/// @title DeployLocal — full local stack for Anvil (no big blocks needed)
+/// @title DeployLocal — Anvil stack with mock Project X NPM
 contract DeployLocal is Script {
     function run() external {
         uint256 deployerPrivateKey =
@@ -21,62 +20,66 @@ contract DeployLocal is Script {
         address deployer = vm.addr(deployerPrivateKey);
         vm.startBroadcast(deployerPrivateKey);
 
-        MockERC20 khype = new MockERC20("kHYPE", "kHYPE", 18);
+        MockERC20 whype = new MockERC20("HYPE", "HYPE", 18);
         MockERC20 usdc = new MockERC20("USDC", "USDC", 6);
+        MockProjectXNPM npm = new MockProjectXNPM();
 
-        FeeCollector feeCollector = new FeeCollector();
-        ReferralRegistry referralRegistry = new ReferralRegistry();
-        PointsDistributor pointsDistributor = new PointsDistributor(address(referralRegistry));
         HyperCoreOracle oracle = new HyperCoreOracle();
-        ProjectXFactory factory =
-            new ProjectXFactory(address(feeCollector), address(pointsDistributor), deployer);
-        ProjectXRouter router = new ProjectXRouter(address(factory));
-        factory.setTrustedRouter(address(router));
         MerkleAirdrop airdrop = new MerkleAirdrop(address(usdc));
+        ReferralRegistry referral = new ReferralRegistry();
 
-        factory.createPair(address(khype), address(usdc));
-        address pair = factory.getPair(address(khype), address(usdc));
-        pointsDistributor.authorizePool(pair);
-        HyperpoolLiquidityVault liquidityVault =
-            new HyperpoolLiquidityVault(address(router), pair, address(khype), address(usdc), deployer, deployer);
+        address token0 = address(whype) < address(usdc) ? address(whype) : address(usdc);
+        address token1 = address(whype) < address(usdc) ? address(usdc) : address(whype);
 
-        khype.mint(deployer, 10_000 ether);
-        usdc.mint(deployer, 10_000_000e6);
-
-        khype.approve(address(router), type(uint256).max);
-        usdc.approve(address(router), type(uint256).max);
-        router.addLiquidity(
-            address(khype), address(usdc), 1000 ether, 2_000_000e6, 0, 0, deployer, block.timestamp + 3600
+        ProjectXAdapter adapter = new ProjectXAdapter(
+            address(npm),
+            token0,
+            token1,
+            address(usdc),
+            address(whype),
+            ProjectXConstants.FEE_TIER_500,
+            deployer
         );
+
+        HyperpoolVault vault = new HyperpoolVault(
+            address(adapter),
+            address(oracle),
+            HyperCoreConstants.HYPE_ORACLE_ASSET_ID,
+            address(whype),
+            address(usdc),
+            address(airdrop),
+            deployer,
+            deployer,
+            deployer
+        );
+
+        adapter.setVault(address(vault));
+
+        whype.mint(deployer, 10_000 ether);
+        usdc.mint(deployer, 10_000_000e6);
 
         vm.stopBroadcast();
 
         string memory obj = "deployment";
         string memory json = vm.serializeUint(obj, "chainId", block.chainid);
         json = vm.serializeBool(obj, "deployed", true);
-        json = vm.serializeAddress(obj, "feeCollector", address(feeCollector));
-        json = vm.serializeAddress(obj, "referralRegistry", address(referralRegistry));
-        json = vm.serializeAddress(obj, "pointsDistributor", address(pointsDistributor));
         json = vm.serializeAddress(obj, "oracle", address(oracle));
-        json = vm.serializeAddress(obj, "factory", address(factory));
-        json = vm.serializeAddress(obj, "router", address(router));
-        json = vm.serializeAddress(obj, "pair", pair);
-        json = vm.serializeAddress(obj, "liquidityVault", address(liquidityVault));
-        json = vm.serializeAddress(obj, "pointsDistributor", address(pointsDistributor));
-        json = vm.serializeAddress(obj, "referralRegistry", address(referralRegistry));
+        json = vm.serializeAddress(obj, "projectXAdapter", address(adapter));
+        json = vm.serializeAddress(obj, "hyperpoolVault", address(vault));
+        json = vm.serializeAddress(obj, "liquidityVault", address(vault));
         json = vm.serializeAddress(obj, "airdrop", address(airdrop));
-        json = vm.serializeAddress(obj, "tokenKHYPE", address(khype));
+        json = vm.serializeAddress(obj, "referralRegistry", address(referral));
+        json = vm.serializeAddress(obj, "projectXNpm", address(npm));
+        json = vm.serializeAddress(obj, "tokenKHYPE", address(whype));
         json = vm.serializeAddress(obj, "tokenUSDC", address(usdc));
 
         string memory path = string.concat("deployments/", vm.toString(block.chainid), ".json");
         vm.writeJson(json, path);
 
         console2.log("Deployed to chain", block.chainid);
-        console2.log("HyperCoreOracle", address(oracle));
-        console2.log("Router", address(router));
-        console2.log("Pair", pair);
-        console2.log("LiquidityVault", address(liquidityVault));
-        console2.log("kHYPE", address(khype));
+        console2.log("HyperpoolVault", address(vault));
+        console2.log("ProjectXAdapter", address(adapter));
+        console2.log("WHYPE", address(whype));
         console2.log("USDC", address(usdc));
     }
 }

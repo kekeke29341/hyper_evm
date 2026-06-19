@@ -41,13 +41,18 @@ fi
 
 export PRIVATE_KEY="${PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}"
 
-ROUTER="0xa513E6E4b8f2a923D98304ec87F64353C4D5C853"
+DEPLOY_JSON="$ROOT/contracts/deployments/${ANVIL_CHAIN_ID}.json"
+VAULT=""
+if [[ -f "$DEPLOY_JSON" ]]; then
+  VAULT="$(node -e "const d=require('$DEPLOY_JSON'); process.stdout.write(d.hyperpoolVault||d.liquidityVault||'')")"
+fi
+
 LOADED_STATE=false
 
-if curl -sf -X POST "$ANVIL_RPC" -H "Content-Type: application/json" \
-  -d "{\"jsonrpc\":\"2.0\",\"method\":\"eth_getCode\",\"params\":[\"${ROUTER}\",\"latest\"],\"id\":1}" \
+if [[ -n "$VAULT" ]] && curl -sf -X POST "$ANVIL_RPC" -H "Content-Type: application/json" \
+  -d "{\"jsonrpc\":\"2.0\",\"method\":\"eth_getCode\",\"params\":[\"${VAULT}\",\"latest\"],\"id\":1}" \
   | grep -qv '"result":"0x"'; then
-  echo "==> Anvil already has deployment — skipping deploy"
+  echo "==> Anvil already has HyperpoolVault at $VAULT — skipping deploy"
   LOADED_STATE=true
 fi
 

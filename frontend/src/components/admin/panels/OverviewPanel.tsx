@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { BookOpen, Droplets, Gift, Shield, Star, Vault } from "lucide-react";
+import { BookOpen, Droplets, Gift, Shield, Vault, Coins } from "lucide-react";
 import { defaultChain } from "@/lib/wagmi/config";
-import { getChainDeploymentMeta } from "@/lib/contracts";
+import { getChainDeploymentMeta, getVaultAddress } from "@/lib/contracts";
 import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
 import { useAdminAuth, useAdminAnalytics } from "@/lib/hooks/useAdmin";
 import { AdminCard, StatBox, AddressRow } from "../AdminUi";
@@ -17,15 +17,15 @@ const RUNBOOK = [
 export function OverviewPanel() {
   const chainId = useEffectiveChainId();
   const meta = getChainDeploymentMeta(chainId);
-  const { isPointsOwner, isAirdropOwner, isFactoryAdmin, address, deployment } = useAdminAuth();
+  const { isAirdropOwner, isVaultOwner, address, deployment } = useAdminAuth();
   const analytics = useAdminAnalytics();
 
   const quickActions = [
-    { tab: "pools", label: "Authorize pool", icon: Droplets, enabled: isPointsOwner },
+    { tab: "vault", label: "Vault & harvest", icon: Vault, enabled: isVaultOwner },
     { tab: "airdrop", label: "Set Merkle root", icon: Gift, enabled: isAirdropOwner },
-    { tab: "vault", label: "Vault controls", icon: Vault, enabled: !!deployment?.liquidityVault },
-    { tab: "points", label: "Points policy", icon: Star, enabled: true },
-    { tab: "system", label: "Factory settings", icon: Shield, enabled: isFactoryAdmin },
+    { tab: "rewards", label: "Fee split (30/70)", icon: Coins, enabled: true },
+    { tab: "pools", label: "Project X pool", icon: Droplets, enabled: true },
+    { tab: "system", label: "Keeper / operator", icon: Shield, enabled: isVaultOwner },
   ];
 
   return (
@@ -40,19 +40,19 @@ export function OverviewPanel() {
           />
           <StatBox label="Contracts" value={meta.live ? "Live" : "Not deployed"} sub={meta.configured ? "JSON present" : "—"} />
           <StatBox
-            label="Epoch"
-            value={analytics.currentEpoch !== undefined ? String(analytics.currentEpoch) : "—"}
-            sub={
-              analytics.timeLeft !== undefined
-                ? `~${(Number(analytics.timeLeft) / 3600).toFixed(1)}h left`
-                : "Points"
+            label="Pending rewards"
+            value={
+              analytics.pendingUserRewards !== undefined
+                ? `${Number(analytics.pendingUserRewards) / 1e6}`
+                : "—"
             }
+            sub="70% user pool (USDC)"
           />
         </div>
         {deployment && (
           <div className="mt-4 pt-4 border-t border-zinc-800 space-y-1">
             <AddressRow label="Your wallet" address={address ?? "—"} />
-            <AddressRow label="Router" address={deployment.router} />
+            <AddressRow label="Vault" address={getVaultAddress(deployment) ?? "—"} />
           </div>
         )}
       </AdminCard>
@@ -105,7 +105,7 @@ export function OverviewPanel() {
         </ul>
         <p className="text-[10px] text-zinc-600 mt-4 leading-relaxed">
           Production: set <code className="text-zinc-400">NEXT_PUBLIC_ADMIN_ENABLED=false</code>. Enable only on
-          Preview or local builds. All writes require contract owner / factory admin wallet.
+          Preview or local builds. All writes require vault or airdrop owner wallet.
         </p>
       </AdminCard>
     </div>

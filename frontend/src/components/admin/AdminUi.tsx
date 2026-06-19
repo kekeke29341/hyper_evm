@@ -122,13 +122,15 @@ export function AdminTextarea({
   );
 }
 
-export function AddressRow({ label, address }: { label: string; address: string }) {
+export function AddressRow({ label, address }: { label: string; address?: string }) {
+  const display = address && address !== "0x0000000000000000000000000000000000000000" ? address : "—";
   const chainId = useEffectiveChainId();
   const [copied, setCopied] = useState(false);
-  const explorer = address.startsWith("0x") ? explorerAddressUrl(chainId, address) : null;
+  const explorer = display.startsWith("0x") ? explorerAddressUrl(chainId, display) : null;
 
   const copy = async () => {
-    await navigator.clipboard.writeText(address);
+    if (!display.startsWith("0x")) return;
+    await navigator.clipboard.writeText(display);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
@@ -136,7 +138,7 @@ export function AddressRow({ label, address }: { label: string; address: string 
   return (
     <div className="flex flex-wrap items-center gap-2 text-xs py-1">
       <span className="text-zinc-500 shrink-0">{label}</span>
-      <code className="px-2 py-0.5 rounded bg-zinc-900 text-cyan-400 font-mono text-[11px]">{address}</code>
+      <code className="px-2 py-0.5 rounded bg-zinc-900 text-cyan-400 font-mono text-[11px]">{display}</code>
       <button type="button" onClick={copy} className="p-1 text-zinc-500 hover:text-white" aria-label="Copy">
         {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
       </button>

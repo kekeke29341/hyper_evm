@@ -9,17 +9,17 @@
 | 項目 | 内容 |
 |------|------|
 | プロダクト名 | Hyperpool |
-| 種別 | HyperEVM 上の AMM DEX + クロスチェーンアグリゲーター UI |
+| 種別 | Project X 代理 LP + keeper リバランス + Li.FI 入金 UI |
 | 技術スタック | Foundry (Solidity 0.8.24) + Next.js 14 + wagmi/viem |
-| フェーズ | Phase 2: EVM Aggregator (Li.FI 統合) Live |
+| フェーズ | HyperpoolVault + ProjectXAdapter（自前 Pair/Router 廃止） |
 
 ### 主要機能
 
-- Swap / Liquidity / Portfolio
-- Points（手数料ベース、日次 100 万 PTS プール）
-- Affiliate（15% referrer / 10% referee boost）
-- Cashdrop（Merkle USDC エアドロップ）
-- Admin パネル（`/admin`）
+- Deposit（Li.FI bridge → USDC）/ Position（Vault LP）
+- Keeper rebalance（+10% / −30%）
+- 日次 USDC Cashdrop（手数料 70% · JST 7–9）
+- ダッシュボード（claim 履歴の可視化）
+- Admin パネル（`/admin` · Preview/ローカルのみ推奨）
 
 ---
 
@@ -36,7 +36,7 @@
 ### Day 2 — コードベース理解
 
 - [ ] [architecture.md](./architecture.md) 読了
-- [ ] `contracts/src/core/` の Factory / Pair / Router を把握
+- [ ] `contracts/src/core/` の HyperpoolVault / ProjectXAdapter を把握
 - [ ] `frontend/src/lib/hooks/useDeFi.ts` の主要 hook を確認
 - [ ] `scripts/sync-abi.mjs` の ABI 同期フローを理解
 
@@ -63,7 +63,9 @@
 | **アプリ概要・手数料・収益更新** | [docs/product-overview.md](./product-overview.md) |
 | ローカル起動 | `./scripts/dev-local.sh` |
 | Testnet デプロイ | `./scripts/deploy-testnet.sh` |
+| Testnet E2E 一括 | `source scripts/testnet-env.sh && ./scripts/testnet-run-all.sh` |
 | ABI 同期 | `node scripts/sync-abi.mjs` |
+| Keeper / 日次報酬 | `scripts/keeper-rebalance.mjs` / `scripts/daily-rewards.mjs` |
 | コントラクトテスト | `cd contracts && forge test` |
 | フロントテスト | `cd frontend && npm run test` |
 | Merkle 生成 | `frontend/src/lib/admin/merkle.ts` |
@@ -81,7 +83,7 @@
 
 1. **ガス制限** — 通常 TX は small block（3M gas）。`test_SwapGasUnderSmallBlock` で検証済み
 2. **Big Block** — デプロイ時は `usingBigBlocks: true` が必要
-3. **L1Read プリコンパイル** — ローカル Anvil では mock が必要（`ProjectXTest.setUp` 参照）
+3. **L1Read プリコンパイル** — ローカル Anvil では mock が必要（`HyperpoolTest.setUp` 参照）
 4. **Li.FI** — Testnet chain 998 は Li.FI 非対応。UI では mainnet 999 経由でルーティング
 
 ### 開発上の癖

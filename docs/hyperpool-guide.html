@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hyperpool 完全ガイド — 初心者から上級者まで</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8f9fa; color: #333; line-height: 1.6; }
+        .container { max-width: 1100px; margin: 0 auto; padding: 40px 20px; }
+        h1, h2, h3, h4 { color: #16213e; margin-bottom: 16px; }
+        h1 { font-size: 1.8em; border-bottom: 3px solid #16213e; padding-bottom: 12px; }
+        h2 { font-size: 1.4em; margin-top: 40px; padding-top: 8px; border-top: 1px solid #e0e0e0; }
+        h2:first-of-type { border-top: none; margin-top: 24px; }
+        h3 { font-size: 1.1em; margin-top: 24px; }
+        h4 { font-size: 1em; margin-top: 16px; color: #334155; }
+        p { margin-bottom: 12px; }
+        ul, ol { margin-bottom: 12px; padding-left: 24px; }
+        li { margin-bottom: 4px; }
+        a { color: #1565c0; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .text-muted { color: #888; }
+        .text-small { font-size: 0.85em; }
+        code { font-family: Menlo, Monaco, 'Courier New', monospace; background: #f0f0f0; padding: 2px 6px; border-radius: 3px; font-size: 0.9em; }
+        pre { background: #1e293b; color: #e2e8f0; padding: 16px 20px; border-radius: 8px; overflow-x: auto; margin-bottom: 16px; font-size: 0.85em; line-height: 1.5; }
+        pre code { background: none; padding: 0; color: inherit; }
+        table { width: 100%; border-collapse: collapse; background: #fff; margin-bottom: 24px; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        th { background: #16213e; color: #fff; padding: 12px 16px; text-align: left; font-weight: 600; font-size: 0.9em; }
+        td { padding: 10px 16px; border-bottom: 1px solid #e0e0e0; font-size: 0.9em; vertical-align: top; }
+        tr:nth-child(even) td { background: #f2f2f2; }
+        tr:hover td { background: #e8edf3; }
+        .card { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        .card-header { font-weight: 600; color: #16213e; margin-bottom: 12px; font-size: 1.1em; }
+        .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600; }
+        .badge-success { background: #e8f5e9; color: #2e7d32; }
+        .badge-warning { background: #fff3cd; color: #856404; }
+        .badge-danger { background: #ffcdd2; color: #c62828; }
+        .badge-info { background: #e3f2fd; color: #1565c0; }
+        .badge-level-beginner { background: #e8f5e9; color: #1b5e20; }
+        .badge-level-intermediate { background: #e3f2fd; color: #0d47a1; }
+        .badge-level-advanced { background: #ede7f6; color: #4527a0; }
+        .conclusion { background: #eef2f7; border-left: 4px solid #16213e; border-radius: 6px; padding: 16px 20px; margin-bottom: 28px; }
+        .conclusion-header { font-weight: 700; color: #16213e; font-size: 1.05em; margin-bottom: 8px; }
+        .conclusion p { margin: 0 0 8px 0; }
+        .conclusion p:last-child { margin-bottom: 0; }
+        .summary-box { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+        .summary-item { flex: 1; min-width: 140px; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        .summary-number { font-size: 1.6em; font-weight: 700; color: #16213e; }
+        .summary-label { font-size: 0.85em; color: #888; margin-top: 4px; }
+        .action-items { background: #fff8e1; border-left: 4px solid #f9a825; border-radius: 6px; padding: 16px 20px; margin-top: 32px; margin-bottom: 24px; }
+        .action-items-header { font-weight: 700; color: #e65100; font-size: 1.05em; margin-bottom: 12px; }
+        .action-items ul { margin: 0; padding-left: 20px; }
+        .action-items li { margin-bottom: 6px; }
+        .note-box { background: #fff3cd; border-left: 4px solid #f9a825; border-radius: 6px; padding: 14px 18px; margin-bottom: 16px; }
+        .note-box-header { font-weight: 700; color: #856404; margin-bottom: 6px; font-size: 0.95em; }
+        .info-box { background: #e3f2fd; border-left: 4px solid #1565c0; border-radius: 6px; padding: 14px 18px; margin-bottom: 16px; }
+        .info-box-header { font-weight: 700; color: #1565c0; margin-bottom: 6px; font-size: 0.95em; }
+        .principle-box { background: #fce4ec; border-left: 4px solid #c62828; border-radius: 6px; padding: 16px 20px; margin-bottom: 20px; }
+        .principle-box-header { font-weight: 700; color: #c62828; font-size: 1.05em; margin-bottom: 8px; }
+        .step-number { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: #16213e; color: #fff; border-radius: 50%; font-weight: 700; font-size: 0.85em; margin-right: 8px; flex-shrink: 0; }
+        .step { display: flex; align-items: flex-start; margin-bottom: 16px; }
+        .step-content { flex: 1; }
+        .toc { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px 24px; margin-bottom: 28px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        .toc-header { font-weight: 700; color: #16213e; margin-bottom: 12px; font-size: 1.05em; }
+        .toc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+        .toc-section-title { font-weight: 600; color: #16213e; margin-bottom: 8px; font-size: 0.95em; }
+        .toc ul { margin: 0; padding-left: 18px; font-size: 0.9em; }
+        .level-header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+        .level-header h2 { margin: 0; border: none; padding: 0; }
+        .tab-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 16px; }
+        .tab-card { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 14px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+        .tab-card-name { font-weight: 700; color: #16213e; margin-bottom: 6px; }
+        .tab-card-desc { font-size: 0.88em; color: #555; }
+        .diagram { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px 20px; font-family: Menlo, Monaco, monospace; font-size: 0.78em; line-height: 1.55; overflow-x: auto; margin-bottom: 16px; white-space: pre; }
+        .report-footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e0e0e0; color: #888; font-size: 0.8em; text-align: right; }
+        .operator-banner { background: #fff3e0; border: 2px solid #f9a825; border-radius: 10px; padding: 20px 24px; margin-bottom: 28px; }
+        .operator-banner-header { font-weight: 700; color: #e65100; font-size: 1.15em; margin-bottom: 10px; }
+        .pct-highlight { font-weight: 700; color: #1565c0; font-variant-numeric: tabular-nums; }
+        .confirm-col { width: 48px; text-align: center; }
+        @media print {
+            @page { margin: 20mm; }
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .toc { break-inside: avoid; }
+        }
+        @media (max-width: 640px) {
+            .container { padding: 24px 16px; }
+            h1 { font-size: 1.5em; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Hyperpool 完全ガイド — 初心者から上級者まで</h1>
+        <p class="text-muted text-small">HyperEVM 上のコミュニティ主導 DEX · 更新: 2026/06/16 · 参照: docs/app-overview.md, product-overview.md, architecture.md</p>
+
+        <!-- 結論 -->
+        <div class="conclusion">
+            <div class="conclusion-header">結論 — 30秒で理解する Hyperpool</div>
+            <p><strong>Hyperpool</strong> は自前 DEX ではありません。<strong>Project X</strong> の WHYPE/USDC プールへ資金を代理預け、運営が <strong>+10% / −30%</strong> レンジをリバランスするマネージド LP サービスです。</p>
+            <p>collect した LP 手数料の <strong>70%</strong> を毎朝 JST 7:00–9:00 に USDC で還元（<strong>30%</strong> は運営取り分）。APR は Project X 参考 APY を表示し、脚注で「実質 ≒ 参考 APY × 70%」を明記します。</p>
+            <p style="margin-top:10px"><strong>運営者の方へ:</strong> 数値の合意と確認項目は <a href="#operator">運営者向けセクション</a> をご覧ください。</p>
+        </div>
+
+        <!-- 運営者バナー -->
+        <div class="operator-banner" id="operator-top">
+            <div class="operator-banner-header">運営者の方へ — まずこのガイドを一読してください</div>
+            <p style="margin-bottom:8px">Hyperpool を公開・運用する会社は、エンジニアだけでなく<strong>事業責任者・CS・法務</strong>も本ページを読み、<a href="#operator-numbers">数値（%）の合意</a>と<a href="#operator-confirm">確認質問への回答</a>を記録してください。</p>
+            <p style="margin:0" class="text-small text-muted">推奨読了順: 結論 → 数字サマリー → <a href="#operator-numbers">合意すべき % 一覧</a> → <a href="#operator-confirm">確認したいこと</a> → 必要に応じて Level 1〜3</p>
+        </div>
+
+        <!-- サマリー -->
+        <h2>数字で見る Hyperpool</h2>
+        <div class="summary-box">
+            <div class="summary-item">
+                <div class="summary-number">70%</div>
+                <div class="summary-label">ユーザー USDC 還元</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-number">30%</div>
+                <div class="summary-label">運営取り分</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-number">+10 / −30%</div>
+                <div class="summary-label">リバランスレンジ</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-number">7:00–9:00</div>
+                <div class="summary-label">JST Claim ウィンドウ</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-number">0%</div>
+                <div class="summary-label">Li.FI 追加手数料</div>
+            </div>
+        </div>
+
+        <!-- 目次 -->
+        <nav class="toc" aria-label="目次">
+            <div class="toc-header">目次 — レベル別に読む</div>
+            <div class="toc-grid">
+                <div>
+                    <div class="toc-section-title"><span class="badge badge-warning">運営者</span> 引き継ぎ・合意</div>
+                    <ul>
+                        <li><a href="#operator">運営者向け（はじめに）</a></li>
+                        <li><a href="#operator-numbers">合意すべき %・数値一覧</a></li>
+                        <li><a href="#operator-confirm">運営者に確認したいこと</a></li>
+                        <li><a href="#operator-checklist">開始前チェックリスト</a></li>
+                        <li><a href="#operator-infra">インフラ・Vercel 設定</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <div class="toc-section-title"><span class="badge badge-level-beginner">初心者</span> まずここから</div>
+                    <ul>
+                        <li><a href="#beginner-what">Hyperpool とは？</a></li>
+                        <li><a href="#beginner-start">はじめ方（5ステップ）</a></li>
+                        <li><a href="#beginner-tabs">画面（タブ）の見方</a></li>
+                        <li><a href="#beginner-fees">かかる費用の基本</a></li>
+                        <li><a href="#naming">命名規則（Hyperpool 統一）</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <div class="toc-section-title"><span class="badge badge-level-intermediate">中級者</span> 機能を使いこなす</div>
+                    <ul>
+                        <li><a href="#intermediate-swap">Swap &amp; ブリッジ</a></li>
+                        <li><a href="#intermediate-lp">Position / LP / Vault</a></li>
+                        <li><a href="#intermediate-range">±10% レンジの意味</a></li>
+                        <li><a href="#intermediate-points">ポイント &amp; 紹介</a></li>
+                        <li><a href="#intermediate-cashdrop">Cashdrop</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <div class="toc-section-title"><span class="badge badge-level-advanced">上級者</span> 仕組みと運用</div>
+                    <ul>
+                        <li><a href="#advanced-arch">アーキテクチャ</a></li>
+                        <li><a href="#advanced-contracts">コントラクト一覧</a></li>
+                        <li><a href="#advanced-data">オンチェーン vs モック UI</a></li>
+                        <li><a href="#advanced-dev">開発・デプロイ</a></li>
+                        <li><a href="#advanced-security">セキュリティ注意点</a></li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
+        <!-- ========== 初心者 ========== -->
+        <div class="level-header" id="beginner">
+            <span class="badge badge-level-beginner">Level 1</span>
+            <h2>初心者向け — ゼロから使う</h2>
+        </div>
+
+        <h3 id="beginner-what">Hyperpool とは？</h3>
+        <div class="card">
+            <p>Hyperpool は <strong>HyperEVM</strong>（Hyperliquid の EVM 互換チェーン）上で動く <strong>AMM 型 DEX</strong> です。中央の取引所ではなく、スマートコントラクトと流動性プールを通じて、ユーザー同士がトークンを交換します。</p>
+            <table>
+                <thead>
+                    <tr><th>用語</th><th>意味</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><strong>DEX</strong></td><td>分散型取引所。ウォレットから直接取引する</td></tr>
+                    <tr><td><strong>AMM</strong></td><td>自動マーケットメーカー。プール内の残高比率で価格が決まる</td></tr>
+                    <tr><td><strong>HyperEVM</strong></td><td>Hyperliquid エコシステムの EVM レイヤー（Chain ID 998=Testnet, 999=Mainnet）</td></tr>
+                    <tr><td><strong>kHYPE / USDC</strong></td><td>主な取引ペア。kHYPE ↔ USDC のスワップ・LP が可能</td></tr>
+                    <tr><td><strong>ウォレット</strong></td><td>MetaMask 等。トランザクションの署名・送信に必要</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3 id="beginner-start">はじめ方（5ステップ）</h3>
+        <div class="card">
+            <div class="step"><span class="step-number">1</span><div class="step-content"><strong>ウォレットを用意</strong> — MetaMask 等をインストールし、シードフレーズを安全に保管</div></div>
+            <div class="step"><span class="step-number">2</span><div class="step-content"><strong>HyperEVM ネットワークを追加</strong> — Testnet（998）または Mainnet（999）をウォレットに登録</div></div>
+            <div class="step"><span class="step-number">3</span><div class="step-content"><strong>Hyperpool を開く</strong> — Vercel 上のフロントエンド URL にアクセス</div></div>
+            <div class="step"><span class="step-number">4</span><div class="step-content"><strong>Connect Wallet</strong> — 右上からウォレットを接続</div></div>
+            <div class="step"><span class="step-number">5</span><div class="step-content"><strong>Swap タブで小さな量を試す</strong> — スリッページ設定（設定画面）を確認してから取引</div></div>
+        </div>
+
+        <div class="info-box">
+            <div class="info-box-header">ウォレット未接続でもできること</div>
+            <p style="margin:0">タブの閲覧、見積もり表示（プールに流動性がある場合）などは可能です。<strong>スワップ・LP・Claim は接続と署名が必須</strong>です。</p>
+        </div>
+
+        <h3 id="beginner-tabs">画面（タブ）の見方</h3>
+        <div class="tab-grid">
+            <div class="tab-card">
+                <div class="tab-card-name">Swap</div>
+                <div class="tab-card-desc">kHYPE ↔ USDC など同一チェーン内スワップ。Li.FI 経由のクロスチェーンブリッジもここ</div>
+            </div>
+            <div class="tab-card">
+                <div class="tab-card-name">Position</div>
+                <div class="tab-card-desc">LP ポジションの作成・管理。Vault 経由の Zap 入金も可能</div>
+            </div>
+            <div class="tab-card">
+                <div class="tab-card-name">Portfolio</div>
+                <div class="tab-card-desc">ウォレット残高・LP 保有の一覧。招待コード入力（+10% ブースト）</div>
+            </div>
+            <div class="tab-card">
+                <div class="tab-card-name">Points</div>
+                <div class="tab-card-desc">手数料連動ポイントの確認、リーダーボード、Claim</div>
+            </div>
+            <div class="tab-card">
+                <div class="tab-card-name">Affiliate</div>
+                <div class="tab-card-desc">紹介コードの発行・管理（紹介者 +15% / 被紹介者 +10%）</div>
+            </div>
+            <div class="tab-card">
+                <div class="tab-card-name">Cashdrop</div>
+                <div class="tab-card-desc">Merkle 証明による USDC エアドロップ請求</div>
+            </div>
+        </div>
+
+        <h3 id="beginner-fees">かかる費用の基本</h3>
+        <table>
+            <thead>
+                <tr><th>操作</th><th>Hyperpool 手数料</th><th>その他</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>スワップ（同一チェーン）</td>
+                    <td><span class="badge badge-info">0.30%</span></td>
+                    <td>ガス代（HyperEVM）が別途</td>
+                </tr>
+                <tr>
+                    <td>LP 追加・削除</td>
+                    <td><span class="badge badge-success">0%</span>（mint/burn のみ）</td>
+                    <td>ガス代のみ</td>
+                </tr>
+                <tr>
+                    <td>Li.FI ブリッジ</td>
+                    <td><span class="badge badge-success">0%</span>（アグリゲーター）</td>
+                    <td>送信元チェーンのガス・ルート手数料は別途</td>
+                </tr>
+                <tr>
+                    <td>Cashdrop Claim</td>
+                    <td><span class="badge badge-success">0%</span></td>
+                    <td>ガス代のみ</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3 id="naming">命名規則 — Hyperpool に統一済み</h3>
+        <div class="info-box">
+            <div class="info-box-header">2026-06-16 リネーム完了</div>
+            <p style="margin:0">旧称 <strong>ProjectX*</strong>（<code>ProjectXRouter</code> 等）はコードベースから <strong>Hyperpool*</strong> に統一しました。プロダクト名・Solidity コントラクト名・ABI ファイル名・デプロイスクリプト（<code>DeployHyperpool.s.sol</code>）が一致します。</p>
+        </div>
+        <div class="note-box">
+            <div class="note-box-header">Testnet 再デプロイが必要</div>
+            <p style="margin:0">Chain 998 にデプロイ済みの<strong>旧アドレス</strong>は旧バイトコード（ProjectX 名義）です。リネーム後のコントラクトを使うには <code>./scripts/deploy-testnet.sh</code> で<strong>再デプロイ</strong> → <code>sync-abi.mjs</code> → Vercel <strong>Redeploy</strong> → 初期流動性シードが必要です。</p>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>レイヤー</th>
+                    <th>識別子</th>
+                    <th>例 / パス</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>プロダクト / UI</strong></td>
+                    <td>Hyperpool</td>
+                    <td>フロントタイトル、マーケ、ユーザー向け説明</td>
+                </tr>
+                <tr>
+                    <td><strong>デプロイ JSON</strong></td>
+                    <td><code>router</code> · <code>factory</code> · <code>pair</code></td>
+                    <td><code>contracts/deployments/998.json</code>（値は再デプロイ後に更新）</td>
+                </tr>
+                <tr>
+                    <td><strong>Solidity（AMM）</strong></td>
+                    <td><code>HyperpoolRouter</code> · <code>HyperpoolFactory</code> · <code>HyperpoolPair</code></td>
+                    <td><code>contracts/src/core/Hyperpool*.sol</code></td>
+                </tr>
+                <tr>
+                    <td><strong>LP トークン</strong></td>
+                    <td>Hyperpool LP / <code>HPLP</code></td>
+                    <td>Pair ERC20 名称（旧 PRJX-LP から変更）</td>
+                </tr>
+                <tr>
+                    <td><strong>Vault</strong></td>
+                    <td><code>HyperpoolLiquidityVault</code></td>
+                    <td>Router 型は <code>HyperpoolRouter</code></td>
+                </tr>
+                <tr>
+                    <td><strong>ABI（フロント）</strong></td>
+                    <td><code>HyperpoolRouter.json</code> 等</td>
+                    <td><code>frontend/src/lib/contracts/abis/</code></td>
+                </tr>
+            </tbody>
+        </table>
+        <p class="text-muted text-small">UI の localStorage キー（<code>prjx_*</code>）や Li.FI integrator 文字列は別途 Hyperpool へ移行中。運用上は Vercel の <code>LIFI_INTEGRATOR=hyperpool</code> を設定してください。</p>
+
+        <!-- ========== 中級者 ========== -->
+        <div class="level-header" id="intermediate">
+            <span class="badge badge-level-intermediate">Level 2</span>
+            <h2>中級者向け — 機能を使いこなす</h2>
+        </div>
+
+        <h3 id="intermediate-swap">Swap &amp; クロスチェーンブリッジ</h3>
+        <div class="card">
+            <div class="card-header">同一チェーンスワップ</div>
+            <p>HyperEVM 上の <strong>Router</strong>（実装コントラクト: <code>HyperpoolRouter</code>、デプロイ JSON キー: <code>router</code>）経由でプールとやり取りします。入力量の 0.30% が手数料として差し引かれ、出力量が計算されます。</p>
+            <p><strong>計算例:</strong> 1,000 USDC → kHYPE の場合</p>
+            <ul>
+                <li>総手数料 = 1,000 × 0.30% = <strong>3.00 USDC</strong></li>
+                <li>LP 向け（プール内蓄積）= 3.00 × 86% = <strong>2.58 USDC</strong></li>
+                <li>プロトコル = 3.00 × 14% = <strong>0.42 USDC</strong></li>
+            </ul>
+        </div>
+        <div class="card">
+            <div class="card-header">Li.FI クロスチェーン</div>
+            <p>Ethereum / Arbitrum / Base 等から HyperEVM へ資産をブリッジできます。Hyperpool は Li.FI API 呼び出し時 <code>fee=0</code> を固定しており、<strong>追加のアグリゲーター手数料は取りません</strong>（UI: 「0% Aggregator Fees — No hidden spreads, just gas」）。</p>
+            <p>スリッページ許容は設定画面で変更可能（デフォルト 0.5% = 50 bps）。0.1% / 0.5% / 1.0% などから選択できます。</p>
+        </div>
+
+        <h3 id="intermediate-lp">Position / LP / Liquidity Vault</h3>
+        <table>
+            <thead>
+                <tr><th>方法</th><th>流れ</th><th>向いている人</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>直接 LP</strong></td>
+                    <td>kHYPE + USDC を Router 経由でプールに預ける → LP トークンを受け取る</td>
+                    <td>両トークンを保有している人</td>
+                </tr>
+                <tr>
+                    <td><strong>Zap LP</strong></td>
+                    <td>片方のトークン（kHYPE または USDC）だけを預け、半分をスワップして LP 作成</td>
+                    <td>単一トークンから LP に入りたい人</td>
+                </tr>
+                <tr>
+                    <td><strong>Liquidity Vault</strong></td>
+                    <td>Vault に預ける → Vault が LP を管理 → ユーザーに Vault シェアを付与</td>
+                    <td>Vault 経由でまとめて LP 管理したい人</td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="note-box">
+            <div class="note-box-header">LP 収益は自動入金されない</div>
+            <p style="margin:0">手数料の 86% はプール内に蓄積されます。LP トークンを burn（流動性削除）したときに、増えたプールシェア分として受け取ります。</p>
+        </div>
+
+        <h3 id="intermediate-range">「上10% / 下10%」（±10% レンジ）とは？</h3>
+        <div class="card">
+            <p>Position 画面で <strong>±3% / ±6% / ±10%</strong> と表示されるのは、<strong>現在価格を中心としたモニタリング用の価格帯</strong>です。「上10% / 下10%」は次の意味です。</p>
+            <table>
+                <thead>
+                    <tr><th>表示</th><th>意味</th><th>例（現在価格 2,000 の場合）</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><strong>上限（上 +10%）</strong></td><td>現在価格 × 1.10</td><td>2,200</td></tr>
+                    <tr><td><strong>下限（下 −10%）</strong></td><td>現在価格 × 0.90</td><td>1,800</td></tr>
+                    <tr><td><strong>レンジ幅</strong></td><td>合計 20%（±10%）</td><td>1,800 〜 2,200</td></tr>
+                </tbody>
+            </table>
+            <p>この帯は <strong>In Range / Out of Range</strong> の表示や推定 APY の参考に使われます。</p>
+        </div>
+        <div class="note-box">
+            <div class="note-box-header">重要 — オンチェーンはフルレンジ LP</div>
+            <p style="margin:0">±10% を選んでも、<strong>実際のオンチェーン LP は Uniswap V2 型のフルレンジ</strong>です（全価格帯に流動性が有効）。表示レンジは監視用であり、集中流動性（Uniswap V3 型）は Phase 3 以降の予定です。</p>
+        </div>
+
+        <h3 id="intermediate-points">ポイント &amp; 紹介プログラム</h3>
+        <div class="card">
+            <div class="card-header">ポイントの仕組み</div>
+            <ol>
+                <li>ユーザーがスワップする</li>
+                <li>0.30% の手数料が発生</li>
+                <li><code>PointsDistributor</code> に手数料量と <strong>1:1</strong> でポイントが記録</li>
+                <li>紹介関係があればボーナス加算</li>
+                <li>UI が約 5 秒ごとに残高を更新</li>
+                <li><strong>Claim ボタン</strong>で明示的に請求（自動送金ではない）</li>
+            </ol>
+        </div>
+        <table>
+            <thead>
+                <tr><th>ボーナス</th><th>対象</th><th>内容</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>被紹介者ブースト</td>
+                    <td>招待コードを入力した友達</td>
+                    <td>獲得ポイント <strong>+10%</strong></td>
+                </tr>
+                <tr>
+                    <td>紹介者ボーナス</td>
+                    <td>コードを発行したあなた</td>
+                    <td>友達が生んだポイントの <strong>+15%</strong> を追加獲得</td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="card">
+            <div class="card-header">日次エポック（Daily Pool）</div>
+            <p>エポック長は <strong>24 時間</strong>。UI に「Daily Pool: 1,000,000 PTS」と表示されますが、これはプロダクト上の日次配布プール目標です。次のエポックへの切替は、24 時間経過後の<strong>次のスワップ手数料記録時</strong>に自動で行われます。</p>
+        </div>
+
+        <h3 id="intermediate-cashdrop">Cashdrop（Merkle エアドロップ）</h3>
+        <div class="card">
+            <p>対象者は Merkle 証明を使って USDC を請求（claim）できます。プロトコル手数料はなく、ガス代のみ必要です。ウォレット接続後、Cashdrop タブで請求可能額を確認できます。</p>
+        </div>
+
+        <!-- ========== 上級者 ========== -->
+        <div class="level-header" id="advanced">
+            <span class="badge badge-level-advanced">Level 3</span>
+            <h2>上級者向け — 仕組み・開発・運用</h2>
+        </div>
+
+        <h3 id="advanced-arch">システムアーキテクチャ</h3>
+        <div class="diagram">ユーザー（ブラウザ + ウォレット）
+        │
+        ▼
+┌───────────────────────────────┐
+│  Frontend (Next.js 14)        │
+│  wagmi / viem · Li.FI API     │
+│  Swap │ Position │ Points …   │
+└───────────────┬───────────────┘
+                │ JSON-RPC
+                ▼
+┌───────────────────────────────┐
+│  HyperEVM (Chain 998 / 999)   │
+│                               │
+│  Router (HyperpoolRouter)        │
+│    → Factory (HyperpoolFactory)│
+│    → Pair (HyperpoolPair) AMM  │
+│  PointsDistributor            │
+│  ReferralRegistry             │
+│  MerkleAirdrop · FeeCollector │
+│  HyperpoolLiquidityVault      │
+└───────────────────────────────┘</div>
+
+        <h3 id="advanced-contracts">コントラクト一覧</h3>
+        <p>プロダクト上は Hyperpool の構成要素ですが、<strong>オンチェーン識別子は下表のとおり</strong>です。Etherscan / Foundry / ABI では Solidity 名で検索してください。</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>プロダクト上の役割</th>
+                    <th>Solidity 名</th>
+                    <th>deploy キー</th>
+                    <th>主な定数・仕様</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>AMM プール（Pair）</td>
+                    <td><code>HyperpoolPair</code></td>
+                    <td><code>pair</code></td>
+                    <td>SWAP_FEE_BPS=30, LP 86% / Protocol 14%</td>
+                </tr>
+                <tr>
+                    <td>Router（swap / LP 入口）</td>
+                    <td><code>HyperpoolRouter</code></td>
+                    <td><code>router</code></td>
+                    <td>スリッページ保護 · <code>trustedRouter</code> 経由でポイント記録</td>
+                </tr>
+                <tr>
+                    <td>Factory（ペア管理）</td>
+                    <td><code>HyperpoolFactory</code></td>
+                    <td><code>factory</code></td>
+                    <td>admin のみペア作成</td>
+                </tr>
+                <tr>
+                    <td>ポイント配布</td>
+                    <td><code>PointsDistributor</code></td>
+                    <td><code>pointsDistributor</code></td>
+                    <td>EPOCH=1 day, DAILY_POOL=1M</td>
+                </tr>
+                <tr>
+                    <td>紹介コード</td>
+                    <td><code>ReferralRegistry</code></td>
+                    <td><code>referralRegistry</code></td>
+                    <td>REFEREE +10%, REFERRER +15%</td>
+                </tr>
+                <tr>
+                    <td>Liquidity Vault</td>
+                    <td><code>HyperpoolLiquidityVault</code></td>
+                    <td><code>liquidityVault</code></td>
+                    <td>Zap 入金 · Router 型は <code>HyperpoolRouter</code> を参照</td>
+                </tr>
+                <tr>
+                    <td>Cashdrop</td>
+                    <td><code>MerkleAirdrop</code></td>
+                    <td><code>airdrop</code></td>
+                    <td>Merkle proof claim</td>
+                </tr>
+                <tr>
+                    <td>L1 価格 Oracle</td>
+                    <td><code>HyperCoreOracle</code></td>
+                    <td><code>oracle</code></td>
+                    <td>L1Read プリコンパイル経由</td>
+                </tr>
+            </tbody>
+        </table>
+        <p class="text-muted text-small">Testnet 例: Router <code>0xff772d…d0c</code>（998.json の <code>router</code>）· デプロイ: <code>contracts/deployments/{chainId}.json</code> · ABI: <code>frontend/src/lib/contracts/abis/HyperpoolRouter.json</code> 等</p>
+
+        <h3 id="advanced-data">オンチェーン連動 vs モック UI</h3>
+        <table>
+            <thead>
+                <tr><th>UI 要素</th><th>データソース</th><th>備考</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>保有ポイント</td>
+                    <td><span class="badge badge-success">オンチェーン</span></td>
+                    <td>約 5 秒ポーリング（接続 + デプロイ済み時）</td>
+                </tr>
+                <tr>
+                    <td>リーダーボード / 7日グラフ</td>
+                    <td><span class="badge badge-success">オンチェーン</span></td>
+                    <td>イベント集計 + localStorage</td>
+                </tr>
+                <tr>
+                    <td>LP / プール残高</td>
+                    <td><span class="badge badge-success">オンチェーン</span></td>
+                    <td>約 10 秒ポーリング</td>
+                </tr>
+                <tr>
+                    <td>未接続時のポイント tick</td>
+                    <td><span class="badge badge-warning">モック</span></td>
+                    <td>デモ演出（2 秒ごと +0〜2）</td>
+                </tr>
+                <tr>
+                    <td>プール APR / TVL 一覧</td>
+                    <td><span class="badge badge-warning">表示用定数</span></td>
+                    <td><code>constants.ts</code> の POOLS</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3 id="advanced-dev">開発・デプロイ（運用者向け）</h3>
+        <div class="card">
+            <div class="card-header">リポジトリ構成</div>
+            <pre><code>hyper_evm/
+├── contracts/          # Solidity（Foundry）
+│   ├── src/core/       # 本番コントラクト
+│   ├── test/           # Forge テスト
+│   └── deployments/    # チェーン別アドレス JSON
+├── frontend/           # Next.js（Vercel Root Directory）
+└── scripts/            # デプロイ・ABI 同期</code></pre>
+        </div>
+        <table>
+            <thead>
+                <tr><th>作業</th><th>コマンド / 方法</th><th>ドキュメント</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>ローカル開発</td>
+                    <td><code>./scripts/dev-local.sh</code></td>
+                    <td>development.md</td>
+                </tr>
+                <tr>
+                    <td>Testnet デプロイ</td>
+                    <td><code>./scripts/deploy-testnet.sh</code></td>
+                    <td>deployment.md</td>
+                </tr>
+                <tr>
+                    <td>ABI 同期</td>
+                    <td><code>node scripts/sync-abi.mjs</code></td>
+                    <td>architecture.md</td>
+                </tr>
+                <tr>
+                    <td>フロント公開</td>
+                    <td>GitHub → Vercel 連携</td>
+                    <td>vercel.md</td>
+                </tr>
+                <tr>
+                    <td>テスト</td>
+                    <td><code>forge test</code></td>
+                    <td>testing.md</td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="info-box">
+            <div class="info-box-header">GitHub Actions が失敗してもアプリは使える</div>
+            <p style="margin:0">Actions は開発時の自動テスト用です。Vercel 上のフロントと HyperEVM 上のコントラクトが生きていれば、ユーザーは通常どおり利用できます。</p>
+        </div>
+
+        <h3 id="advanced-security">セキュリティ注意点</h3>
+        <div class="card">
+            <ul>
+                <li><strong>Admin パネル</strong>（<code>/admin</code>）は本番ではアクセス制御を必須化</li>
+                <li><strong>PRIVATE_KEY</strong> はリポジトリにコミットしない（.env / シェル環境変数のみ）</li>
+                <li>メインネット前: owner / feeToSetter の <strong>マルチシグ + Timelock</strong> 化を推奨</li>
+                <li>スポット価格（<code>getReserves</code>）を外部オラクルとして使わない — コールバック中は stale。価格参照は <code>HyperpoolOracleLibrary</code> TWAP を使用</li>
+            </ul>
+            <p class="text-muted text-small">詳細: docs/security-review-2026-06-15.md</p>
+        </div>
+
+        <!-- 運営者向け -->
+        <div class="level-header" id="operator">
+            <span class="badge badge-warning">運営</span>
+            <h2>運営者向け — 数値の合意と確認事項</h2>
+        </div>
+        <p>このセクションは<strong>運営会社・事業責任者・CS 向け</strong>です。技術詳細は Level 2〜3 も参照してくださいが、引き継ぎの最低ラインは<strong>下表の % を理解し、確認質問に回答すること</strong>です。</p>
+
+        <h3 id="operator-numbers">合意すべき %・数値一覧（オンチェーン / プロダクト固定）</h3>
+        <p>以下は現行コントラクト・UI の<strong>主要数値</strong>です。ユーザー説明・利用規約・CS マニュアルと<strong>矛盾しないか</strong>運営側で合意してください。</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>カテゴリ</th>
+                    <th>数値</th>
+                    <th>意味（ユーザー向け説明）</th>
+                    <th>変更</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>DEX スワップ手数料</strong></td>
+                    <td><span class="pct-highlight">0.30%</span>（30 bps）</td>
+                    <td>入力トークン量の 0.3%。例: 1,000 USDC → 手数料 3 USDC</td>
+                    <td>再デプロイ</td>
+                </tr>
+                <tr>
+                    <td>↳ LP 還元</td>
+                    <td><span class="pct-highlight">86%</span></td>
+                    <td>手数料の 86% がプール内に蓄積（LP シェア比例）。<strong>自動ウォレット入金ではない</strong></td>
+                    <td>再デプロイ</td>
+                </tr>
+                <tr>
+                    <td>↳ プロトコル</td>
+                    <td><span class="pct-highlight">14%</span></td>
+                    <td>手数料の 14% が FeeCollector へ。owner が引出可能</td>
+                    <td>再デプロイ</td>
+                </tr>
+                <tr>
+                    <td><strong>計算例</strong></td>
+                    <td colspan="3">1,000 USDC スワップ → 総手数料 3.00 USDC ＝ LP 2.58 + プロトコル 0.42（ガス代は別途）</td>
+                </tr>
+                <tr>
+                    <td>LP 追加・削除</td>
+                    <td><span class="pct-highlight">0%</span></td>
+                    <td>mint / burn に DEX 手数料なし（ガスのみ）</td>
+                    <td>—</td>
+                </tr>
+                <tr>
+                    <td>Li.FI アグリゲーター</td>
+                    <td><span class="pct-highlight">0%</span></td>
+                    <td>Hyperpool が Li.FI 経由で追加スプレッドを取らない。ブリッジルート・送信元ガスは別途</td>
+                    <td>API 設定</td>
+                </tr>
+                <tr>
+                    <td>スリッページ（UI 初期値）</td>
+                    <td><span class="pct-highlight">0.5%</span>（50 bps）</td>
+                    <td>設定で 0.3% / 0.5% / 1.0% に変更可。ユーザー自身が設定</td>
+                    <td>UI のみ</td>
+                </tr>
+                <tr>
+                    <td>被紹介者ブースト</td>
+                    <td><span class="pct-highlight">+10%</span></td>
+                    <td>招待コード適用者の獲得ポイント +10%</td>
+                    <td>再デプロイ</td>
+                </tr>
+                <tr>
+                    <td>紹介者ボーナス</td>
+                    <td><span class="pct-highlight">+15%</span></td>
+                    <td>友達が生んだポイントの 15% を紹介者が追加獲得</td>
+                    <td>再デプロイ</td>
+                </tr>
+                <tr>
+                    <td>ポイント vs 手数料</td>
+                    <td><span class="pct-highlight">1 : 1</span></td>
+                    <td>スワップ手数料量（トークン単位）と同量がポイント記録。Claim は<strong>手動</strong></td>
+                    <td>再デプロイ</td>
+                </tr>
+                <tr>
+                    <td>日次プール（UI 表示）</td>
+                    <td><span class="pct-highlight">1,000,000 PTS / 日</span></td>
+                    <td>エポック 24h。表示目標。按分ロジックはコントラクト定義に従う</td>
+                    <td>再デプロイ</td>
+                </tr>
+                <tr>
+                    <td>Position レンジ表示</td>
+                    <td><span class="pct-highlight">±3% / ±6% / ±10%</span></td>
+                    <td>モニタリング用。<strong>オンチェーン LP はフルレンジ</strong>（集中流動性ではない）</td>
+                    <td>UI のみ</td>
+                </tr>
+                <tr>
+                    <td>Vault target range</td>
+                    <td><span class="pct-highlight">6%</span>（600 bps）初期値</td>
+                    <td>表示・戦略バンド。owner が変更可</td>
+                    <td>owner 設定</td>
+                </tr>
+                <tr>
+                    <td>Cashdrop Claim</td>
+                    <td><span class="pct-highlight">0%</span></td>
+                    <td>プロトコル手数料なし（ガスのみ）</td>
+                    <td>—</td>
+                </tr>
+                <tr>
+                    <td>チェーン ID</td>
+                    <td><span class="pct-highlight">998</span> / <span class="pct-highlight">999</span></td>
+                    <td>Testnet / Mainnet</td>
+                    <td>デプロイ先</td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="note-box">
+            <div class="note-box-header">CS・法務向け — よくある誤解</div>
+            <ul style="margin:0;padding-left:20px">
+                <li>「手数料 0.3% だけ」→ <strong>ガス代は別</strong>。ブリッジ時はルート手数料も別</li>
+                <li>「LP 年利 86%」→ <strong>誤り</strong>。86% はスワップ手数料の LP 取り分比率</li>
+                <li>「ポイントは毎日自動入金」→ <strong>Claim ボタンが必要</strong></li>
+                <li>「±10% で LP 範囲限定」→ <strong>表示のみ</strong>。実体は V2 フルレンジ</li>
+            </ul>
+        </div>
+
+        <h3 id="operator-confirm">運営者に確認したいこと</h3>
+        <p>引き継ぎミーティングで<strong>担当者名・回答・□</strong>を記入してください。数値関連は上表と整合させてください。</p>
+
+        <h4>A. 数値・ユーザー説明（% の合意）</h4>
+        <table>
+            <thead>
+                <tr><th class="confirm-col">□</th><th>確認したいこと</th><th>記入欄（回答・担当）</th></tr>
+            </thead>
+            <tbody>
+                <tr><td class="confirm-col">□</td><td>スワップ手数料 <strong>0.30%</strong>（LP 86% / プロトコル 14%）を利用規約・FAQ に記載しますか？</td><td></td></tr>
+                <tr><td class="confirm-col">□</td><td>Li.FI は Hyperpool 手数料 <strong>0%</strong> だが、ブリッジ・ガスは別途と CS は説明できますか？</td><td></td></tr>
+                <tr><td class="confirm-col">□</td><td>紹介 <strong>+10% / +15%</strong> を継続しますか？ 相互紹介不可を周知しますか？</td><td></td></tr>
+                <tr><td class="confirm-col">□</td><td>ポイントは手数料 <strong>1:1</strong>・Claim <strong>手動</strong>・日次 <strong>100万 PTS 表示</strong> — この説明で問題ありませんか？</td><td></td></tr>
+                <tr><td class="confirm-col">□</td><td>Position の <strong>±10%</strong> は表示用で、実 LP はフルレンジ — CS は理解していますか？</td><td></td></tr>
+                <tr><td class="confirm-col">□</td><td>プロトコル収益 <strong>14%</strong> の引出先・会計・引出頻度は誰が決めますか？</td><td></td></tr>
+            </tbody>
+        </table>
+
+        <h4>B. 公開・インフラ</h4>
+        <table>
+            <thead>
+                <tr><th class="confirm-col">□</th><th>確認したいこと</th><th>記入欄</th></tr>
+            </thead>
+            <tbody>
+                <tr><td class="confirm-col">□</td><td>公開チェーン: Testnet <strong>998</strong> のみ / Mainnet <strong>999</strong> はいつ？</td><td></td></tr>
+                <tr><td class="confirm-col">□</td><td>本番 URL・カスタムドメイン・WalletConnect Allowed Domains は決まっていますか？</td><td></td></tr>
+                <tr><td class="confirm-col">□</td><td>Production で Admin <strong>無効</strong>（<code>NEXT_PUBLIC_ADMIN_ENABLED=false</code>）にしますか？</td><td></td></tr>
+                <tr><td class="confirm-col">□</td><td><code>LIFI_INTEGRATOR=hyperpool</code>・RPC・Chain ID を Vercel に設定し <strong>Redeploy</strong> 済みですか？</td><td></td></tr>
+                <tr><td class="confirm-col">□</td><td>デプロイ JSON（<code>998.json</code>）は最新コントラクト（Hyperpool リネーム後）のアドレスですか？</td><td></td></tr>
+            </tbody>
+        </table>
+
+        <h4>C. 権限・セキュリティ</h4>
+        <table>
+            <thead>
+                <tr><th class="confirm-col">□</th><th>確認したいこと</th><th>記入欄</th></tr>
+            </thead>
+            <tbody>
+                <tr><td class="confirm-col">□</td><td>Factory / FeeCollector / Points / Airdrop / Vault の <strong>owner</strong> は誰ですか？（個人 / マルチシグ）</td><td></td></tr>
+                <tr><td class="confirm-col">□</td><td>Mainnet 前に <strong>マルチシグ + Timelock</strong> 移管の日程は決まっていますか？</td><td></td></tr>
+                <tr><td class="confirm-col">□</td><td><code>PRIVATE_KEY</code> は GitHub・Vercel・Slack に存在しませんか？</td><td></td></tr>
+                <tr><td class="confirm-col">□</td><td>Mainnet 前の <strong>第三者監査</strong> — 実施しますか？ 未対応指摘の扱いは？</td><td></td></tr>
+                <tr><td class="confirm-col">□</td><td>障害時（RPC / Vercel / pause）の <strong>連絡網</strong>と Admin 接続担当は？</td><td></td></tr>
+            </tbody>
+        </table>
+
+        <h4>D. 流動性・Cashdrop・ポイント運用</h4>
+        <table>
+            <thead>
+                <tr><th class="confirm-col">□</th><th>確認したいこと</th><th>記入欄</th></tr>
+            </thead>
+            <tbody>
+                <tr><td class="confirm-col">□</td><td>初期 LP の<strong>金額・ウォレット・承認者</strong>は？ Swap レート <code>—</code> にならない量を入れますか？</td><td></td></tr>
+                <tr><td class="confirm-col">□</td><td><code>authorizePool</code> 済みで、スワップ時にポイントが記録されることを検証しましたか？</td><td></td></tr>
+                <tr><td class="confirm-col">□</td><td>Cashdrop — 実施有無・対象者・Merkle 作成・未請求回収・<strong>KYC/税務</strong>の管轄は？</td><td></td></tr>
+                <tr><td class="confirm-col">□</td><td>ポイント不正（極小スワップ等）への<strong>対応方針</strong>は？</td><td></td></tr>
+                <tr><td class="confirm-col">□</td><td>IL・スマートコントラクトリスクの<strong>リスク開示</strong>をどこに掲示しますか？</td><td></td></tr>
+            </tbody>
+        </table>
+
+        <h3 id="operator-infra">インフラ・Vercel 設定（参照値）</h3>
+        <table>
+            <thead>
+                <tr><th>設定</th><th>推奨値 / 確認</th><th>なぜ重要か</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>NEXT_PUBLIC_DEFAULT_CHAIN_ID</code></td>
+                    <td>998（Testnet）/ 999（本番）</td>
+                    <td>ビルド時に固定。変更後は Redeploy 必須</td>
+                </tr>
+                <tr>
+                    <td><code>NEXT_PUBLIC_TESTNET_RPC</code></td>
+                    <td>例: Chainlink / Hyperliquid 公式 RPC</td>
+                    <td>残高・見積もり・TX 送信の安定性</td>
+                </tr>
+                <tr>
+                    <td><code>NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID</code></td>
+                    <td>Reown Cloud で発行</td>
+                    <td>未設定だとモバイルウォレット接続不可</td>
+                </tr>
+                <tr>
+                    <td><code>LIFI_INTEGRATOR</code></td>
+                    <td><code>hyperpool</code></td>
+                    <td>Li.FI 経由ブリッジの integrator 識別子</td>
+                </tr>
+                <tr>
+                    <td><code>NEXT_PUBLIC_ADMIN_ENABLED</code></td>
+                    <td>Production: <strong>false</strong> / Preview のみ true</td>
+                    <td>公開 URL から Admin を隠す（認可はオンチェーン owner のみ）</td>
+                </tr>
+                <tr>
+                    <td>Vercel Root Directory</td>
+                    <td><code>frontend</code></td>
+                    <td>誤るとビルド失敗 or 空サイト</td>
+                </tr>
+                <tr>
+                    <td>カスタムドメイン</td>
+                    <td>本番 URL、WalletConnect Allowed Domains</td>
+                    <td><code>*.vercel.app</code> 以外を使う場合は Reown 側も更新</td>
+                </tr>
+                <tr>
+                    <td>CSP（<code>vercel.json</code>）</td>
+                    <td>connect-src / script-src の allowlist</td>
+                    <td>ウォレットドレイン対策。unsafe-eval 要否を実測</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3 id="operator-deploy">デプロイ・公開手順（Testnet 再デプロイ）</h3>
+        <div class="card">
+            <div class="card-header">Hyperpool 統一リネーム後の最短フロー</div>
+            <pre><code># 1. コントラクト再デプロイ（Hyperpool* 名義の新バイトコード）
+export PRIVATE_KEY=0x...   # 運営用ウォレット（dev 鍵禁止）
+./scripts/deploy-testnet.sh
+
+# 2. 流動性 + Cashdrop（必要に応じて）
+node scripts/testnet-post-deploy.mjs
+
+# 3. 検証
+node scripts/verify-testnet.mjs
+cd contracts && forge test
+
+# 4. フロント反映
+git add contracts/deployments frontend/src/lib/contracts
+git push
+# → Vercel Production を Redeploy（998.json はビルド埋め込み）</code></pre>
+        </div>
+
+        <h3 id="operator-checklist">運営開始前チェックリスト（Yes / No）</h3>
+        <table>
+            <thead>
+                <tr><th>#</th><th>項目</th><th class="confirm-col">□</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>1</td><td>上記 <a href="#operator-numbers">% 一覧</a> を CS・法務と合意済み</td><td class="confirm-col">□</td></tr>
+                <tr><td>2</td><td><a href="#operator-confirm">確認質問</a> A〜D に回答記録済み</td><td class="confirm-col">□</td></tr>
+                <tr><td>3</td><td>新 <code>998.json</code> が最新デプロイ（Hyperpool 名義）のアドレス</td><td class="confirm-col">□</td></tr>
+                <tr><td>4</td><td>初期流動性あり — Swap レートが <code>—</code> にならない</td><td class="confirm-col">□</td></tr>
+                <tr><td>5</td><td><code>authorizePool(pair)</code> 済み — スワップでポイント記録を検証</td><td class="confirm-col">□</td></tr>
+                <tr><td>6</td><td>Vercel env + Production <strong>Redeploy</strong> 済み</td><td class="confirm-col">□</td></tr>
+                <tr><td>7</td><td>Production: Admin 無効 · 手数料 <strong>0.3%</strong> / LP <strong>86%</strong> / プロトコル <strong>14%</strong> を CS が説明可能</td><td class="confirm-col">□</td></tr>
+                <tr><td>8</td><td>Mainnet 前: マルチシグ · 監査 · 鍵管理ポリシー</td><td class="confirm-col">□</td></tr>
+            </tbody>
+        </table>
+        <p class="text-muted text-small">詳細 Runbook: docs/admin-guide.md · docs/本番運用/ · docs/deployment.md · docs/vercel.md</p>
+
+        <!-- FAQ -->
+        <h2>よくある質問（FAQ）</h2>
+        <table>
+            <thead>
+                <tr><th>質問</th><th>回答</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>スワップで引かれるのは 0.3% だけ？</td>
+                    <td>DEX プール手数料は 0.3%。ガス代は別途。Li.FI ブリッジはアグリゲーター 0% だが、ルート固有コストは別途</td>
+                </tr>
+                <tr>
+                    <td>ポイントは毎日自動で入る？</td>
+                    <td>いいえ。<strong>Claim</strong> で明示請求が必要。スワップ後は残高が増え、UI が定期更新</td>
+                </tr>
+                <tr>
+                    <td>「Position」と「Liquidity」の表記差</td>
+                    <td>UI タブ名は Position。一部コードでは <code>liquidity</code> ID が残存</td>
+                </tr>
+                <tr>
+                    <td>±10% を選ぶと LP はその範囲だけ？</td>
+                    <td>いいえ。表示はモニタリング用。オンチェーンは V2 フルレンジ LP</td>
+                </tr>
+                <tr>
+                    <td>Router のコントラクト名は？</td>
+                    <td><code>HyperpoolRouter</code>。デプロイ JSON では <code>router</code> キー。旧 Testnet アドレスは再デプロイ前まで ProjectX バイトコードの可能性あり</td>
+                </tr>
+                <tr>
+                    <td>ProjectX という名前は？</td>
+                    <td>旧ブランド名。2026-06-16 にコードベースから Hyperpool へ統一。ドキュメント・Explorer 上の旧名は再デプロイで解消</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- 確認・依頼事項 -->
+        <div class="action-items">
+            <div class="action-items-header">レベル別 — 次にやること</div>
+            <ul>
+                <li><strong>運営者:</strong> 本ガイドを一読 → <a href="#operator-numbers">% 合意</a> → <a href="#operator-confirm">確認質問</a>に回答 → <a href="#operator-checklist">チェックリスト</a> → Testnet 再デプロイ</li>
+                <li><strong>初心者:</strong> Testnet でウォレット接続 → 小額スワップ → Portfolio で残高確認</li>
+                <li><strong>中級者:</strong> 招待コードを適用（+10%）→ LP または Vault で流動性提供 → Points タブで Claim フローを確認</li>
+                <li><strong>上級者:</strong> <code>forge test</code> → <code>./scripts/deploy-testnet.sh</code> → owner 移管計画 · admin-guide.md 読了</li>
+            </ul>
+        </div>
+
+        <div class="report-footer">
+            Hyperpool Guide — hyper_evm/docs/hyperpool-guide.html — 2026/06/16 rev.4（運営者確認セクション）
+        </div>
+    </div>
+</body>
+</html>

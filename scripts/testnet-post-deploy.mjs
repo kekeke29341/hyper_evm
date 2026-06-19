@@ -19,6 +19,9 @@ const BRIDGE_USDC = process.env.BRIDGE_USDC ?? "12";
 const WRAP_HYPE = process.env.WRAP_HYPE ?? "0.15";
 const LP_USDC = process.env.LP_USDC ?? "10";
 const LP_WHYPE = process.env.LP_WHYPE ?? "0.15";
+const VAULT_DEPOSIT_USDC = process.env.VAULT_DEPOSIT_USDC ?? LP_USDC;
+const VAULT_DEPOSIT_HYPE = process.env.VAULT_DEPOSIT_HYPE ?? LP_WHYPE;
+const SKIP_AIRDROP = process.env.SKIP_AIRDROP === "1";
 
 function loadEnv() {
   const file = path.join(root, ".env.testnet");
@@ -127,7 +130,7 @@ async function main() {
 
   console.log("==> Testnet post-deploy setup");
   console.log(`    Wallet: ${account.address}`);
-  console.log(`    Router: ${deployment.router}`);
+  console.log(`    Vault: ${deployment.hyperpoolVault ?? deployment.liquidityVault}`);
 
   const erc20BalanceAbi = [
     {
@@ -140,6 +143,7 @@ async function main() {
   ];
 
   const lpUsdcMin = parseUnits(LP_USDC, 6);
+  const vaultUsdcAmt = parseUnits(VAULT_DEPOSIT_USDC, 6);
   let evmUsdc = await publicClient.readContract({
     address: deployment.tokenUSDC,
     abi: erc20BalanceAbi,
@@ -147,7 +151,7 @@ async function main() {
     args: [account.address],
   });
 
-  if (evmUsdc >= lpUsdcMin) {
+  if (lpUsdcMin === 0n || evmUsdc >= lpUsdcMin) {
     console.log(`\n[1/4] EVM USDC sufficient (${evmUsdc}), skipping spot bridge`);
   } else {
     console.log(`\n[1/4] spotSend ${BRIDGE_USDC} USDC → HyperEVM...`);
@@ -173,63 +177,94 @@ async function main() {
     console.log(`    EVM USDC: ${evmUsdc}`);
   }
 
-  // 2. Wrap HYPE → WHYPE
-  console.log(`\n[2/4] Wrap ${WRAP_HYPE} HYPE → WHYPE...`);
-  const wrapWei = parseEther(WRAP_HYPE);
-  const wrapHash = await walletClient.writeContract({
-    address: WHYPE,
-    abi: [{ name: "deposit", type: "function", stateMutability: "payable", inputs: [], outputs: [] }],
-    functionName: "deposit",
-    value: wrapWei,
-  });
-  await publicClient.waitForTransactionReceipt({ hash: wrapHash });
-  console.log("    ✓ wrapped");
+  // 2. Wrap HYPE → WHYPE (for vault deposit)
+  const hypeAmt = parseEther(VAULT_DEPOSIT_HYPE);
+  if (hypeAmt > 0n) {
+    console.log(`\n[2/4] Wrap ${VAULT_DEPOSIT_HYPE} HYPE → WHYPE...`);
+    const wrapHash = await walletClient.writeContract({
+      address: WHYPE,
+      abi: [{ name: "deposit", type: "function", stateMutability: "payable", inputs: [], outputs: [] }],
+      functionName: "deposit",
+      value: hypeAmt,
+    });
+    await publicClient.waitForTransactionReceipt({ hash: wrapHash });
+    console.log("    ✓ wrapped");
+  } else {
+    console.log("\n[2/4] Wrap — skipped (VAULT_DEPOSIT_HYPE=0)");
+  }
 
-  // 3. Add liquidity
-  const usdcAmt = parseUnits(LP_USDC, 6);
-  const whypeAmt = parseEther(LP_WHYPE);
-  const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
+  // 3. Deposit into HyperpoolVault (USDC + HYPE)
+  const vault = deployment.hyperpoolVault ?? deployment.liquidityVault;
+  if (!vault) throw new Error("hyperpoolVault missing in deployment JSON");
 
   const erc20Abi = [
     { name: "approve", type: "function", inputs: [{ type: "address" }, { type: "uint256" }], outputs: [{ type: "bool" }] },
   ];
-  const routerAbi = JSON.parse(
-    fs.readFileSync(path.join(root, "frontend/src/lib/contracts/abis/ProjectXRouter.json"), "utf8")
+  const vaultAbi = JSON.parse(
+    fs.readFileSync(path.join(root, "frontend/src/lib/contracts/abis/HyperpoolVault.json"), "utf8")
   );
 
-  console.log(`\n[3/4] Add liquidity ${LP_WHYPE} WHYPE + ${LP_USDC} USDC...`);
-  for (const [token, amt] of [
-    [deployment.tokenKHYPE, whypeAmt],
-    [deployment.tokenUSDC, usdcAmt],
-  ]) {
-    const h = await walletClient.writeContract({
-      address: token,
+  console.log(`\n[3/4] Vault deposit ${VAULT_DEPOSIT_USDC} USDC...`);
+  if (vaultUsdcAmt === 0n) {
+    console.log("    – skipped (VAULT_DEPOSIT_USDC=0)");
+  } else if (evmUsdc < vaultUsdcAmt) {
+    console.log(`    ⚠ insufficient EVM USDC (${evmUsdc}) — skipping USDC deposit`);
+  } else {
+    const apprUsdc = await walletClient.writeContract({
+      address: deployment.tokenUSDC,
       abi: erc20Abi,
       functionName: "approve",
-      args: [deployment.router, amt],
+      args: [vault, vaultUsdcAmt],
     });
-    await publicClient.waitForTransactionReceipt({ hash: h });
+    await publicClient.waitForTransactionReceipt({ hash: apprUsdc });
+
+    const depUsdcHash = await walletClient.writeContract({
+      address: vault,
+      abi: vaultAbi,
+      functionName: "depositUSDC",
+      args: [vaultUsdcAmt, account.address],
+    });
+    await publicClient.waitForTransactionReceipt({ hash: depUsdcHash });
+    console.log("    ✓ USDC deposited");
   }
 
-  const lpHash = await walletClient.writeContract({
-    address: deployment.router,
-    abi: routerAbi,
-    functionName: "addLiquidity",
-    args: [
-      deployment.tokenKHYPE,
-      deployment.tokenUSDC,
-      whypeAmt,
-      usdcAmt,
-      0n,
-      0n,
-      account.address,
-      deadline,
-    ],
+  console.log(`\n    Vault deposit ${VAULT_DEPOSIT_HYPE} WHYPE via depositHYPE...`);
+  if (hypeAmt > 0n) {
+    const apprHype = await walletClient.writeContract({
+      address: WHYPE,
+      abi: erc20Abi,
+      functionName: "approve",
+      args: [vault, hypeAmt],
+    });
+    await publicClient.waitForTransactionReceipt({ hash: apprHype });
+
+    const depHypeHash = await walletClient.writeContract({
+      address: vault,
+      abi: vaultAbi,
+      functionName: "depositHYPE",
+      args: [hypeAmt, account.address],
+    });
+    await publicClient.waitForTransactionReceipt({ hash: depHypeHash });
+    console.log("    ✓ HYPE deposited");
+  } else {
+    console.log("    – skipped (VAULT_DEPOSIT_HYPE=0)");
+  }
+
+  const shares = await publicClient.readContract({
+    address: vault,
+    abi: vaultAbi,
+    functionName: "balanceOf",
+    args: [account.address],
   });
-  await publicClient.waitForTransactionReceipt({ hash: lpHash });
-  console.log("    ✓ liquidity added");
+  console.log(`    Vault shares: ${shares}`);
 
   // 4. Airdrop merkle + fund
+  if (SKIP_AIRDROP) {
+    console.log("\n[4/4] Configure MerkleAirdrop — skipped (SKIP_AIRDROP=1)");
+    console.log("\n==> Post-deploy complete");
+    console.log(`    Vault: ${vault}`);
+    console.log(`    Vault shares: ${shares}`);
+  } else {
   console.log("\n[4/4] Configure MerkleAirdrop...");
   const entries = [{ address: account.address, amount: parseUnits("100", 6) }];
   const merkleRoot = buildMerkleRoot(entries, viem);
@@ -280,6 +315,7 @@ async function main() {
     amount: e.amount.toString(),
   }));
   deployment.merkleRoot = merkleRoot;
+  deployment.vaultShareHolders = [{ address: account.address, shares: shares.toString() }];
 
   for (const p of [
     path.join(root, "contracts/deployments/998.json"),
@@ -288,9 +324,10 @@ async function main() {
     fs.writeFileSync(p, JSON.stringify(deployment, null, 2) + "\n");
   }
 
-  console.log("\n==> Testnet ready for swaps + cashdrop");
-  console.log(`    Pair: ${deployment.pair}`);
+  console.log("\n==> Testnet ready for vault ops + cashdrop");
+  console.log(`    Vault: ${vault}`);
   console.log(`    Claimable: ${account.address} — 100 USDC`);
+  }
 }
 
 main().catch((e) => {

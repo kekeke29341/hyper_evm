@@ -1,55 +1,54 @@
-export type RangePreset = 3 | 6 | 10 | "custom";
+import { PROJECT_X_POOL } from "@/lib/constants";
+
+export type RangePreset = "asymmetric" | "custom";
 
 export type PoolMetricsInput = {
-  reserveKhype: number;
+  reserveHype: number;
   reserveUsdc: number;
-  lpBalance: number;
-  totalSupply: number;
+  vaultShares: number;
+  totalShares: number;
   poolAprPercent?: number;
   volume24hUsd?: number;
 };
 
-export function poolPriceUsdcPerKhype(reserveKhype: number, reserveUsdc: number): number {
-  if (reserveKhype <= 0) return 0;
-  return reserveUsdc / reserveKhype;
+export function poolPriceUsdcPerHype(reserveHype: number, reserveUsdc: number): number {
+  if (reserveHype <= 0) return 0;
+  return reserveUsdc / reserveHype;
 }
 
-export function poolTvlUsd(reserveKhype: number, reserveUsdc: number): number {
+/** @deprecated use poolPriceUsdcPerHype */
+export const poolPriceUsdcPerKhype = poolPriceUsdcPerHype;
+
+export function poolTvlUsd(reserveHype: number, reserveUsdc: number): number {
   return reserveUsdc * 2;
 }
 
 export function positionTokenAmounts(
-  lpBalance: number,
-  totalSupply: number,
-  reserveKhype: number,
+  vaultShares: number,
+  totalShares: number,
+  reserveHype: number,
   reserveUsdc: number
-): { khype: number; usdc: number } {
-  if (totalSupply <= 0 || lpBalance <= 0) return { khype: 0, usdc: 0 };
-  const share = lpBalance / totalSupply;
+): { hype: number; usdc: number } {
+  if (totalShares <= 0 || vaultShares <= 0) return { hype: 0, usdc: 0 };
+  const share = vaultShares / totalShares;
   return {
-    khype: reserveKhype * share,
+    hype: reserveHype * share,
     usdc: reserveUsdc * share,
   };
 }
 
-export function positionValueUsd(
-  lpBalance: number,
-  totalSupply: number,
-  reserveKhype: number,
-  reserveUsdc: number,
-  khypeUsd = 0.42
-): number {
-  const { khype, usdc } = positionTokenAmounts(lpBalance, totalSupply, reserveKhype, reserveUsdc);
-  return khype * khypeUsd + usdc;
-}
-
-export function rangeBounds(price: number, preset: RangePreset, customPct = 3): { lower: number; upper: number; widthPct: number } {
-  const pct = preset === "custom" ? customPct : preset;
-  const factor = pct / 100;
+/** Asymmetric range: +10% upper / −30% lower (keeper target) */
+export function rangeBounds(
+  price: number,
+  upperPct = 10,
+  lowerPct = 30
+): { lower: number; upper: number; widthPct: number; upperPct: number; lowerPct: number } {
   return {
-    lower: Math.round(price * (1 - factor)),
-    upper: Math.round(price * (1 + factor)),
-    widthPct: pct * 2,
+    lower: Math.round(price * (1 - lowerPct / 100)),
+    upper: Math.round(price * (1 + upperPct / 100)),
+    widthPct: upperPct + lowerPct,
+    upperPct,
+    lowerPct,
   };
 }
 
@@ -57,11 +56,9 @@ export function isPriceInRange(price: number, lower: number, upper: number): boo
   return price >= lower && price <= upper;
 }
 
-export function estimatedApyFromRange(poolAprPercent: number, rangeWidthPct: number): number {
-  if (rangeWidthPct <= 0) return poolAprPercent;
-  // Narrower monitoring band → higher capital efficiency estimate (illustrative for V2 full-range LP).
-  const concentration = Math.min(3, 100 / rangeWidthPct);
-  return poolAprPercent * concentration;
+/** Net user APY estimate = reference APY × user share (70%) */
+export function estimatedNetApy(referenceAprPercent: number, userShareBps = 7000): number {
+  return (referenceAprPercent * userShareBps) / 10_000;
 }
 
 export function formatUsd(n: number): string {
@@ -70,7 +67,25 @@ export function formatUsd(n: number): string {
   return `$${n.toFixed(2)}`;
 }
 
-export function splitZapAmount(amount: number): { swap: number; keep: number } {
-  const swap = amount / 2;
-  return { swap, keep: amount - swap };
+export function positionValueUsd(
+  vaultShares: number,
+  totalShares: number,
+  reserveHype: number,
+  reserveUsdc: number
+): number {
+  const { hype, usdc } = positionTokenAmounts(vaultShares, totalShares, reserveHype, reserveUsdc);
+  const price = poolPriceUsdcPerHype(reserveHype, reserveUsdc);
+  return hype * price + usdc;
+}
+
+/** Concentrated LP: narrower band → higher fee capture; scaled by 70% user share */
+export function estimatedApyFromRange(poolAprPercent: number, rangeWidthPct: number): number {
+  const baselineWidth = PROJECT_X_POOL.upperRangePct + PROJECT_X_POOL.lowerRangePct;
+  const concentration = baselineWidth / Math.max(rangeWidthPct, 1);
+  return estimatedNetApy(poolAprPercent * concentration);
+}
+
+export function splitZapAmount(totalUsdc: number): { swap: number; keep: number } {
+  const half = totalUsdc / 2;
+  return { swap: half, keep: half };
 }

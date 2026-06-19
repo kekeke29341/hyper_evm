@@ -1,7 +1,7 @@
 # Hyperpool (HyperEVM DEX)
 
 HyperEVM エコシステム向け AMM DEX + Next.js フロントエンドのモノレポ。  
-Swap / Liquidity / Points / Affiliate / Cashdrop / Li.FI ブリッジを提供します。
+Project X 代理 LP + keeper リバランス + Cashdrop / Li.FI ブリッジ UI を提供します。
 
 ## Quick start
 

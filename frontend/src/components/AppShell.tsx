@@ -10,27 +10,25 @@ import { TestnetGuideBanner } from "@/components/layout/TestnetGuideBanner";
 import { NetworkSwitchBanner } from "@/components/layout/NetworkSwitchBanner";
 import { WalletModal } from "@/components/layout/WalletModal";
 import { Toast } from "@/components/ui/shared";
-import { SwapTab } from "@/components/tabs/SwapTab";
+import { DepositTab } from "@/components/tabs/DepositTab";
 import { LiquidityTab } from "@/components/tabs/LiquidityTab";
-import { PortfolioTab } from "@/components/tabs/PortfolioTab";
+import { DashboardTab } from "@/components/tabs/DashboardTab";
 import { CashdropTab } from "@/components/tabs/CashdropTab";
-import { PointsTab } from "@/components/tabs/PointsTab";
 import { AffiliateTab } from "@/components/tabs/AffiliateTab";
 import { TabErrorBoundary } from "@/components/TabErrorBoundary";
 import { useI18n } from "@/lib/i18n";
 import type { TabId } from "@/lib/constants";
 
 const TAB_CONTENT: Record<TabId, React.ComponentType> = {
-  swap: SwapTab,
+  dashboard: DashboardTab,
+  deposit: DepositTab,
   liquidity: LiquidityTab,
-  portfolio: PortfolioTab,
-  cashdrop: () => null,
-  points: PointsTab,
+  cashdrop: CashdropTab,
   affiliate: AffiliateTab,
 };
 
 export default function AppShell() {
-  const [activeTab, setActiveTab] = useState<TabId>("swap");
+  const [activeTab, setActiveTab] = useState<TabId>("dashboard");
   const { t } = useI18n();
   const Active = TAB_CONTENT[activeTab];
   const tabLabel = t(`tabs.${activeTab}`);
@@ -51,18 +49,21 @@ export default function AppShell() {
             exit={{ opacity: 0, x: -8 }}
             transition={{ duration: 0.2 }}
           >
-            {activeTab === "cashdrop" ? (
-              <TabErrorBoundary tabLabel={tabLabel}>
-                <CashdropTab
-                  onGoToPoints={() => setActiveTab("points")}
-                  onGoToAffiliate={() => setActiveTab("affiliate")}
+            <TabErrorBoundary tabLabel={tabLabel}>
+              {activeTab === "cashdrop" ? (
+                <CashdropTab onGoToAffiliate={() => setActiveTab("affiliate")} />
+              ) : activeTab === "deposit" ? (
+                <DepositTab onGoToPosition={() => setActiveTab("liquidity")} />
+              ) : activeTab === "dashboard" ? (
+                <DashboardTab
+                  onGoToDeposit={() => setActiveTab("deposit")}
+                  onGoToPosition={() => setActiveTab("liquidity")}
+                  onGoToCashdrop={() => setActiveTab("cashdrop")}
                 />
-              </TabErrorBoundary>
-            ) : (
-              <TabErrorBoundary tabLabel={tabLabel}>
+              ) : (
                 <Active />
-              </TabErrorBoundary>
-            )}
+              )}
+            </TabErrorBoundary>
           </motion.div>
         </AnimatePresence>
       </main>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Loader2, Copy, Check, LogOut, ExternalLink } from "lucide-react";
 import { useApp } from "@/lib/store";
+import { useI18n } from "@/lib/i18n";
 import { useWallet, type WalletId } from "@/lib/hooks/useWallet";
 import { SUPPORTED_CHAINS, hasWalletConnect, defaultChain } from "@/lib/wagmi/config";
 import { MetaMaskIcon, WalletConnectIcon, BrowserWalletIcon } from "@/components/wallet/WalletIcons";
@@ -54,6 +55,7 @@ function WalletButton({
 
 export function WalletModal() {
   const { walletModalOpen, closeWalletModal, showToast } = useApp();
+  const { t } = useI18n();
   const {
     isConnected,
     address,
@@ -75,26 +77,26 @@ export function WalletModal() {
   const walletOptions: WalletOption[] = [
     {
       id: "metaMask",
-      name: "MetaMask",
-      description: "Connect via browser extension or mobile app",
+      name: t("walletModal.metaMask"),
+      description: t("walletModal.metaMaskDesc"),
       icon: <MetaMaskIcon className="w-10 h-10" />,
       disabled: !findConnector("metaMask"),
-      disabledReason: "MetaMask not detected — install extension",
+      disabledReason: t("walletModal.metaMaskMissing"),
     },
     {
       id: "walletConnect",
-      name: "WalletConnect",
-      description: "Scan QR with mobile wallet",
+      name: t("walletModal.walletConnect"),
+      description: t("walletModal.walletConnectDesc"),
       icon: <WalletConnectIcon className="w-10 h-10" />,
       disabled: !hasWalletConnect || !findConnector("walletConnect"),
       disabledReason: hasWalletConnect
-        ? "WalletConnect unavailable"
-        : "Set NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID",
+        ? t("walletModal.walletConnectUnavailable")
+        : t("walletModal.walletConnectSetup"),
     },
     {
       id: "injected",
-      name: "Browser Wallet",
-      description: "Use any injected EVM wallet",
+      name: t("walletModal.browserWallet"),
+      description: t("walletModal.browserWalletDesc"),
       icon: <BrowserWalletIcon className="w-10 h-10" />,
     },
   ];
@@ -103,7 +105,7 @@ export function WalletModal() {
     setConnectingId(walletId);
     try {
       await connectWallet(walletId, selectedChain);
-      showToast(`Connected via ${walletOptions.find((w) => w.id === walletId)?.name}`);
+      showToast(t("walletModal.connectedToast"));
       closeWalletModal();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Connection failed";
@@ -120,9 +122,9 @@ export function WalletModal() {
     if (isConnected) {
       try {
         await switchNetwork(id);
-        showToast(`Switched to chain ${id}`);
+        showToast(t("walletModal.switchedToast"));
       } catch {
-        showToast("Network switch failed — approve in wallet");
+        showToast(t("walletModal.switchFailed"));
       }
     }
   };
@@ -131,13 +133,13 @@ export function WalletModal() {
     if (!address) return;
     await navigator.clipboard.writeText(address);
     setCopied(true);
-    showToast("Address copied!");
+    showToast(t("common.copied"));
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleDisconnect = () => {
     disconnect();
-    showToast("Disconnected");
+    showToast(t("walletModal.disconnectedToast"));
     closeWalletModal();
   };
 
@@ -163,10 +165,10 @@ export function WalletModal() {
             <div className="flex justify-between items-center mb-5">
               <div>
                 <h3 className="font-semibold text-white text-lg">
-                  {isConnected ? "Wallet Connected" : "Connect Wallet"}
+                  {isConnected ? t("walletModal.connectedTitle") : t("walletModal.connectTitle")}
                 </h3>
                 <p className="text-xs text-zinc-500 mt-0.5">
-                  {isConnected ? `${walletName} · ${chainLabel}` : "Choose a wallet to continue"}
+                  {isConnected ? `${walletName} · ${chainLabel}` : t("walletModal.connectSubtitle")}
                 </p>
               </div>
               <button
@@ -181,7 +183,7 @@ export function WalletModal() {
             {isConnected && address ? (
               <div className="space-y-4">
                 <div className="p-4 rounded-xl bg-zinc-800/60 border border-zinc-700">
-                  <p className="text-xs text-zinc-500 mb-1">Address</p>
+                  <p className="text-xs text-zinc-500 mb-1">{t("walletModal.address")}</p>
                   <div className="flex items-center gap-2">
                     <code className="text-sm text-cyan-400 font-mono flex-1 truncate">{address}</code>
                     <button
@@ -195,7 +197,7 @@ export function WalletModal() {
                 </div>
 
                 <div>
-                  <p className="text-xs text-zinc-500 mb-2">Network</p>
+                  <p className="text-xs text-zinc-500 mb-2">{t("walletModal.network")}</p>
                   <div className="grid grid-cols-2 gap-2">
                     {SUPPORTED_CHAINS.map((chain) => (
                       <button
@@ -223,13 +225,13 @@ export function WalletModal() {
                   className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors text-sm font-medium"
                 >
                   <LogOut className="w-4 h-4" />
-                  Disconnect
+                  {t("walletModal.disconnect")}
                 </button>
               </div>
             ) : (
               <>
                 <div className="mb-4">
-                  <p className="text-xs text-zinc-500 mb-2">Select network</p>
+                  <p className="text-xs text-zinc-500 mb-2">{t("walletModal.selectNetwork")}</p>
                   <div className="grid grid-cols-2 gap-2">
                     {SUPPORTED_CHAINS.map((chain) => (
                       <button
@@ -264,8 +266,7 @@ export function WalletModal() {
                 {!hasWalletConnect && (
                   <p className="mt-3 text-[10px] text-zinc-600 flex items-start gap-1">
                     <ExternalLink className="w-3 h-3 mt-0.5 shrink-0" />
-                    WalletConnect: get a free Project ID at cloud.reown.com and set
-                    NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID
+                    {t("walletModal.wcHint")}
                   </p>
                 )}
 

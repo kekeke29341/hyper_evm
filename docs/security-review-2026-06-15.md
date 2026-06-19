@@ -12,16 +12,16 @@
 
 | 旧ID | 内容 | 状態 | 確認箇所 |
 |------|------|------|----------|
-| C-1 | `burn()` の二重 burn で LP 資金ロック | ✅ 解消 | `ProjectXPair.sol:117-134`。`_mintFee`/`kLast` 機構を**全廃**し burn は素直な比例償還に |
-| H-1 | K 不変量が手数料を強制せず LP 手数料バイパス可 | ✅ 修正 | `ProjectXPair.sol:159-164`。fee 調整済み残高 + `Math.mulDiv` でオーバーフロー回避(旧 L-3 も同時解消)。プロトコル 4.2bps 控除後も実 K ≥ 旧 K を数式確認済み |
-| H-2 | `swap` の `origin` 偽装でポイント付替 | ✅ 修正 | `ProjectXPair.sol:166-167` で `msg.sender == trustedRouter` のときのみ記録。Factory に `trustedRouter`/`setTrustedRouter` 追加 |
+| C-1 | `burn()` の二重 burn で LP 資金ロック | ✅ 解消 | `HyperpoolPair.sol:117-134`。`_mintFee`/`kLast` 機構を**全廃**し burn は素直な比例償還に |
+| H-1 | K 不変量が手数料を強制せず LP 手数料バイパス可 | ✅ 修正 | `HyperpoolPair.sol:159-164`。fee 調整済み残高 + `Math.mulDiv` でオーバーフロー回避(旧 L-3 も同時解消)。プロトコル 4.2bps 控除後も実 K ≥ 旧 K を数式確認済み |
+| H-2 | `swap` の `origin` 偽装でポイント付替 | ✅ 修正 | `HyperpoolPair.sol:166-167` で `msg.sender == trustedRouter` のときのみ記録。Factory に `trustedRouter`/`setTrustedRouter` 追加 |
 | H-3 | `claimDailyRewards` が無支払いで残高ゼロ化 | ✅ 解消 | 関数を**削除**。`userPoints` はオフチェーン集計用台帳と明記(`PointsDistributor.sol:8`) |
 | M-1/M-2 | `_mintFee` 順序バグ / 二重徴収 | ✅ 解消 | `_mintFee`/`kLast` 全廃で直接 14% 徴収に一本化 |
 | M-3 | エアドロ未請求分の永久ロック | ✅ 修正 | `MerkleAirdrop.recoverUnclaimed`(`:65-69`)、期限ゲート維持 |
 | M-5 | Oracle のゼロ価格/鮮度未検証 | ✅ 修正 | `HyperCoreOracle.sol:19,39` に `require(price != 0)`、デシマル/`l1Block` 鮮度を doc 化 |
 | M-9 | フロント流動性操作が `amountMin=0` | ✅ 修正 | `useDeFi.ts:212-213,261-262` ほかでスリッページから min を算出 |
 | M-10 | CSP なし | ✅ 修正 | `vercel.json` に CSP 追加(下記 N-4 で残課題あり) |
-| L-1 | `removeLiquidity` の pair チェック欠落 | ✅ 修正 | `ProjectXRouter.sol:54,57`(min チェックも追加) |
+| L-1 | `removeLiquidity` の pair チェック欠落 | ✅ 修正 | `HyperpoolRouter.sol:54,57`(min チェックも追加) |
 | L-4 | エポック前進が単段 / 寄与がリセットされない | ✅ 修正 | `PointsDistributor.sol:88-94` を `while`+`epochStart += DURATION`、寄与を `mapping(epoch=>mapping(addr=>uint))` 化 |
 | L-5 | Merkle の `claimed` がルート跨ぎで残る / pause なし | ✅ 修正 | `claimedByRoot[root][addr]`(`:18,46,51`)+ `Pausable`(`:11,35-43`) |
 | L-6 | 相互リファラル可 | ✅ 修正 | `ReferralRegistry.sol:36` に `MUTUAL_REFERRAL` チェック |
@@ -97,7 +97,7 @@ done
 `connect-src` の allowlist は良好だが、`script-src 'self' 'unsafe-inline' 'unsafe-eval'` は XSS / サプライチェーン注入に対する CSP の保護を大きく弱める。Next.js のハイドレーションで `unsafe-inline` が必要になりがちな事情は理解できるが、ウォレットドレイン対策の本丸なので nonce ベース CSP への移行を検討。少なくとも `unsafe-eval` の要否を実測し、不要なら除去する。
 
 ### 🟡 N-5(Low / 残存・受容済み): read-only reentrancy(`getReserves` がコールバック中に stale)
-**場所:** `ProjectXPair.sol:147-150`(コールバック)、`:85-88`(doc)
+**場所:** `HyperpoolPair.sol:147-150`(コールバック)、`:85-88`(doc)
 状態変更再入は `nonReentrant`+`lock` で防御済み。スポット価格オラクルとして使うなという doc(`:20,83-84`)が追加され、TWAP 非実装も明記された。**受容方針として妥当**。外部プロトコルが本 pair をオラクル参照しないよう注意喚起を維持すること。
 
 ### ℹ️ Info(中央集権・要マルチシグ)
@@ -108,7 +108,7 @@ done
 
 ## C. テスト十分性(再評価)
 
-**前進:** `forge test` は **67 tests / 11 suites、全パス**。invariant テスト(`ProjectXInvariant` の `invariant_reservesMatchBalances`、128k calls・revert 0)、`FuzzTest`、`SecurityFixTest`、`AccessControlTest`(12)、`FeeCollectorTest`(5)、`MerkleAirdropTest`(9)、`HyperpoolLiquidityVaultTest`(7)が追加され、前回の重大ギャップ(removeLiquidity 未実行・fuzz/invariant ゼロ)は解消。
+**前進:** `forge test` は **67 tests / 11 suites、全パス**。invariant テスト(`HyperpoolInvariant` の `invariant_reservesMatchBalances`、128k calls・revert 0)、`FuzzTest`、`SecurityFixTest`、`AccessControlTest`(12)、`FeeCollectorTest`(5)、`MerkleAirdropTest`(9)、`HyperpoolLiquidityVaultTest`(7)が追加され、前回の重大ギャップ(removeLiquidity 未実行・fuzz/invariant ゼロ)は解消。
 
 **残るギャップ(資金リスク順):**
 1. **N-1 を捕捉するテストがない。** むしろ `FuzzTest.t.sol:80` の `<= DAILY_POOL`(単一トレーダー)がバグを正常扱いしている。→ first-mover 実証テスト + エポック総量 invariant を追加。

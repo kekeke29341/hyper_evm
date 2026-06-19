@@ -40,7 +40,7 @@
         "internalType": "address"
       },
       {
-        "name": "basePoints",
+        "name": "baseRewardUsdc",
         "type": "uint256",
         "internalType": "uint256"
       }

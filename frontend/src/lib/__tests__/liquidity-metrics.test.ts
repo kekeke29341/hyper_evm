@@ -12,11 +12,11 @@ describe("liquidity metrics", () => {
     expect(poolPriceUsdcPerKhype(100, 2000)).toBe(20);
   });
 
-  it("computes range bounds for ±3%", () => {
-    const b = rangeBounds(2000, 3);
-    expect(b.lower).toBe(1940);
-    expect(b.upper).toBe(2060);
-    expect(b.widthPct).toBe(6);
+  it("computes asymmetric range bounds (+10% / −30%)", () => {
+    const b = rangeBounds(2000, 10, 30);
+    expect(b.lower).toBe(1400);
+    expect(b.upper).toBe(2200);
+    expect(b.widthPct).toBe(40);
   });
 
   it("splits zap amount evenly", () => {
@@ -31,6 +31,6 @@ describe("liquidity metrics", () => {
 
   it("values LP position from reserves", () => {
     const v = positionValueUsd(10, 100, 50, 1000);
-    expect(v).toBeCloseTo(5 * 0.42 + 100, 2);
+    expect(v).toBeCloseTo(5 * 20 + 100, 2);
   });
 });

@@ -39,11 +39,14 @@ const fundAmount = viem.parseUnits(FUND_USDC, 6);
 
 let bal = await publicClient.readContract({ address: deployment.tokenUSDC, abi: erc20, functionName: "balanceOf", args: [account.address] });
 if (bal < fundAmount) {
-  const need = (Number(FUND_USDC) - Number(bal) / 1e6 + 1).toFixed(0);
-  console.log(`Bridge ${need} USDC from spot...`);
-  await spotSend({ transport: new HttpTransport({ isTestnet: true }), wallet: account }, { destination: USDC_SYSTEM, token: USDC_TOKEN, amount: need });
-  await new Promise((r) => setTimeout(r, 10000));
-  bal = await publicClient.readContract({ address: deployment.tokenUSDC, abi: erc20, functionName: "balanceOf", args: [account.address] });
+  const shortfallUsdc = Number(fundAmount - bal) / 1e6;
+  const need = Math.min(Math.ceil(shortfallUsdc * 100) / 100, Number(FUND_USDC));
+  if (need > 0) {
+    console.log(`Bridge ${need} USDC from spot...`);
+    await spotSend({ transport: new HttpTransport({ isTestnet: true }), wallet: account }, { destination: USDC_SYSTEM, token: USDC_TOKEN, amount: String(need) });
+    await new Promise((r) => setTimeout(r, 10000));
+    bal = await publicClient.readContract({ address: deployment.tokenUSDC, abi: erc20, functionName: "balanceOf", args: [account.address] });
+  }
 }
 
 const amount = bal < fundAmount ? bal : fundAmount;

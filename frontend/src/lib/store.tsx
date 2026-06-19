@@ -1,13 +1,12 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, useEffect } from "react";
+import { createContext, useContext, useState, useCallback } from "react";
 import { useConnection } from "wagmi";
 import { shortenAddress } from "@/lib/utils";
 
 type AppContextType = {
   toast: string | null;
   showToast: (msg: string) => void;
-  livePoints: number;
   isConnected: boolean;
   displayAddress: string | null;
   openWalletModal: () => void;
@@ -20,13 +19,7 @@ const AppContext = createContext<AppContextType | null>(null);
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const { address, isConnected } = useConnection();
   const [toast, setToast] = useState<string | null>(null);
-  const [livePoints, setLivePoints] = useState(14250);
   const [walletModalOpen, setWalletModalOpen] = useState(false);
-
-  useEffect(() => {
-    const id = setInterval(() => setLivePoints((p) => p + Math.floor(Math.random() * 3)), 2000);
-    return () => clearInterval(id);
-  }, []);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -41,7 +34,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       value={{
         toast,
         showToast,
-        livePoints,
         isConnected,
         displayAddress: address ? shortenAddress(address) : null,
         openWalletModal,
