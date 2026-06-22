@@ -1,0 +1,65 @@
+# Keeper rebalance (+10% / −30%) for Hyperpool Vault LP.
+# Manual: Actions → Hyperpool Keeper → Run workflow
+name: Hyperpool Keeper
+
+on:
+  schedule:
+    # Every 6 hours (UTC). Adjust in repo Settings → Variables if needed.
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      chain:
+        description: HyperEVM chain ID
+        type: choice
+        options:
+          - "998"
+          - "999"
+        default: "998"
+
+concurrency:
+  group: hyperpool-keeper-${{ github.event.inputs.chain || vars.HYPERPOOL_CHAIN || '998' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  rebalance:
+    name: Rebalance (chain ${{ github.event.inputs.chain || vars.HYPERPOOL_CHAIN || '998' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: hyperpool-${{ github.event.inputs.chain || vars.HYPERPOOL_CHAIN || '998' }}
+    env:
+      DEPLOYMENT_CHAIN: ${{ github.event.inputs.chain || vars.HYPERPOOL_CHAIN || '998' }}
+      PRIVATE_KEY: ${{ secrets.HYPERPOOL_PRIVATE_KEY }}
+      RPC_URL: ${{ vars.HYPERPOOL_RPC_URL }}
+      SKIP_ORACLE: ${{ vars.HYPERPOOL_SKIP_ORACLE }}
+      REF_PRICE_USDC6: ${{ vars.HYPERPOOL_REF_PRICE_USDC6 }}
+    steps:
+      - uses: actions/checkout@b4ffde65f96336fa8845d2abf1aaebbd41bdc435
+
+      - name: Setup Node.js
+        uses: actions/setup-node@0a0048894711f7d55835cd04bfeafac1976a8eb1
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend deps (viem for scripts)
+        run: npm ci
+        working-directory: frontend
+
+      - name: Verify deployment is live
+        run: |
+          node -e "
+          const d = require('./frontend/src/lib/contracts/deployments/${DEPLOYMENT_CHAIN}.json');
+          const vault = d.hyperpoolVault || d.liquidityVault;
+          if (d.deployed === false || !vault || vault === '0x0000000000000000000000000000000000000000') {
+            console.error('Chain ' + process.env.DEPLOYMENT_CHAIN + ' is not deployed — skip or deploy contracts first.');
+            process.exit(1);
+          }
+          console.log('Vault:', vault);
+          "
+
+      - name: Run keeper-rebalance.mjs
+        run: node scripts/keeper-rebalance.mjs
