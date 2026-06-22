@@ -14,8 +14,8 @@
 |---------|---------|------|
 | [app-overview.md](./app-overview.md) | **全員（最初に読む）** | **アプリ全体の説明・機能・構成・運用の入口** |
 | [hyperpool-guide.html](./hyperpool-guide.html) | **全員 / 運営** | **HTML 完全ガイド（初心者〜上級者 + 運営引き継ぎ）** |
-| [product-overview.md](./product-overview.md) | **全員（Product）** | **手数料・ポイント・日次収益の更新仕様** |
-| [architecture.md](./architecture.md) | 開発者・アーキテクト | システム全体像、コントラクト役割、データフロー |
+| [product-overview.md](./product-overview.md) | **全員（Product）** | **手数料・Cashdrop・日次収益の更新仕様** |
+| [architecture.md](./architecture.md) | 開発者・アーキテクト | システム全体像、コントラクト役割、**Project X LP / NFT / リバランス** |
 | [development.md](./development.md) | 開発者 | ローカル環境構築、日常開発フロー |
 | [deployment.md](./deployment.md) | DevOps / 開発者 | Testnet・Mainnet デプロイ手順 |
 | [vercel.md](./vercel.md) | DevOps / 開発者 | Vercel フロント公開（GitHub 連携） |
@@ -37,7 +37,7 @@
 1. ルート [README.md](../README.md) — クイックスタート
 2. **[本番運用/README.md](./本番運用/README.md)** — **運営担当はここ（デプロイ済み vs 未完了）**
 3. [app-overview.md](./app-overview.md) — このアプリとは何か（入口）
-4. [product-overview.md](./product-overview.md) — 手数料・ポイント・収益更新
+4. [product-overview.md](./product-overview.md) — 手数料・Cashdrop・収益更新
 5. [architecture.md](./architecture.md) — 技術構成
 6. [development.md](./development.md) — 手を動かす
 7. [handover.md](./handover.md) — 引き継ぎ項目の確認

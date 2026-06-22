@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Loader2, Copy, Check, LogOut, ExternalLink } from "lucide-react";
 import { useApp } from "@/lib/store";
@@ -8,6 +9,7 @@ import { useI18n } from "@/lib/i18n";
 import { useWallet, type WalletId } from "@/lib/hooks/useWallet";
 import { SUPPORTED_CHAINS, hasWalletConnect, defaultChain } from "@/lib/wagmi/config";
 import { MetaMaskIcon, WalletConnectIcon, BrowserWalletIcon } from "@/components/wallet/WalletIcons";
+import { WalletAlertNotice } from "@/components/layout/WalletAlertNotice";
 import { cn } from "@/lib/utils";
 
 type WalletOption = {
@@ -73,6 +75,18 @@ export function WalletModal() {
   const [selectedChain, setSelectedChain] = useState<number>(defaultChain.id);
   const [connectingId, setConnectingId] = useState<WalletId | null>(null);
   const [copied, setCopied] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    if (!walletModalOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [walletModalOpen]);
 
   const walletOptions: WalletOption[] = [
     {
@@ -146,22 +160,26 @@ export function WalletModal() {
   const chainLabel = SUPPORTED_CHAINS.find((c) => c.id === chainId)?.label ?? `Chain ${chainId}`;
 
   return (
-    <AnimatePresence>
-      {walletModalOpen && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50"
-            onClick={closeWalletModal}
-          />
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 10 }}
-            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-md card-glass rounded-2xl p-5 max-h-[90vh] overflow-y-auto"
-          >
+    mounted
+      ? createPortal(
+          <AnimatePresence>
+            {walletModalOpen && (
+              <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-4">
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+                  onClick={closeWalletModal}
+                />
+                <motion.div
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 16 }}
+                  className="relative z-10 w-full sm:max-w-md card-glass rounded-t-2xl sm:rounded-2xl p-5 max-h-[min(90dvh,90vh)] overflow-y-auto safe-bottom"
+                  role="dialog"
+                  aria-modal="true"
+                >
             <div className="flex justify-between items-center mb-5">
               <div>
                 <h3 className="font-semibold text-white text-lg">
@@ -231,6 +249,10 @@ export function WalletModal() {
             ) : (
               <>
                 <div className="mb-4">
+                  <WalletAlertNotice compact />
+                </div>
+
+                <div className="mb-4">
                   <p className="text-xs text-zinc-500 mb-2">{t("walletModal.selectNetwork")}</p>
                   <div className="grid grid-cols-2 gap-2">
                     {SUPPORTED_CHAINS.map((chain) => (
@@ -277,9 +299,12 @@ export function WalletModal() {
                 )}
               </>
             )}
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>,
+          document.body
+        )
+      : null
   );
 }

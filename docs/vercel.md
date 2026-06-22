@@ -83,7 +83,7 @@ Reown Cloud で Project ID 作成後、**Allowed Domains** に追加:
 
 - [ ] トップページが表示される（Undeployed バナーなし）
 - [ ] ネットワークが **HyperEVM Testnet (998)** になっている
-- [ ] MetaMask Connect → Swap / Cashdrop / Liquidity
+- [ ] MetaMask Connect → Bridge / Position / Cashdrop
 - [ ] `/admin` — Preview のみ有効にした場合、Production では 404
 
 ```bash

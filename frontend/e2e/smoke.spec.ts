@@ -12,25 +12,33 @@ test.describe("Hyperpool smoke", () => {
     await page.goto("/");
     await expect(page).toHaveTitle(/Hyperpool/i);
     await expect(page.getByRole("navigation")).toBeVisible();
+    await expect(page.getByRole("region", { name: /wallet alert notice/i })).toBeVisible();
   });
 
-  test("can switch between main tabs", async ({ page }) => {
+  test("can switch between main tabs and update URL", async ({ page }) => {
     await page.goto("/");
+    await expect(page).toHaveURL("/");
 
-    const tabs = ["Dashboard", "Bridge", "Position", "Cashdrop"];
-    for (const label of tabs) {
-      const tab = page.getByRole("button", { name: new RegExp(label, "i") }).first();
+    const routes: { label: string; url: RegExp }[] = [
+      { label: "Bridge", url: /\/deposit$/ },
+      { label: "Position", url: /\/position$/ },
+      { label: "Cashdrop", url: /\/cashdrop$/ },
+    ];
+
+    for (const { label, url } of routes) {
+      const tab = page.getByRole("link", { name: new RegExp(label, "i") }).first();
       if (await tab.isVisible()) {
         await tab.click();
-        await expect(tab).toBeVisible();
+        await expect(page).toHaveURL(url);
       }
     }
   });
 
   test("shows connect wallet affordance when disconnected", async ({ page }) => {
-    await page.goto("/");
-    const connect = page.getByRole("button", { name: /connect wallet|ウォレット/i }).first();
+    await page.goto("/deposit");
+    const connect = page.locator("main").getByRole("button", { name: /connect wallet|ウォレット/i }).last();
     await expect(connect).toBeVisible();
+    await expect(connect).toBeEnabled();
   });
 });
 
@@ -40,12 +48,20 @@ test.describe("Testnet deployment (998)", () => {
     await expect(page.getByText(/contracts not deployed|コントラクト未デプロイ/i)).toHaveCount(0);
   });
 
-  test("all user tabs are reachable", async ({ page }) => {
-    await page.goto("/");
-    for (const label of ["Dashboard", "Bridge", "Position", "Cashdrop", "Affiliate"]) {
-      const tab = page.getByRole("button", { name: new RegExp(label, "i") }).first();
+  test("all user tabs are reachable via URL", async ({ page }) => {
+    const routes: { label: string; path: string }[] = [
+      { label: "Dashboard", path: "/" },
+      { label: "Bridge", path: "/deposit" },
+      { label: "Position", path: "/position" },
+      { label: "Cashdrop", path: "/cashdrop" },
+      { label: "Affiliate", path: "/affiliate" },
+    ];
+
+    for (const { label, path } of routes) {
+      await page.goto(path);
+      await expect(page).toHaveURL(new RegExp(`${path === "/" ? "/$" : path + "$"}`));
+      const tab = page.getByRole("link", { name: new RegExp(label, "i") }).first();
       await expect(tab).toBeVisible();
-      await tab.click();
       await expect(page.getByText(/application error|a client-side exception/i)).toHaveCount(0);
     }
   });
@@ -58,8 +74,7 @@ test.describe("Testnet deployment (998)", () => {
   });
 
   test("deposit tab shows bridge UI when disconnected", async ({ page }) => {
-    await page.goto("/");
-    await page.getByRole("button", { name: /bridge/i }).first().click();
+    await page.goto("/deposit");
     const body = page.locator("main");
     await expect(body).toBeVisible();
     await expect(body).not.toBeEmpty();

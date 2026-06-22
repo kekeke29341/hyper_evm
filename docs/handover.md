@@ -31,7 +31,7 @@
 - [ ] Foundry / Node.js 20 インストール確認
 - [ ] `./scripts/health-check.sh` が pass（Anvil 除く）
 - [ ] `./scripts/dev-local.sh` で localhost:3000 が表示される
-- [ ] MetaMask で Anvil (31337) 接続・Swap 画面表示
+- [ ] MetaMask で Anvil (31337) 接続・Dashboard / Position 画面表示
 
 ### Day 2 — コードベース理解
 
@@ -59,7 +59,7 @@
 
 | やりたいこと | ファイル / コマンド |
 |-------------|-------------------|
-| **Testnet/本番の運営・Swap 立ち上げ** | **[docs/本番運用/](./本番運用/README.md)** |
+| **Testnet/本番の運営・Vault 立ち上げ** | **[docs/本番運用/](./本番運用/README.md)** |
 | **アプリ概要・手数料・収益更新** | [docs/product-overview.md](./product-overview.md) |
 | ローカル起動 | `./scripts/dev-local.sh` |
 | Testnet デプロイ | `./scripts/deploy-testnet.sh` |
@@ -81,10 +81,16 @@
 
 ### HyperEVM 固有
 
-1. **ガス制限** — 通常 TX は small block（3M gas）。`test_SwapGasUnderSmallBlock` で検証済み
+1. **ガス制限** — 通常 TX は small block（3M gas）。Vault deposit / withdraw / rebalance は Foundry smoke と testnet script で検証
 2. **Big Block** — デプロイ時は `usingBigBlocks: true` が必要
-3. **L1Read プリコンパイル** — ローカル Anvil では mock が必要（`HyperpoolTest.setUp` 参照）
+3. **L1Read プリコンパイル** — ローカル Anvil では mock が必要（`HyperpoolVaultTest.setUp` 参照）
 4. **Li.FI** — Testnet chain 998 は Li.FI 非対応。UI では mainnet 999 経由でルーティング
+
+### Project X LP / NFT
+
+1. **LP は NPM 上の ERC721** — ユーザーは Vault シェアのみ保持。NFT は `ProjectXAdapter` が保有（[architecture.md § Project X LP ポジションと NFT](./architecture.md#project-x-lp-ポジションと-nft技術者向け)）
+2. **リバランスで NFT が増える** — 旧 tokenId は流動性 0 で残る。Project X UI で WHYPE/USDC が複数行見えても、有効資金は `positionTokenId` 1 件に集約されていれば問題なし
+3. **預入先プールは 1 本** — WHYPE/USDC 0.05% のみ（UI 表記は HYPE/USDC）
 
 ### 開発上の癖
 

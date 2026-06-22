@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import Link from "next/link";
@@ -21,6 +22,18 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose: () =>
   const { showToast } = useApp();
   const { locale, setLocale, t } = useI18n();
   const [slippage, setSlippage] = useState(getSlippageBps);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
 
   const saveSlippage = (bps: number) => {
     setSlippage(bps);
@@ -29,22 +42,26 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose: () =>
   };
 
   return (
-    <AnimatePresence>
-      {open && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
-            onClick={onClose}
-          />
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[calc(100%-2rem)] max-w-sm card-glass rounded-2xl p-5 border border-zinc-800 max-h-[90vh] overflow-y-auto"
-          >
+    mounted
+      ? createPortal(
+          <AnimatePresence>
+            {open && (
+              <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-4">
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                  onClick={onClose}
+                />
+                <motion.div
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 16 }}
+                  className="relative z-10 w-full sm:max-w-sm card-glass rounded-t-2xl sm:rounded-2xl p-5 border border-zinc-800 max-h-[min(90dvh,90vh)] overflow-y-auto safe-bottom"
+                  role="dialog"
+                  aria-modal="true"
+                >
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-white">{t("header.settings")}</h2>
               <button type="button" onClick={onClose} className="p-1 text-zinc-500 hover:text-white">
@@ -115,9 +132,12 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose: () =>
                 Hyperpool · HyperEVM DEX · Phase 2 Live
               </p>
             </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>,
+          document.body
+        )
+      : null
   );
 }

@@ -104,8 +104,9 @@ async function main() {
 
   if (amount0 === 0n && amount1 === 0n) throw new Error("Set FEE_WHYPE and/or FEE_USDC > 0");
 
-  const usdcToken = whypeIs0 ? deployment.token1 : deployment.token0;
-  const whypeToken = whypeIs0 ? deployment.token0 : deployment.token1;
+  const usdcToken = deployment.tokenUSDC;
+  const whypeToken = deployment.tokenKHYPE;
+  if (!usdcToken || !whypeToken) throw new Error("tokenUSDC / tokenKHYPE missing in 998.json");
   if (feeUsdc > 0n) {
     const walletUsdc = await publicClient.readContract({
       address: usdcToken,

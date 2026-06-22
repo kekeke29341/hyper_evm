@@ -22,6 +22,17 @@ export default defineConfig({
       fullyParallel: true,
     },
     {
+      name: "mobile",
+      testMatch: /mobile\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 390, height: 844 },
+        isMobile: true,
+        hasTouch: true,
+      },
+      fullyParallel: true,
+    },
+    {
       name: "wallet-mock",
       testMatch: /wallet-mock\.spec\.ts/,
       fullyParallel: false,

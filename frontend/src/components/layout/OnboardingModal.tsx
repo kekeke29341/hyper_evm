@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Zap, TrendingUp, Wallet } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
@@ -22,11 +23,23 @@ export function OnboardingModal() {
   const isMobile = useMediaQuery(MOBILE_MEDIA_QUERY);
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     if (isMobile === null) return;
     if (!localStorage.getItem(STORAGE_KEY)) setOpen(true);
   }, [isMobile]);
+
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
 
   const finish = () => {
     localStorage.setItem(STORAGE_KEY, "1");
@@ -46,21 +59,25 @@ export function OnboardingModal() {
   const Icon = current.icon;
 
   return (
-    <AnimatePresence>
-      {open && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60]"
-          />
-          <motion.div
-            initial={{ opacity: 0, scale: 0.92, y: 16 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.92, y: 16 }}
-            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[60] w-full max-w-md card-glass rounded-2xl p-6 mx-4"
-          >
+    mounted
+      ? createPortal(
+          <AnimatePresence>
+            {open && (
+              <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-4">
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+                />
+                <motion.div
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 16 }}
+                  className="relative z-10 w-full sm:max-w-md card-glass rounded-t-2xl sm:rounded-2xl p-6 max-h-[min(90dvh,90vh)] overflow-y-auto safe-bottom"
+                  role="dialog"
+                  aria-modal="true"
+                >
             <div className="flex justify-between items-start mb-6">
               <div className="flex gap-1">
                 {STEPS.map((_, i) => (
@@ -114,9 +131,12 @@ export function OnboardingModal() {
                 {step < STEPS.length - 1 ? t("onboarding.next") : t("onboarding.start")}
               </button>
             </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>,
+          document.body
+        )
+      : null
   );
 }

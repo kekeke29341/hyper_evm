@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useI18n } from "@/lib/i18n";
-import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
+import { useGuestDemo } from "@/lib/hooks/useGuestDemo";
+import { projectXTvlBase, projectXVolumeBase } from "@/lib/demo/data";
 
 function useLiveStat(base: number, variance: number, intervalMs = 3000) {
   const [value, setValue] = useState(base);
@@ -28,9 +29,11 @@ function formatCount(n: number) {
 
 export function SocialProofBar() {
   const { t } = useI18n();
-  const chainId = useEffectiveChainId();
-  const tvl = useLiveStat(24_600_000, 50_000);
-  const volume = useLiveStat(8_200_000, 30_000);
+  const { isGuestDemo } = useGuestDemo();
+  const tvlBase = projectXTvlBase();
+  const volumeBase = projectXVolumeBase();
+  const tvl = useLiveStat(tvlBase, tvlBase * 0.002);
+  const volume = useLiveStat(volumeBase, volumeBase * 0.001);
   const users = useLiveStat(12_450, 8);
 
   const stats = [
@@ -39,23 +42,26 @@ export function SocialProofBar() {
     { label: t("socialProof.users"), value: formatCount(users), color: "text-violet-400" },
   ];
 
-  if (chainId !== 31337) return null;
+  if (!isGuestDemo) return null;
 
   return (
     <motion.div
       initial={{ opacity: 0, y: -4 }}
       animate={{ opacity: 1, y: 0 }}
-      className="max-w-lg mx-auto mb-4 grid grid-cols-3 gap-2 px-2"
+      className="max-w-6xl mx-auto mb-4 px-1"
     >
-      {stats.map((s) => (
-        <div
-          key={s.label}
-          className="px-2 py-2.5 rounded-xl bg-zinc-900/60 border border-zinc-800 text-center"
-        >
-          <p className="text-[10px] text-zinc-500 truncate">{s.label}</p>
-          <p className={`text-sm font-bold mt-0.5 tabular-nums ${s.color}`}>{s.value}</p>
-        </div>
-      ))}
+      <p className="text-[10px] text-zinc-600 text-center mb-2">{t("socialProof.reference")}</p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        {stats.map((s) => (
+          <div
+            key={s.label}
+            className="px-2 py-2.5 rounded-xl bg-zinc-900/60 border border-zinc-800 text-center"
+          >
+            <p className="text-[10px] text-zinc-500 truncate">{s.label}</p>
+            <p className={`text-sm font-bold mt-0.5 tabular-nums ${s.color}`}>{s.value}</p>
+          </div>
+        ))}
+      </div>
     </motion.div>
   );
 }

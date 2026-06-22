@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  async redirects() {
+    return [{ source: "/liquidity", destination: "/position", permanent: true }];
+  },
   transpilePackages: [
     "@wagmi/connectors",
     "@wagmi/core",

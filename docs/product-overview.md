@@ -12,9 +12,9 @@ Hyperpool は **Project X 上の WHYPE/USDC プールへ代理 LP** し、**+10%
 
 | 機能 | 説明 |
 |------|------|
-| **Deposit / Bridge** | Li.FI 経由で任意チェーンから HyperEVM USDC へブリッジ → Vault 預入 |
+| **Dashboard** | Vault シェア価値と Cashdrop claim 履歴の確認 |
+| **Bridge** | Li.FI 経由で任意チェーンから HyperEVM USDC へブリッジ |
 | **Position** | USDC / HYPE を Vault に預ける（運営が Project X へ代理 LP） |
-| **Portfolio** | ウォレット残高・Vault シェアの確認 |
 | **Cashdrop** | 毎朝 JST 7:00–9:00、collect 手数料の **70%** を USDC で Merkle 請求 |
 | **Affiliate** | 紹介コード — Cashdrop 分配時に +10% / +15% 反映 |
 | **Admin** (`/admin`) | Merkle ルート・Vault 運用 |

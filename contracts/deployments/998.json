@@ -13,15 +13,20 @@
   "vaultShareHolders": [
     {
       "address": "0x0196f2949fbce973d54d2047e3b8bfade06e8cec",
-      "shares": "9000"
+      "shares": "18953"
     }
   ],
   "airdropEntries": [
     {
+      "address": "0x1F91A8a4f87Ebf7a5168911C76A295cAd13F50EB",
+      "amount": "120",
+      "minShares": "1"
+    },
+    {
       "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
-      "amount": "5000",
-      "minShares": "9000"
+      "amount": "880",
+      "minShares": "18953"
     }
   ],
-  "merkleRoot": "0x2f13d37a03e73ae80d5a0d6910fb09eec3426ae576c1cb53f61911c15dbc94f0"
+  "merkleRoot": "0x4fa4c82ff7e02bf5b68881ea8f828d8b5ee68577f682d79f7f256d29c1390f11"
 }

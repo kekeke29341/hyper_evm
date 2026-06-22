@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Loader2, ChevronRight } from "lucide-react";
 import { PROJECT_X_POOL } from "@/lib/constants";
@@ -36,9 +37,21 @@ export function CreatePositionModal({
   const khypeBal = useTokenBalance("kHYPE");
   const usdcBal = useTokenBalance("USDC");
 
+  const [mounted, setMounted] = useState(false);
   const [step, setStep] = useState<"form" | "confirm">("form");
   const [funding, setFunding] = useState<FundingSource>("wallet-usdc");
   const [amount, setAmount] = useState("");
+
+  useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
 
   const price = poolPriceUsdcPerKhype(reserveKhype, reserveUsdc);
   const bounds = rangeBounds(price, PROJECT_X_POOL.upperRangePct, PROJECT_X_POOL.lowerRangePct);
@@ -81,33 +94,38 @@ export function CreatePositionModal({
   };
 
   return (
-    <AnimatePresence>
-      {open && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm"
-            onClick={handleClose}
-          />
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 24 }}
-            className="fixed inset-x-0 bottom-0 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 z-50 w-full sm:w-[calc(100%-2rem)] sm:max-w-lg card-glass rounded-t-2xl sm:rounded-2xl border border-zinc-800 max-h-[92vh] overflow-y-auto safe-bottom"
-          >
-            <div className="sticky top-0 bg-zinc-900/95 backdrop-blur border-b border-zinc-800 px-4 py-3 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-white">
-                {mode === "add" ? t("position.addLiquidity") : t("position.createPosition")}
-              </h2>
-              <button type="button" onClick={handleClose} className="p-1 text-zinc-500 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+    mounted
+      ? createPortal(
+          <AnimatePresence>
+            {open && (
+              <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-4">
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+                  onClick={handleClose}
+                />
+                <motion.div
+                  initial={{ opacity: 0, y: 24 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 24 }}
+                  className="relative z-10 w-full sm:max-w-lg card-glass rounded-t-2xl sm:rounded-2xl border border-zinc-800 max-h-[min(92dvh,92vh)] flex flex-col safe-bottom"
+                  role="dialog"
+                  aria-modal="true"
+                >
+                  <div className="shrink-0 bg-zinc-900/95 backdrop-blur border-b border-zinc-800 px-4 py-3 flex items-center justify-between rounded-t-2xl sm:rounded-t-2xl">
+                    <h2 className="text-lg font-semibold text-white">
+                      {mode === "add" ? t("position.addLiquidity") : t("position.createPosition")}
+                    </h2>
+                    <button type="button" onClick={handleClose} className="p-1 text-zinc-500 hover:text-white">
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
 
-            {step === "form" ? (
-              <div className="p-4 space-y-5">
+                  <div className="flex-1 overflow-y-auto overscroll-contain">
+                    {step === "form" ? (
+                      <div className="p-4 space-y-5 pb-6">
                 <section>
                   <p className="text-xs text-zinc-500 mb-2">{t("position.poolSelect")}</p>
                   <div className="p-3 rounded-xl border border-cyan-500/40 bg-cyan-500/10">
@@ -115,7 +133,7 @@ export function CreatePositionModal({
                       {PROJECT_X_POOL.pair}{" "}
                       <span className="text-zinc-500">{PROJECT_X_POOL.feeTier}</span>
                     </p>
-                    <div className="mt-2 grid grid-cols-3 gap-2 text-[10px]">
+                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2 text-[10px]">
                       <div>
                         <p className="text-zinc-500">{t("position.apy")}</p>
                         <p className="text-emerald-400 font-semibold">{PROJECT_X_POOL.referenceApr}</p>
@@ -218,9 +236,9 @@ export function CreatePositionModal({
                 >
                   {t("position.toConfirm")} <ChevronRight className="w-4 h-4" />
                 </button>
-              </div>
-            ) : (
-              <div className="p-4 space-y-4">
+                      </div>
+                    ) : (
+                      <div className="p-4 space-y-4 pb-6">
                 <div className="p-4 rounded-xl bg-zinc-900/60 border border-zinc-800 space-y-2 text-sm">
                   <p className="text-white font-medium">{PROJECT_X_POOL.pair}</p>
                   <p className="text-zinc-400">
@@ -255,11 +273,15 @@ export function CreatePositionModal({
                     )}
                   </button>
                 </div>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
               </div>
             )}
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
+          </AnimatePresence>,
+          document.body
+        )
+      : null
   );
 }

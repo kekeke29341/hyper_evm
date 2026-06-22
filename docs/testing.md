@@ -4,9 +4,9 @@
 
 | レイヤー | フレームワーク | テスト数（目安） |
 |---------|--------------|----------------|
-| スマートコントラクト | Foundry (Forge) | 34 |
-| フロントエンド単体 | Vitest + Testing Library | 41 |
-| E2E | Playwright | 3 |
+| スマートコントラクト | Foundry (Forge) | 52 |
+| フロントエンド単体 | Vitest + Testing Library | 50 |
+| E2E | Playwright smoke | 13 |
 | Testnet on-chain | CLI スクリプト | 下記参照 |
 
 ## 一括実行
@@ -56,7 +56,7 @@ FOUNDRY_PROFILE=ci forge test
 
 # 特定ファイル
 forge test --match-path test/HyperpoolVaultTest.t.sol
-forge test --match-path test/HyperpoolTest.t.sol
+forge test --match-path test/ProjectXAdapterTest.t.sol
 ```
 
 ### テストファイル
@@ -64,10 +64,10 @@ forge test --match-path test/HyperpoolTest.t.sol
 | ファイル | 対象 |
 |---------|------|
 | `test/HyperpoolVaultTest.t.sol` | Vault deposit/withdraw/harvest/rebalance |
-| `test/HyperpoolTest.t.sol` | Adapter + Mock NPM 統合 |
-| `test/TwapTest.t.sol` | Oracle / TWAP |
+| `test/ProjectXAdapterTest.t.sol` | Adapter + Mock NPM / pool NAV 統合 |
+| `test/ProjectXPriceTest.t.sol` | Project X 価格・tick 変換 |
 | `test/MerkleAirdropTest.t.sol` | Cashdrop claim / revert 系 |
-| `test/invariant/HyperpoolInvariant.t.sol` | 不変条件 |
+| `test/ReferralRegistryTest.t.sol` | 紹介コード登録・紐付け |
 
 ## フロントエンド
 

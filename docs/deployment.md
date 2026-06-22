@@ -22,7 +22,7 @@ source scripts/testnet-env.sh
 デプロイ後（スクリプト内で自動実行されるが、手動でも可）:
 
 ```bash
-node scripts/finalize-deployment.mjs 998
+node scripts/finalize-deployment.mjs 998 hyperEVM_testnet
 node scripts/sync-abi.mjs
 ```
 

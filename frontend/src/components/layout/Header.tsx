@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Lock, Shield, Settings } from "lucide-react";
 import { TAB_IDS, type TabId } from "@/lib/constants";
+import { tabPath } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 import { useApp } from "@/lib/store";
 import { useI18n } from "@/lib/i18n";
@@ -12,43 +13,37 @@ import { ADMIN_ENABLED } from "@/lib/config";
 import { NetworkSelector } from "@/components/layout/NetworkSelector";
 import { SettingsModal } from "@/components/layout/SettingsModal";
 
-function TabButton({
+function TabLink({
   id,
   activeTab,
-  onTabChange,
   className,
 }: {
   id: TabId;
   activeTab: TabId;
-  onTabChange: (t: TabId) => void;
   className?: string;
 }) {
   const { t } = useI18n();
+  const isActive = activeTab === id;
 
   return (
-    <button
-      type="button"
-      onClick={() => onTabChange(id)}
+    <Link
+      href={tabPath(id)}
+      aria-current={isActive ? "page" : undefined}
+      prefetch
       className={cn(
         "px-3 py-1.5 text-sm whitespace-nowrap rounded-md transition-colors shrink-0",
-        activeTab === id
+        isActive
           ? "text-white bg-zinc-800/80 border-b-2 border-cyan-400"
           : "text-zinc-400 hover:text-zinc-200",
         className
       )}
     >
       {t(`tabs.${id}`)}
-    </button>
+    </Link>
   );
 }
 
-export function Header({
-  activeTab,
-  onTabChange,
-}: {
-  activeTab: TabId;
-  onTabChange: (t: TabId) => void;
-}) {
+export function Header({ activeTab }: { activeTab: TabId }) {
   const { displayAddress, isConnected, openWalletModal } = useApp();
   const { locale, setLocale, t } = useI18n();
   const chainId = useEffectiveChainId();
@@ -58,7 +53,7 @@ export function Header({
     <header className="sticky top-0 z-40 border-b border-zinc-800/80 bg-zinc-950/70 backdrop-blur-md safe-top">
       <div className="max-w-6xl mx-auto px-4 py-2.5 md:py-3">
         <div className="flex items-center gap-2 md:gap-3">
-          <div className="flex items-center gap-2 shrink-0 min-w-0">
+          <Link href="/" className="flex items-center gap-2 shrink-0 min-w-0 hover:opacity-90 transition-opacity">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 to-cyan-400 flex items-center justify-center shrink-0">
               <span className="text-sm font-black text-zinc-950 leading-none">H</span>
             </div>
@@ -68,7 +63,7 @@ export function Header({
                 {t("header.tagline")}
               </p>
             </div>
-          </div>
+          </Link>
 
           {chainId !== 998 && (
             <div className="hidden md:flex items-center gap-1.5 shrink-0">
@@ -86,7 +81,7 @@ export function Header({
             aria-label="Main navigation"
           >
             {TAB_IDS.map((id) => (
-              <TabButton key={id} id={id} activeTab={activeTab} onTabChange={onTabChange} />
+              <TabLink key={id} id={id} activeTab={activeTab} />
             ))}
           </nav>
 
@@ -158,17 +153,11 @@ export function Header({
         </div>
 
         <nav
-          className="md:hidden flex gap-0.5 mt-2 -mx-1 px-1 overflow-x-auto scrollbar-thin"
+          className="md:hidden flex gap-1 mt-2 -mx-1 px-1 overflow-x-auto scrollbar-thin snap-x snap-mandatory scroll-px-2"
           aria-label="Main navigation"
         >
           {TAB_IDS.map((id) => (
-            <TabButton
-              key={id}
-              id={id}
-              activeTab={activeTab}
-              onTabChange={onTabChange}
-              className="text-xs px-2.5 py-2"
-            />
+            <TabLink key={id} id={id} activeTab={activeTab} className="text-xs px-3 py-2.5 min-h-[44px] snap-start" />
           ))}
         </nav>
       </div>

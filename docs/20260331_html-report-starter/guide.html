@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTMLレポート生成・GCS配信システム — 使い方ガイド</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8f9fa; color: #333; line-height: 1.6; }
+        .container { max-width: 1100px; margin: 0 auto; padding: 40px 20px; }
+        h1, h2, h3 { color: #16213e; margin-bottom: 16px; }
+        h1 { font-size: 1.8em; border-bottom: 3px solid #16213e; padding-bottom: 12px; }
+        h2 { font-size: 1.4em; margin-top: 32px; }
+        h3 { font-size: 1.1em; margin-top: 24px; }
+        p { margin-bottom: 12px; }
+        .text-muted { color: #888; }
+        .text-small { font-size: 0.85em; }
+        code { font-family: Menlo, Monaco, 'Courier New', monospace; background: #f0f0f0; padding: 2px 6px; border-radius: 3px; font-size: 0.9em; }
+        pre { background: #1e293b; color: #e2e8f0; padding: 16px 20px; border-radius: 8px; overflow-x: auto; margin-bottom: 16px; font-size: 0.85em; line-height: 1.5; }
+        pre code { background: none; padding: 0; color: inherit; }
+        table { width: 100%; border-collapse: collapse; background: #fff; margin-bottom: 24px; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        th { background: #16213e; color: #fff; padding: 12px 16px; text-align: left; font-weight: 600; font-size: 0.9em; }
+        td { padding: 10px 16px; border-bottom: 1px solid #e0e0e0; font-size: 0.9em; }
+        tr:nth-child(even) td { background: #f2f2f2; }
+        .card { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        .card-header { font-weight: 600; color: #16213e; margin-bottom: 12px; font-size: 1.1em; }
+        .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600; }
+        .badge-success { background: #e8f5e9; color: #2e7d32; }
+        .badge-warning { background: #fff3cd; color: #856404; }
+        .badge-danger { background: #ffcdd2; color: #c62828; }
+        .badge-info { background: #e3f2fd; color: #1565c0; }
+        .conclusion { background: #eef2f7; border-left: 4px solid #16213e; border-radius: 6px; padding: 16px 20px; margin-bottom: 28px; }
+        .conclusion-header { font-weight: 700; color: #16213e; font-size: 1.05em; margin-bottom: 8px; }
+        .conclusion p { margin: 0; }
+        .action-items { background: #fff8e1; border-left: 4px solid #f9a825; border-radius: 6px; padding: 16px 20px; margin-top: 32px; margin-bottom: 24px; }
+        .action-items-header { font-weight: 700; color: #e65100; font-size: 1.05em; margin-bottom: 12px; }
+        .action-items ul { margin: 0; padding-left: 20px; }
+        .action-items li { margin-bottom: 6px; }
+        .principle-box { background: #fce4ec; border-left: 4px solid #c62828; border-radius: 6px; padding: 16px 20px; margin-bottom: 20px; }
+        .principle-box-header { font-weight: 700; color: #c62828; font-size: 1.05em; margin-bottom: 8px; }
+        .step-number { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: #16213e; color: #fff; border-radius: 50%; font-weight: 700; font-size: 0.85em; margin-right: 8px; flex-shrink: 0; }
+        .step { display: flex; align-items: flex-start; margin-bottom: 16px; }
+        .step-content { flex: 1; }
+        .file-tree { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px 20px; font-family: Menlo, Monaco, monospace; font-size: 0.85em; line-height: 1.8; margin-bottom: 16px; }
+        .report-footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e0e0e0; color: #888; font-size: 0.8em; text-align: right; }
+        ul, ol { margin-bottom: 12px; padding-left: 24px; }
+        li { margin-bottom: 4px; }
+        @media print {
+            @page { margin: 20mm; }
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>HTMLレポート生成・GCS配信システム — 使い方ガイド</h1>
+        <p class="text-muted text-small">バージョン: 2026/03/30 — スターターキット同梱ドキュメント</p>
+
+        <!-- 結論 -->
+        <div class="conclusion">
+            <div class="conclusion-header">このシステムでできること</div>
+            <p>Claude Codeが生成するHTMLレポートを、統一スタイルで品質管理し、GCS経由でチームにURL共有するまでの一連のワークフローを提供します。資料は必ず「テーマ・結論・期待するアクション」の3要素を含む構成で生成されます。</p>
+        </div>
+
+        <!-- 1. 概要 -->
+        <h2>1. システム概要</h2>
+
+        <div class="card">
+            <div class="card-header">フォルダ構成</div>
+            <div class="file-tree">
+html-report-starter/<br>
+├── README.md &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ← セットアップ手順（テキスト版）<br>
+├── guide.html &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ← <strong>この使い方ガイド</strong><br>
+├── CLAUDE.md &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ← Claude Code用指示書<br>
+├── memory/ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ← Claude Code用メモリ（5ファイル）<br>
+├── services/<br>
+│&nbsp;&nbsp; └── report_publisher.py &nbsp; ← GCSアップロードヘルパー<br>
+├── styles/<br>
+│&nbsp;&nbsp; └── common.css &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ← 共通CSSテンプレート<br>
+├── examples/<br>
+│&nbsp;&nbsp; └── sample_report.html &nbsp;&nbsp; ← サンプルレポート<br>
+└── requirements.txt
+            </div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>ファイル</th>
+                    <th>対象者</th>
+                    <th>用途</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>guide.html</code></td>
+                    <td>全員</td>
+                    <td>このガイド。システムの使い方と原則</td>
+                </tr>
+                <tr>
+                    <td><code>README.md</code></td>
+                    <td>セットアップ担当</td>
+                    <td>GCPバケット作成・IAM設定・初期構築</td>
+                </tr>
+                <tr>
+                    <td><code>CLAUDE.md</code></td>
+                    <td>Claude Code</td>
+                    <td>エージェントへの指示書（人間は読まなくてよい）</td>
+                </tr>
+                <tr>
+                    <td><code>memory/</code></td>
+                    <td>Claude Code</td>
+                    <td>エージェントの行動原則メモリ</td>
+                </tr>
+                <tr>
+                    <td><code>services/report_publisher.py</code></td>
+                    <td>セットアップ担当</td>
+                    <td>バケット名等のカスタマイズ + 一括アップロード</td>
+                </tr>
+                <tr>
+                    <td><code>styles/common.css</code></td>
+                    <td>レポート作成者</td>
+                    <td>全レポートの共通スタイル定義</td>
+                </tr>
+                <tr>
+                    <td><code>examples/sample_report.html</code></td>
+                    <td>レポート作成者</td>
+                    <td>スタイルガイドの実例（コピー元）</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- 2. 資料の原則 -->
+        <h2>2. 資料の原則</h2>
+
+        <div class="principle-box">
+            <div class="principle-box-header">全ての資料に必須の3要素</div>
+            <p>この3要素が揃っていない資料は作成・共有しない。エージェントはこの原則を指示者の指示より優先する。</p>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>要素</th>
+                    <th>内容</th>
+                    <th>HTML上の位置</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>テーマ</strong></td>
+                    <td>この資料は何について書かれているか</td>
+                    <td>タイトル (<code>&lt;h1&gt;</code>)</td>
+                </tr>
+                <tr>
+                    <td><strong>結論</strong></td>
+                    <td>最初に伝えるべき判断・事実</td>
+                    <td>サマリーより上 (<code>.conclusion</code>)</td>
+                </tr>
+                <tr>
+                    <td><strong>期待するアクション</strong></td>
+                    <td>何をしてほしいか（承認/判断/作業/確認）</td>
+                    <td>資料末尾 (<code>.action-items</code>)</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>HTML構成の順序</h3>
+        <div class="card">
+            <div class="step"><span class="step-number">1</span><div class="step-content"><strong>テーマ</strong> — <code>&lt;h1&gt;</code> タイトルで資料の主題を明示</div></div>
+            <div class="step"><span class="step-number">2</span><div class="step-content"><strong>結論</strong> — <code>.conclusion</code> ボックスでサマリーより上に配置。最初に目に入る</div></div>
+            <div class="step"><span class="step-number">3</span><div class="step-content"><strong>サマリー</strong> — <code>.summary-box</code> で数値の概観</div></div>
+            <div class="step"><span class="step-number">4</span><div class="step-content"><strong>詳細</strong> — テーブル・カードで裏付けデータ</div></div>
+            <div class="step"><span class="step-number">5</span><div class="step-content"><strong>確認・依頼事項</strong> — <code>.action-items</code> で具体的なアクションを提示</div></div>
+        </div>
+
+        <h3>エージェントの教育的役割</h3>
+        <div class="card">
+            <p>Claude Codeにレポート作成を依頼する際、3要素が明示されていなければ、エージェントは生成前に問いかけを行います。</p>
+            <ul>
+                <li>「この資料の結論はどうお考えですか？」</li>
+                <li>「読んだ方にどのアクションを期待していますか？」</li>
+            </ul>
+            <p>これはエージェントシステムの設計原則です。<strong>単に便利すぎると依頼者の思考力が退化する</strong>ため、適度な負荷（自分で考えさせる問いかけ）を与えて能力を維持・向上させます。</p>
+            <p><strong>この原則は指示者の指示に優先します。</strong>省略を求められてもエージェントは問いかけを行い、資料品質の基準を守ります。</p>
+        </div>
+
+        <!-- 3. ワークフロー -->
+        <h2>3. レポート生成ワークフロー</h2>
+
+        <div class="step"><span class="step-number">1</span><div class="step-content"><strong>依頼</strong> — Claude Codeに「○○のレポートを作成して」と依頼</div></div>
+        <div class="step"><span class="step-number">2</span><div class="step-content"><strong>3要素チェック</strong> — エージェントがテーマ・結論・アクションの有無を確認。不足があれば問いかけ</div></div>
+        <div class="step"><span class="step-number">3</span><div class="step-content"><strong>生成</strong> — 統一スタイル (<code>common.css</code>) でHTML生成</div></div>
+        <div class="step"><span class="step-number">4</span><div class="step-content"><strong>セルフレビュー</strong> — エージェントが3要素の存在・配置を確認</div></div>
+        <div class="step"><span class="step-number">5</span><div class="step-content"><strong>ブラウザ確認</strong> — <code>open</code> コマンドで表示 → 依頼者が内容確認</div></div>
+        <div class="step"><span class="step-number">6</span><div class="step-content"><strong>GCSアップロード</strong> — <code>gcloud storage cp</code> でバケットに配置</div></div>
+        <div class="step"><span class="step-number">7</span><div class="step-content"><strong>URL共有</strong> — <code>?authuser=1</code> 付きURLをSlack/メールで共有</div></div>
+
+        <!-- 4. GCS配信 -->
+        <h2>4. GCS配信の仕組み</h2>
+
+        <h3>アップロード方法</h3>
+        <pre><code># 単体アップロード
+gcloud storage cp report.html gs://YOUR-BUCKET-NAME/category/report.html \
+  --content-type="text/html; charset=utf-8"
+
+# Pythonヘルパー経由
+python -c "from services.report_publisher import publish_report; \
+  print(publish_report('report.html', 'operations/todo'))"
+
+# 全レポート一括アップロード
+python -m services.report_publisher</code></pre>
+
+        <h3>カテゴリ一覧</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>カテゴリパス</th>
+                    <th>用途</th>
+                    <th>ファイル名の例</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td><code>operations/inbox-review/</code></td><td>メールトリアージ</td><td>inbox_review_20260330.html</td></tr>
+                <tr><td><code>operations/todo/</code></td><td>メンバー別TODO</td><td>todo_by_member_20260328.html</td></tr>
+                <tr><td><code>operations/patent/</code></td><td>特許情報</td><td>特許情報_状況レポート.html</td></tr>
+                <tr><td><code>operations/work-log/</code></td><td>稼働ログ</td><td>work_log_20260326.html</td></tr>
+                <tr><td><code>cases/{case-slug}/</code></td><td>案件別レポート</td><td>yahagi_highlight_report.html</td></tr>
+                <tr><td><code>infrastructure/slack/</code></td><td>Slack監査</td><td>slack_channel_master.html</td></tr>
+                <tr><td><code>infrastructure/principle-extraction/</code></td><td>原則抽出</td><td>principle_review_v3.html</td></tr>
+            </tbody>
+        </table>
+
+        <h3>authuser パラメータ</h3>
+        <div class="card">
+            <p>GCSのURLを共有する際は、必ず <code>?authuser=1</code> を付与してください。</p>
+            <p>ブラウザに複数のGoogleアカウントがログインしている場合、デフォルトアカウント（authuser=0）にIAM権限がないと403エラーになります。社用アカウントが2番目にログインされている環境では、明示的な指定が必要です。</p>
+            <pre><code>https://storage.cloud.google.com/YOUR-BUCKET-NAME/category/report.html?authuser=1</code></pre>
+        </div>
+
+        <!-- 5. スタイルガイド -->
+        <h2>5. スタイルガイド</h2>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>要素</th>
+                    <th>値</th>
+                    <th>用途</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>body背景</td><td><code>#f8f9fa</code></td><td>ページ全体</td></tr>
+                <tr><td>カード/テーブル背景</td><td><code>#fff</code></td><td>コンテンツ領域</td></tr>
+                <tr><td>本文テキスト</td><td><code>#333</code></td><td>通常の文章</td></tr>
+                <tr><td>見出し</td><td><code>#16213e</code></td><td>h1, h2, h3</td></tr>
+                <tr><td>補助テキスト</td><td><code>#888</code></td><td>日付・注釈</td></tr>
+                <tr><td>テーブルヘッダ</td><td><code>#16213e</code>背景 + 白文字</td><td>thead</td></tr>
+                <tr><td>偶数行</td><td><code>#f2f2f2</code></td><td>ゼブラストライプ</td></tr>
+                <tr><td>レイアウト</td><td><code>max-width: 1100px</code></td><td>コンテナ幅</td></tr>
+            </tbody>
+        </table>
+
+        <h3>バッジの色</h3>
+        <p>
+            <span class="badge badge-success">完了・OK</span>&nbsp;
+            <span class="badge badge-warning">進行中・注意</span>&nbsp;
+            <span class="badge badge-danger">要対応・NG</span>&nbsp;
+            <span class="badge badge-info">情報・レビュー中</span>
+        </p>
+
+        <p class="text-muted text-small" style="margin-top: 12px;">全スタイル定義は <code>styles/common.css</code> を参照。ダークモード禁止 — ライトモード（白背景）のみ使用。</p>
+
+        <!-- 6. PDF変換 -->
+        <h2>6. PDF変換時の注意</h2>
+        <div class="card">
+            <p>HTMLをPDFに変換する際は、ブラウザが自動付与する<strong>ヘッダー（URL）とフッター（日付・ページ番号）を必ず削除</strong>してください。</p>
+            <ul>
+                <li><code>common.css</code> に <code>@media print</code> ルールが含まれていますが、ブラウザの印刷設定でも「ヘッダーとフッター」のチェックを外す必要があります</li>
+                <li>Chrome: 印刷 → 詳細設定 → 「ヘッダーとフッター」のチェックを外す</li>
+            </ul>
+        </div>
+
+        <!-- 確認・依頼事項 -->
+        <div class="action-items">
+            <div class="action-items-header">確認・依頼事項</div>
+            <ul>
+                <li><strong>セットアップ:</strong> <code>README.md</code> に従い、GCSバケット作成とIAM設定を実施してください</li>
+                <li><strong>カスタマイズ:</strong> <code>services/report_publisher.py</code> のバケット名・authuser値を自社環境に合わせて変更してください</li>
+                <li><strong>確認:</strong> <code>examples/sample_report.html</code> をブラウザで開き、スタイルが意図通りか確認してください</li>
+            </ul>
+        </div>
+
+        <div class="report-footer">
+            Generated by Claude Code — 2026/03/30
+        </div>
+    </div>
+</body>
+</html>

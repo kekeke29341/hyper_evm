@@ -1,21 +1,18 @@
 "use client";
 
+import Link from "next/link";
 import { ArrowRight, TrendingUp, Wallet } from "lucide-react";
 import { EarningsTrendChart } from "@/components/charts/EarningsTrendChart";
 import { StatPill } from "@/components/ui/shared";
 import { useApp } from "@/lib/store";
 import { useI18n } from "@/lib/i18n";
 import { PROJECT_X_POOL } from "@/lib/constants";
+import { tabPath } from "@/lib/routes";
 import type { EarningsChartMode } from "@/lib/earnings/history";
 import { useCashdrop, useVaultStats } from "@/lib/hooks/useDeFi";
 import { useEarningsDashboard } from "@/lib/hooks/useEarningsDashboard";
+import { DEMO_CASHDROP } from "@/lib/demo/data";
 import { cn } from "@/lib/utils";
-
-type DashboardTabProps = {
-  onGoToDeposit?: () => void;
-  onGoToPosition?: () => void;
-  onGoToCashdrop?: () => void;
-};
 
 function truncateAddress(addr: string): string {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
@@ -30,7 +27,7 @@ function formatMoney(n: number, decimals = 2): string {
 
 const CHART_MODES: EarningsChartMode[] = ["cumulative", "yearly", "monthly", "daily"];
 
-export function DashboardTab({ onGoToDeposit, onGoToPosition, onGoToCashdrop }: DashboardTabProps) {
+export function DashboardTab() {
   const { isConnected, openWalletModal } = useApp();
   const { t, locale } = useI18n();
   const { hasRewards, availableUsdc } = useCashdrop();
@@ -47,10 +44,17 @@ export function DashboardTab({ onGoToDeposit, onGoToPosition, onGoToCashdrop }: 
     hasHistory,
     onChainSync,
     onChainLoading,
+    isGuestDemo,
   } = useEarningsDashboard();
 
   const maxMonthly = Math.max(...monthlyRows.map((r) => r.value), 0.01);
-  const showGettingStarted = isConnected && !hasPosition;
+  const showGettingStarted = isConnected && !hasPosition && !isGuestDemo;
+  const showClaimable = isGuestDemo || hasRewards;
+  const claimableUsdc = isGuestDemo ? DEMO_CASHDROP.availableUsdc : availableUsdc;
+  const pendingRewardsUsdc = isGuestDemo
+    ? DEMO_CASHDROP.pendingPoolUsdc
+    : vaultStats.pendingRewardsUsdc;
+  const showPositionStats = isGuestDemo || (isConnected && hasPosition);
   const aprDisplay =
     metrics.estimatedApr !== null
       ? `${metrics.estimatedApr.toFixed(1)}%`
@@ -66,10 +70,9 @@ export function DashboardTab({ onGoToDeposit, onGoToPosition, onGoToCashdrop }: 
         </p>
       )}
 
-      {hasRewards && onGoToCashdrop && (
-        <button
-          type="button"
-          onClick={onGoToCashdrop}
+      {showClaimable && (
+        <Link
+          href={tabPath("cashdrop")}
           className="w-full flex items-center justify-between gap-3 p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-left hover:bg-emerald-500/15 transition-colors"
         >
           <div>
@@ -77,21 +80,21 @@ export function DashboardTab({ onGoToDeposit, onGoToPosition, onGoToCashdrop }: 
             <p className="text-xs text-zinc-400 mt-0.5">{t("cashdrop.window")}</p>
           </div>
           <span className="text-emerald-400 font-semibold tabular-nums shrink-0">
-            {availableUsdc} USDC <ArrowRight className="w-4 h-4 inline -mt-0.5" />
+            {claimableUsdc} USDC <ArrowRight className="w-4 h-4 inline -mt-0.5" />
           </span>
-        </button>
+        </Link>
       )}
 
-      {vaultStats.pendingRewardsUsdc > 0 && (
+      {pendingRewardsUsdc > 0 && (
         <p className="text-xs text-emerald-400/90 px-1">
-          {t("dashboard.pendingPool")}: ${formatMoney(vaultStats.pendingRewardsUsdc)} USDC
+          {t("dashboard.pendingPool")}: ${formatMoney(pendingRewardsUsdc)} USDC
         </p>
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
         <StatPill
           label={t("dashboard.positionValue")}
-          value={isConnected && hasPosition ? `$${formatMoney(positionValueUsd)}` : "—"}
+          value={showPositionStats ? `$${formatMoney(positionValueUsd)}` : "—"}
           accent="cyan"
         />
         <StatPill
@@ -106,7 +109,7 @@ export function DashboardTab({ onGoToDeposit, onGoToPosition, onGoToCashdrop }: 
         />
         <StatPill
           label={t("dashboard.estimatedApr")}
-          value={isConnected && hasPosition ? aprDisplay : "—"}
+          value={showPositionStats ? aprDisplay : "—"}
           accent="violet"
         />
         <StatPill
@@ -127,7 +130,7 @@ export function DashboardTab({ onGoToDeposit, onGoToPosition, onGoToCashdrop }: 
         />
       </div>
 
-      {!isConnected || !hasPosition ? (
+      {!showPositionStats ? (
         <p className="text-[11px] text-zinc-600 px-1 -mt-2">
           {t("dashboard.aprConnectHint")} · {t("position.netApy")} {PROJECT_X_POOL.netAprEstimate} (
           {t("position.feeSplitFootnote")})
@@ -138,25 +141,21 @@ export function DashboardTab({ onGoToDeposit, onGoToPosition, onGoToCashdrop }: 
         </p>
       ) : null}
 
-      {showGettingStarted && (onGoToDeposit || onGoToPosition) && (
+      {showGettingStarted && (
         <div className="card-glass rounded-2xl p-4 border border-cyan-500/20 bg-cyan-500/5">
           <p className="text-sm font-medium text-white mb-3">{t("dashboard.gettingStarted")}</p>
           <ol className="space-y-2 text-xs text-zinc-400">
             <li className="flex items-center justify-between gap-2">
               <span>1. {t("dashboard.stepDeposit")}</span>
-              {onGoToDeposit && (
-                <button type="button" onClick={onGoToDeposit} className="text-cyan-400 hover:underline shrink-0">
-                  {t("tabs.deposit")} →
-                </button>
-              )}
+              <Link href={tabPath("deposit")} className="text-cyan-400 hover:underline shrink-0">
+                {t("tabs.deposit")} →
+              </Link>
             </li>
             <li className="flex items-center justify-between gap-2">
               <span>2. {t("dashboard.stepPosition")}</span>
-              {onGoToPosition && (
-                <button type="button" onClick={onGoToPosition} className="text-cyan-400 hover:underline shrink-0">
-                  {t("tabs.liquidity")} →
-                </button>
-              )}
+              <Link href={tabPath("liquidity")} className="text-cyan-400 hover:underline shrink-0">
+                {t("tabs.liquidity")} →
+              </Link>
             </li>
             <li>3. {t("dashboard.stepCashdrop")}</li>
           </ol>
@@ -188,7 +187,9 @@ export function DashboardTab({ onGoToDeposit, onGoToPosition, onGoToCashdrop }: 
           </div>
         </div>
         <EarningsTrendChart data={chartData} />
-        {!isConnected && (
+        {isGuestDemo ? (
+          <p className="mt-3 text-xs text-violet-300/80 text-center">{t("demo.chartNote")}</p>
+        ) : !isConnected ? (
           <p className="mt-3 text-xs text-zinc-500 text-center">
             <button type="button" onClick={openWalletModal} className="text-cyan-400 hover:underline">
               {t("common.connectWallet")}
@@ -196,7 +197,7 @@ export function DashboardTab({ onGoToDeposit, onGoToPosition, onGoToCashdrop }: 
             {" — "}
             {t("dashboard.connectHint")}
           </p>
-        )}
+        ) : null}
         <p className="mt-3 text-[10px] text-zinc-600 text-center leading-relaxed">
           {onChainSync ? t("dashboard.historyDisclaimerOnChain") : t("dashboard.historyDisclaimer")}
           {onChainLoading ? ` · ${t("common.loading")}` : null}
@@ -232,7 +233,7 @@ export function DashboardTab({ onGoToDeposit, onGoToPosition, onGoToCashdrop }: 
           <h3 className="text-sm font-semibold text-white mb-4">
             {t("dashboard.positions")}{hasPosition ? " (1)" : ""}
           </h3>
-          {!isConnected ? (
+          {!showPositionStats ? (
             <div className="p-6 rounded-xl border border-dashed border-zinc-700 text-center">
               <Wallet className="w-8 h-8 mx-auto text-zinc-600 mb-2" />
               <p className="text-sm text-zinc-500">{t("dashboard.connectHint")}</p>

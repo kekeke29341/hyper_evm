@@ -14,30 +14,53 @@ export function useReferralStats() {
   const chainId = useEffectiveChainId();
   const deployment = getDeployment(chainId);
 
+  const registry = deployment?.referralRegistry;
+  const readsEnabled = !!address && !!registry;
+
   const { data: referralCount } = useReadContract({
-    address: deployment?.referralRegistry,
+    chainId,
+    address: registry,
     abi: abis.referral,
     functionName: "referralCount",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!deployment?.referralRegistry, refetchInterval: 15_000 },
+    query: { enabled: readsEnabled, refetchInterval: 15_000 },
   });
 
   const { data: hasCode } = useReadContract({
-    address: deployment?.referralRegistry,
+    chainId,
+    address: registry,
     abi: abis.referral,
     functionName: "referrerCode",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && !!deployment?.referralRegistry },
+    query: { enabled: readsEnabled },
   });
 
+  const { data: boundReferrer } = useReadContract({
+    chainId,
+    address: registry,
+    abi: abis.referral,
+    functionName: "getReferrer",
+    args: address ? [address] : undefined,
+    query: { enabled: readsEnabled },
+  });
+
+  const zeroHash = "0x0000000000000000000000000000000000000000000000000000000000000000";
+  const zeroAddr = "0x0000000000000000000000000000000000000000";
+
   const registered =
-    hasCode !== undefined &&
-    (hasCode as string) !== "0x0000000000000000000000000000000000000000000000000000000000000000";
+    hasCode !== undefined && (hasCode as string) !== zeroHash;
+
+  const hasRefereeBoost =
+    boundReferrer !== undefined &&
+    (boundReferrer as string).toLowerCase() !== zeroAddr;
 
   return {
     referralCount: referralCount !== undefined ? Number(referralCount) : 0,
     registered,
+    referrerCodeHash: registered ? (hasCode as string) : null,
+    hasRefereeBoost,
     hasDeployment: !!deployment,
+    hasReferralRegistry: !!registry,
   };
 }
 

@@ -12,6 +12,12 @@ import { CreatePositionModal } from "@/components/position/CreatePositionModal";
 import { appendRebalanceEvent, readRebalanceHistory, type RebalanceEvent } from "@/lib/liquidity/history";
 import { poolPriceUsdcPerKhype, rangeBounds } from "@/lib/liquidity/metrics";
 import {
+  buildDemoRebalanceEvents,
+  DEMO_POOL,
+  DEMO_POSITION,
+} from "@/lib/demo/data";
+import { useGuestDemo } from "@/lib/hooks/useGuestDemo";
+import {
   useDeployment,
   useLpBalance,
   usePoolStats,
@@ -20,6 +26,7 @@ import {
   useVaultStats,
   useVaultWithdraw,
   useZapLiquidity,
+  useHarvestFees,
 } from "@/lib/hooks/useDeFi";
 import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
 
@@ -41,6 +48,7 @@ function storeRange(lower: number, upper: number, widthPct: number) {
 
 export function LiquidityTab() {
   const { isConnected, showToast, openWalletModal } = useApp();
+  const { isGuestDemo } = useGuestDemo();
   const { t } = useI18n();
   const chainId = useEffectiveChainId();
   const deployment = useDeployment();
@@ -52,17 +60,37 @@ export function LiquidityTab() {
   const vaultBalance = useVaultBalance();
   const { withdraw: withdrawVault, isPending: withdrawingVault, isSuccess: withdrawVaultSuccess } = useVaultWithdraw();
   const { zap, isPending: zapping, isSuccess: zapSuccess } = useZapLiquidity();
+  const {
+    harvestFees,
+    canHarvest,
+    isPending: harvestingFees,
+    isSuccess: harvestFeesSuccess,
+  } = useHarvestFees();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createMode, setCreateMode] = useState<"create" | "add">("create");
-  const [history, setHistory] = useState<RebalanceEvent[]>([]);
+  const [history, setHistory] = useState<RebalanceEvent[]>(() =>
+    isGuestDemo ? buildDemoRebalanceEvents() : []
+  );
 
-  const price = poolPriceUsdcPerKhype(pool.reserveKhype, pool.reserveUsdc);
+  const livePrice = poolPriceUsdcPerKhype(pool.reserveKhype, pool.reserveUsdc);
+  const poolReserveKhype =
+    pool.reserveUsdc > 0 && pool.reserveKhype > 0 ? pool.reserveKhype : DEMO_POOL.reserveKhype;
+  const poolReserveUsdc =
+    pool.reserveUsdc > 0 && pool.reserveKhype > 0 ? pool.reserveUsdc : DEMO_POOL.reserveUsdc;
+  const poolTotalSupply = pool.totalSupply > 0 ? pool.totalSupply : DEMO_POOL.totalSupply;
+  const price = livePrice > 0 ? livePrice : poolPriceUsdcPerKhype(poolReserveKhype, poolReserveUsdc);
   const defaultRange = rangeBounds(price, PROJECT_X_POOL.upperRangePct, PROJECT_X_POOL.lowerRangePct);
   const storedRange = readStoredRange();
-  const rangeLower = storedRange?.lower ?? defaultRange.lower;
-  const rangeUpper = storedRange?.upper ?? defaultRange.upper;
-  const rangeWidthPct = storedRange?.widthPct ?? defaultRange.widthPct;
+  const rangeLower = isGuestDemo
+    ? DEMO_POSITION.rangeLower
+    : storedRange?.lower ?? defaultRange.lower;
+  const rangeUpper = isGuestDemo
+    ? DEMO_POSITION.rangeUpper
+    : storedRange?.upper ?? defaultRange.upper;
+  const rangeWidthPct = isGuestDemo
+    ? DEMO_POSITION.rangeWidthPct
+    : storedRange?.widthPct ?? defaultRange.widthPct;
   const poolApr = PROJECT_X_POOL.referenceAprNum;
   const useLiveVaultMetrics = chainId === 998 || chainId === 999;
   const displayTvl =
@@ -76,8 +104,8 @@ export function LiquidityTab() {
     useLiveVaultMetrics && !vaultStats.hasVault ? "—" : PROJECT_X_POOL.referenceApr;
 
   useEffect(() => {
-    setHistory(readRebalanceHistory());
-  }, []);
+    if (!isGuestDemo) setHistory(readRebalanceHistory());
+  }, [isGuestDemo]);
 
   useEffect(() => {
     if (zapSuccess) {
@@ -99,6 +127,13 @@ export function LiquidityTab() {
       usdcBal.refetch();
     }
   }, [withdrawVaultSuccess, showToast, t, vaultStats, vaultBalance, khypeBal, usdcBal]);
+
+  useEffect(() => {
+    if (harvestFeesSuccess) {
+      showToast(t("position.collectFeesSuccess"));
+      vaultStats.refetch();
+    }
+  }, [harvestFeesSuccess, showToast, t, vaultStats]);
 
   const openCreate = (mode: "create" | "add") => {
     if (!isConnected) {
@@ -133,6 +168,29 @@ export function LiquidityTab() {
     }
   };
 
+  const handleCollectFees = async () => {
+    if (!isConnected) {
+      openWalletModal();
+      return;
+    }
+    if (!canHarvest) {
+      showToast(t("position.collectFeesUserHint"));
+      return;
+    }
+    try {
+      await harvestFees();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      if (msg.includes("NOT_KEEPER")) {
+        showToast(t("position.collectFeesNotKeeper"));
+      } else if (msg.toLowerCase().includes("user rejected")) {
+        return;
+      } else {
+        showToast(t("position.collectFeesFailed"));
+      }
+    }
+  };
+
   const handleVaultWithdraw = async (shares: string) => {
     if (!shares || parseFloat(shares) <= 0) return;
     try {
@@ -142,11 +200,24 @@ export function LiquidityTab() {
     }
   };
 
-  const hasAnyPosition = hasPosition || vaultBalance.hasVaultPosition;
-  const displayLpBalance = vaultBalance.hasVaultPosition
-    ? vaultStats.vaultLp * (parseFloat(vaultBalance.shares) / (vaultStats.shareSupplyFloat || 1))
-    : parseFloat(lpBalance);
-  const displayRangeWidth = vaultStats.hasVault ? vaultStats.targetRangeBps / 100 : rangeWidthPct;
+  const hasAnyPosition = isGuestDemo || hasPosition || vaultBalance.hasVaultPosition;
+  const displayLpBalance = isGuestDemo
+    ? DEMO_POSITION.lpBalance
+    : vaultBalance.hasVaultPosition
+      ? vaultStats.vaultLp * (parseFloat(vaultBalance.shares) / (vaultStats.shareSupplyFloat || 1))
+      : parseFloat(lpBalance);
+  const displayRangeWidth = isGuestDemo
+    ? DEMO_POSITION.rangeWidthPct
+    : vaultStats.hasVault
+      ? vaultStats.targetRangeBps / 100
+      : rangeWidthPct;
+
+  const demoKhypeBalance = DEMO_POSITION.walletKhype;
+  const demoUsdcBalance = DEMO_POSITION.walletUsdc;
+  const demoVaultShares = DEMO_POSITION.shares;
+  const demoVaultValueUsd = DEMO_POSITION.valueUsd;
+  const demoVaultKhype = DEMO_POSITION.khype;
+  const demoVaultUsdc = DEMO_POSITION.usdc;
 
   const poolOverview = (
     <div className="space-y-2">
@@ -158,7 +229,7 @@ export function LiquidityTab() {
           <p className="font-medium text-white text-sm">
             {poolItem.pair} <span className="text-zinc-500">{poolItem.feeTier}</span>
           </p>
-          <div className="mt-2 grid grid-cols-3 gap-2 text-[10px]">
+          <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2 text-[10px]">
             <div>
               <p className="text-zinc-500">{t("position.apy")}</p>
               <p className="text-emerald-400 font-semibold">{displayReferenceApr}</p>
@@ -203,13 +274,13 @@ export function LiquidityTab() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="space-y-4">
           <VaultPanel
-            khypeBalance={khypeBal.balance}
-            usdcBalance={usdcBal.balance}
-            hasVault={vaultStats.hasVault}
-            vaultShares={vaultBalance.shares}
-            vaultValueUsd={vaultBalance.valueUsd}
-            vaultKhype={vaultBalance.khype}
-            vaultUsdc={vaultBalance.usdc}
+            khypeBalance={isGuestDemo ? demoKhypeBalance : khypeBal.balance}
+            usdcBalance={isGuestDemo ? demoUsdcBalance : usdcBal.balance}
+            hasVault={isGuestDemo || vaultStats.hasVault}
+            vaultShares={isGuestDemo ? demoVaultShares : vaultBalance.shares}
+            vaultValueUsd={isGuestDemo ? demoVaultValueUsd : vaultBalance.valueUsd}
+            vaultKhype={isGuestDemo ? demoVaultKhype : vaultBalance.khype}
+            vaultUsdc={isGuestDemo ? demoVaultUsdc : vaultBalance.usdc}
             onDeposit={() => openCreate("create")}
             onWithdraw={handleVaultWithdraw}
             withdrawing={withdrawingVault}
@@ -220,31 +291,34 @@ export function LiquidityTab() {
         <div className="space-y-4">
           <div className="card-glass rounded-2xl p-4 border border-zinc-800">
             <h3 className="text-sm font-semibold text-white mb-3">{t("position.myLiquidity")}</h3>
-            {!isConnected ? (
+            {!hasAnyPosition ? (
               <div className="p-6 rounded-xl border border-dashed border-zinc-700 text-center">
                 <Droplets className="w-8 h-8 mx-auto text-zinc-600 mb-2" />
                 <p className="text-sm text-zinc-500">{t("liquidity.connectToView")}</p>
               </div>
-            ) : hasAnyPosition ? (
+            ) : (
               <ActivePositionPanel
                 lpBalance={displayLpBalance}
-                totalSupply={pool.totalSupply}
-                reserveKhype={pool.reserveKhype}
-                reserveUsdc={pool.reserveUsdc}
+                totalSupply={poolTotalSupply}
+                reserveKhype={poolReserveKhype}
+                reserveUsdc={poolReserveUsdc}
                 poolApr={poolApr}
                 rangeLower={rangeLower}
                 rangeUpper={rangeUpper}
                 rangeWidthPct={displayRangeWidth}
                 onAdd={() => openCreate("add")}
-                onCollectFees={() => showToast(t("position.feesAutoCompound"))}
-                onClose={() => (vaultBalance.hasVaultPosition ? handleVaultWithdraw(vaultBalance.shares) : showToast(t("liquidity.noPositions")))}
+                onCollectFees={handleCollectFees}
+                onClose={() =>
+                  isGuestDemo
+                    ? openWalletModal()
+                    : vaultBalance.hasVaultPosition
+                      ? handleVaultWithdraw(vaultBalance.shares)
+                      : showToast(t("liquidity.noPositions"))
+                }
                 adding={false}
+                collecting={harvestingFees}
                 closing={withdrawingVault}
               />
-            ) : (
-              <p className="text-sm text-zinc-500 text-center py-8 rounded-xl border border-dashed border-zinc-700">
-                {t("liquidity.noPositions")}
-              </p>
             )}
           </div>
         </div>

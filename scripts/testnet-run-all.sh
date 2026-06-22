@@ -20,10 +20,12 @@ DEPLOYMENT_CHAIN=998 node scripts/daily-rewards.mjs
 
 POOL="${POOL_USDC:-0.01}"
 if POOL_USDC="$POOL" node scripts/testnet-daily-rewards-smoke.mjs; then
-  node scripts/testnet-wallet-actions.mjs
+  :
 else
   echo "⚠ Skipped daily-rewards-smoke (insufficient wallet USDC for POOL_USDC=$POOL)"
 fi
+
+node scripts/testnet-wallet-actions.mjs
 
 WITHDRAW_BPS="${WITHDRAW_BPS:-500}" REDEPOSIT=1 node scripts/testnet-vault-smoke.mjs
 node scripts/testnet-sync-shareholders.mjs

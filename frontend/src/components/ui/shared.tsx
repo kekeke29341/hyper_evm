@@ -83,9 +83,9 @@ export function StatPill({
     violet: "text-violet-400 border-violet-500/30 bg-violet-500/10",
   };
   return (
-    <div className={`px-3 py-2 rounded-xl border text-center ${colors[accent]}`}>
-      <p className="text-[10px] uppercase tracking-wide opacity-80">{label}</p>
-      <p className="text-sm font-bold mt-0.5">{value}</p>
+    <div className={`px-3 py-2.5 rounded-xl border text-center min-w-0 ${colors[accent]}`}>
+      <p className="text-[10px] uppercase tracking-wide opacity-80 leading-snug">{label}</p>
+      <p className="text-sm font-bold mt-1 break-words">{value}</p>
     </div>
   );
 }

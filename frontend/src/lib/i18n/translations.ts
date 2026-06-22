@@ -48,6 +48,25 @@ export const translations = {
       tvl: "総ロック額 TVL",
       volume: "24h 取引量",
       users: "アクティブユーザー",
+      reference: "参考値",
+    },
+    demo: {
+      banner:
+        "デモ表示中 — サンプルデータです。実際の残高・報酬はウォレット接続後に表示されます。",
+      connectForReal: "ウォレット接続",
+      chartNote: "サンプルの Cashdrop 履歴です。接続後はあなたの実績が表示されます。",
+      bridgeNote: "サンプル見積もりです。接続後に Li.FI でリアルタイム見積もりを取得します。",
+    },
+    walletAlert: {
+      title: "ウォレットアラートのお知らせ",
+      body:
+        "現在、一部のユーザー様において、MetaMask などのウォレット接続時に警告が表示される場合があります。この表示は、一部のサブアカウント用スマートコントラクトおよび実装詳細が一般公開されていないことに関連しています。",
+      pointMembership:
+        "Hyperpool はメンバーシップ制の運用型 LP プラットフォームで、公開範囲は攻撃リスクを抑えユーザー保護を優先しています。",
+      pointCustody:
+        "資産はご自身のウォレットとオンチェーン権限で管理されます。秘密鍵や資産を当社が預かることはありません。",
+      pointOperating:
+        "当社は MetaMask など関係各所と確認を進めており、アプリは通常どおり稼働中です。",
     },
     onboarding: {
       skip: "スキップ",
@@ -196,6 +215,10 @@ export const translations = {
       poolApy: "プール APY (Full Range)",
       earnedFees: "獲得手数料",
       feesAutoCompound: "自動複利（V2）",
+      collectFeesSuccess: "手数料を回収しました（Vault → Cashdrop プール）",
+      collectFeesFailed: "手数料回収に失敗しました",
+      collectFeesNotKeeper: "Keeper / Owner ウォレットでのみ実行できます",
+      collectFeesUserHint: "手数料は Vault に自動反映されます。分配は Cashdrop タブで受け取れます",
     },
     dashboard: {
       positionValue: "ポジション価値",
@@ -284,6 +307,26 @@ export const translations = {
       leaderboardDemo: "デプロイ後にオンチェーンランキングを表示",
       applySuccess: "招待コードを適用しました",
       inviteFailed: "無効または使用済みのコードです",
+      createCode: "紹介コードを作成",
+      createCodeHint: "英数字 4–16 文字。登録後、このコードでリンクを共有できます。",
+      registerCode: "登録",
+      registerSuccess: "紹介コードを登録しました",
+      registerFailed: "コード登録に失敗しました（使用中または既に登録済み）",
+      restoreCode: "コードを復元",
+      restoreCodeHint: "別デバイスで登録した場合、同じコードを入力してリンクを復元してください。",
+      codeRestored: "紹介リンクを復元しました",
+      codeInvalid: "英数字 4–16 文字で入力してください",
+      codeMismatch: "オンチェーンのコードと一致しません",
+      connectForLink: "紹介リンクを表示するにはウォレットを接続してください",
+      connectToCreate: "紹介コードを作成するにはウォレットを接続してください",
+      connectToCreateHint: "接続後、英数字 4–16 文字のコードを登録してリンクを共有できます。",
+      demoLinkLabel: "サンプル紹介リンク（デモ）",
+      referralUnavailable: "このネットワークでは紹介プログラムは利用できません。HyperEVM Testnet (998) に切り替えてください。",
+      switchNetworkToApply: "コードの登録・適用には HyperEVM Testnet (998) への切り替えが必要です",
+      boostActive: "+10% Cashdrop ブースト有効（被紹介者）",
+      claimViaCashdrop: "Cashdrop タブから請求",
+      roundClaimed: "請求済（今回）",
+      noCommissionYet: "—",
     },
     walletModal: {
       connectTitle: "ウォレット接続",
@@ -365,6 +408,25 @@ export const translations = {
       tvl: "Total Value Locked",
       volume: "24h Volume",
       users: "Active Users",
+      reference: "Reference",
+    },
+    demo: {
+      banner:
+        "Demo mode — sample data only. Connect your wallet to see your real balances and rewards.",
+      connectForReal: "Connect wallet",
+      chartNote: "Sample Cashdrop history. Your actual earnings appear after connecting.",
+      bridgeNote: "Sample quote. Connect your wallet for live Li.FI pricing.",
+    },
+    walletAlert: {
+      title: "Wallet Alert Notice",
+      body:
+        "Some users may see a warning when connecting through wallets such as MetaMask. This is related to parts of the sub-account smart contracts and implementation details not being publicly disclosed.",
+      pointMembership:
+        "Hyperpool is a membership-based managed LP platform. Public access is limited to reduce attack surface and protect users.",
+      pointCustody:
+        "Your assets remain controlled by your own wallet and on-chain permissions. We never custody your private keys or funds.",
+      pointOperating:
+        "We are coordinating with MetaMask and relevant partners, and the app continues to operate normally.",
     },
     onboarding: {
       skip: "Skip",
@@ -562,6 +624,10 @@ export const translations = {
       poolApy: "Pool APY (Full Range)",
       earnedFees: "Earned fees",
       feesAutoCompound: "Auto-compound (V2)",
+      collectFeesSuccess: "Fees harvested (Vault → Cashdrop pool)",
+      collectFeesFailed: "Failed to harvest fees",
+      collectFeesNotKeeper: "Only the Keeper / Owner wallet can harvest fees",
+      collectFeesUserHint: "Fees auto-compound in the Vault. Claim your share via the Cashdrop tab",
     },
     dashboard: {
       positionValue: "Position Value",
@@ -651,6 +717,26 @@ export const translations = {
       leaderboardDemo: "On-chain ranking appears after deployment",
       applySuccess: "Invitation code applied",
       inviteFailed: "Invalid or already used code",
+      createCode: "Create your referral code",
+      createCodeHint: "4–16 alphanumeric characters. Share your link after registering.",
+      registerCode: "Register",
+      registerSuccess: "Referral code registered",
+      registerFailed: "Registration failed (taken or already registered)",
+      restoreCode: "Restore code",
+      restoreCodeHint: "If you registered on another device, enter the same code to restore your link.",
+      codeRestored: "Referral link restored",
+      codeInvalid: "Use 4–16 alphanumeric characters",
+      codeMismatch: "Does not match your on-chain code",
+      connectForLink: "Connect your wallet to show your referral link",
+      connectToCreate: "Connect your wallet to create a referral code",
+      connectToCreateHint: "After connecting, register a 4–16 character alphanumeric code to share your link.",
+      demoLinkLabel: "Sample referral link (demo)",
+      referralUnavailable: "Referral program is unavailable on this network. Switch to HyperEVM Testnet (998).",
+      switchNetworkToApply: "Switch to HyperEVM Testnet (998) to register or apply codes",
+      boostActive: "+10% Cashdrop boost active (referee)",
+      claimViaCashdrop: "Claim via Cashdrop tab",
+      roundClaimed: "Claimed (this round)",
+      noCommissionYet: "—",
     },
     network: {
       wrongNetworkTitle: "Wrong network",

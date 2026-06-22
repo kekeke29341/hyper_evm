@@ -70,7 +70,7 @@ test.describe("Testnet wallet (Synpress)", () => {
       extensionId
     );
 
-    await page.getByRole("button", { name: /cashdrop/i }).click();
+    await page.goto("/cashdrop");
 
     const claimBtn = page.getByRole("button", { name: /claim cashdrop|claim/i }).first();
     const emptyState = page.getByText(/already claimed|no cashdrop|empty|請求済|対象外/i);

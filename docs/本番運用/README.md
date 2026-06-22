@@ -12,7 +12,8 @@
 | [テストネット運用.md](./テストネット運用.md) | **998 デプロイ済みの現状**・スクリプト一覧・cron |
 | [本番環境運用.md](./本番環境運用.md) | Mainnet (999) 公開前の準備 |
 | [チェックリスト.md](./チェックリスト.md) | コピペ用チェックリスト |
-| [github-actions-cron.md](./github-actions-cron.md) | **keeper / 日次 Cashdrop の GitHub Actions 設定** |
+| [github-actions-cron.md](./github-actions-cron.md) | keeper / 日次 Cashdrop の GitHub Actions 設定 |
+| [local-mac-cron.md](./local-mac-cron.md) | **暫定: 手元 Mac crontab 運用**（GitHub 課金不可時） |
 | [運営確認事項.md](./運営確認事項.md) | **運営・プロダクト向け Q&A**（手数料・紹介・Cashdrop・鍵・cron 等） |
 | [検証手順.md](./検証手順.md) | **手動検証**（Vercel Redeploy・MetaMask・Position） |
 

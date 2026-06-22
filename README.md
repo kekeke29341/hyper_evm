@@ -1,6 +1,6 @@
-# Hyperpool (HyperEVM DEX)
+# Hyperpool (Project X Proxy LP)
 
-HyperEVM エコシステム向け AMM DEX + Next.js フロントエンドのモノレポ。  
+HyperEVM エコシステム向け Project X 代理 LP + Next.js フロントエンドのモノレポ。
 Project X 代理 LP + keeper リバランス + Cashdrop / Li.FI ブリッジ UI を提供します。
 
 ## Quick start
@@ -36,7 +36,7 @@ MetaMask: Chain ID **31337**, RPC `http://127.0.0.1:8545`
 | Doc | Topic |
 |-----|-------|
 | [app-overview.md](docs/app-overview.md) | **アプリ全体の説明（入口）** |
-| [product-overview.md](docs/product-overview.md) | 手数料・ポイント・日次収益 |
+| [product-overview.md](docs/product-overview.md) | 手数料・Cashdrop・日次収益 |
 | [architecture.md](docs/architecture.md) | システム構成 |
 | [development.md](docs/development.md) | ローカル開発 |
 | [deployment.md](docs/deployment.md) | コントラクトデプロイ |

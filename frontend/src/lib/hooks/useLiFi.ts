@@ -143,13 +143,14 @@ export function useLiFiBridge() {
 
         const needed = BigInt(quote.action.fromAmount);
         if (allowance < needed) {
-          await writeContractAsync({
+          const approvalHash = await writeContractAsync({
             address: fromToken.address as Address,
             abi: abis.erc20,
             functionName: "approve",
             args: [approval, needed],
             chainId: fromChain,
           });
+          await publicClient.waitForTransactionReceipt({ hash: approvalHash });
         }
       }
 

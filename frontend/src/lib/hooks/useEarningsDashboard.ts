@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useConnection, usePublicClient } from "wagmi";
 import { PROJECT_X_POOL } from "@/lib/constants";
+import { getVaultAddress } from "@/lib/contracts";
 import {
   buildEarningsChartData,
   computeEarningsMetrics,
@@ -19,12 +20,18 @@ import {
   fetchOnChainEarningsClaims,
   ON_CHAIN_EARNINGS_CHAIN_IDS,
 } from "@/lib/earnings/onChain";
+import {
+  buildDemoEarningsClaims,
+  DEMO_POSITION,
+  demoPositionStart,
+} from "@/lib/demo/data";
 import { useDeployment, useVaultBalance } from "@/lib/hooks/useDeFi";
 import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
 import { useI18n } from "@/lib/i18n";
 
 export function useEarningsDashboard() {
   const { address } = useConnection();
+  const isGuestDemo = !address;
   const chainId = useEffectiveChainId();
   const { locale } = useI18n();
   const deployment = useDeployment();
@@ -102,25 +109,35 @@ export function useEarningsDashboard() {
     }
   }, [vaultBalance.hasVaultPosition, startKey, refreshLocal]);
 
+  const demoClaims = useMemo(() => buildDemoEarningsClaims(), []);
+
   const claims = useMemo(
     () =>
-      onChainEnabled
-        ? mergeEarningsClaims(onChainClaims, localClaims)
-        : localClaims,
-    [onChainEnabled, onChainClaims, localClaims]
+      isGuestDemo
+        ? demoClaims
+        : onChainEnabled
+          ? mergeEarningsClaims(onChainClaims, localClaims)
+          : localClaims,
+    [isGuestDemo, demoClaims, onChainEnabled, onChainClaims, localClaims]
   );
 
-  const positionValueUsd = vaultBalance.hasVaultPosition ? vaultBalance.valueUsd : 0;
+  const positionValueUsd = isGuestDemo
+    ? DEMO_POSITION.valueUsd
+    : vaultBalance.hasVaultPosition
+      ? vaultBalance.valueUsd
+      : 0;
+
+  const effectivePositionStart = isGuestDemo ? demoPositionStart() : positionStart;
 
   const metrics = useMemo(
     () =>
       computeEarningsMetrics(
         claims,
         positionValueUsd,
-        positionStart,
+        effectivePositionStart,
         PROJECT_X_POOL.referenceAprNum
       ),
-    [claims, positionValueUsd, positionStart]
+    [claims, positionValueUsd, effectivePositionStart]
   );
 
   const chartData = useMemo(
@@ -135,17 +152,18 @@ export function useEarningsDashboard() {
 
   return {
     hasDeployment: !!deployment,
-    hasPosition: vaultBalance.hasVaultPosition,
+    hasPosition: isGuestDemo || vaultBalance.hasVaultPosition,
     positionValueUsd,
-    vaultAddress: deployment?.hyperpoolVault,
+    vaultAddress: deployment ? getVaultAddress(deployment) : undefined,
     metrics,
     chartData,
     chartMode,
     setChartMode,
     monthlyRows,
     hasHistory: claims.length > 0,
-    onChainSync: onChainEnabled,
-    onChainLoading,
+    onChainSync: isGuestDemo ? false : onChainEnabled,
+    onChainLoading: isGuestDemo ? false : onChainLoading,
+    isGuestDemo,
     refresh: refreshLocal,
     earningsKey,
   };

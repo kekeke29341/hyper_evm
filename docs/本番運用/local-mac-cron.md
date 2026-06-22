@@ -1,0 +1,71 @@
+# 手元 Mac で keeper / 日次 Cashdrop（暫定運用）
+
+GitHub Actions が使えない間、**24 時間起動の Mac** で cron を回します。  
+本番公開前の Testnet 運用・開発向け。**将来 VPS または GitHub Actions へ移行する**（`.cursorrules` 参照）。
+
+---
+
+## 前提
+
+| 項目 | 内容 |
+|------|------|
+| OS | macOS |
+| スリープ | オフ（システム設定 → エネルギー） |
+| 秘密鍵 | `.env.testnet` の `MAIN_PRIVATE_KEY` |
+| Node | 20+ |
+| git push | daily-rewards 後に JSON を push → Vercel 再デプロイ |
+
+---
+
+## セットアップ（1 回）
+
+```bash
+cd /path/to/hyper_evm
+./scripts/cron/install-mac-crontab.sh
+```
+
+手動テスト:
+
+```bash
+./scripts/cron/run-keeper-local.sh
+./scripts/cron/run-daily-rewards-local.sh   # Merkle 更新時は git push する
+```
+
+---
+
+## スケジュール
+
+| 時刻 | スクリプト | 処理 |
+|------|-----------|------|
+| 毎日 JST 7:00 | `run-daily-rewards-local.sh` | harvest → Merkle → JSON push |
+| 6 時間ごと | `run-keeper-local.sh` | LP リバランス (+10% / −30%) |
+
+ログ:
+
+```bash
+tail -f /tmp/hyperpool-keeper.log
+tail -f /tmp/hyperpool-daily.log
+```
+
+---
+
+## 解除
+
+```bash
+crontab -l | awk '
+  />>> hyperpool cron begin >>>/ { skip=1; next }
+  /<<< hyperpool cron end <<</ { skip=0; next }
+  skip { next }
+  { print }
+' | crontab -
+```
+
+---
+
+## 制約・リスク
+
+- Mac 再起動・スリープ・停電で cron が止まる
+- `git push` には GitHub 認証が必要（SSH または gh auth）
+- Mainnet 公開時は **VPS / GitHub Actions への移行を推奨**
+
+関連: [github-actions-cron.md](./github-actions-cron.md) · [チェックリスト.md](./チェックリスト.md)

@@ -99,6 +99,7 @@ export function useRemoveLiquidity() {
 
 export function useEnterInvitationCode() {
   const deployment = useDeployment();
+  const chainId = useEffectiveChainId();
   const { writeContractAsync, data: hash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -107,13 +108,14 @@ export function useEnterInvitationCode() {
       if (!deployment) throw new Error("Contracts not deployed on this network");
       if (!deployment.referralRegistry) throw new Error("Referral registry not deployed");
       await writeContractAsync({
+        chainId,
         address: deployment.referralRegistry,
         abi: abis.referral,
         functionName: "enterInvitationCode",
         args: [code],
       });
     },
-    [deployment, writeContractAsync]
+    [chainId, deployment, writeContractAsync]
   );
 
   return { enterCode, isPending: isPending || isConfirming, isSuccess, hash };
@@ -121,6 +123,7 @@ export function useEnterInvitationCode() {
 
 export function useRegisterReferralCode() {
   const deployment = useDeployment();
+  const chainId = useEffectiveChainId();
   const { writeContractAsync, data: hash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -129,13 +132,14 @@ export function useRegisterReferralCode() {
       if (!deployment) throw new Error("Contracts not deployed on this network");
       if (!deployment.referralRegistry) throw new Error("Referral registry not deployed");
       await writeContractAsync({
+        chainId,
         address: deployment.referralRegistry,
         abi: abis.referral,
         functionName: "registerCode",
         args: [code],
       });
     },
-    [deployment, writeContractAsync]
+    [chainId, deployment, writeContractAsync]
   );
 
   return { registerCode, isPending: isPending || isConfirming, isSuccess, hash };
@@ -358,6 +362,54 @@ export function useVaultWithdraw() {
   );
 
   return { withdraw, isPending: isPending || isConfirming, isSuccess, hash };
+}
+
+export function useHarvestFees() {
+  const { address } = useConnection();
+  const deployment = useDeployment();
+  const vaultAddr = deployment ? getVaultAddress(deployment) : undefined;
+  const { writeContractAsync, data: hash, isPending } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  const { data: keeper } = useDeploymentReadContract({
+    address: vaultAddr,
+    abi: abis.vault,
+    functionName: "keeper",
+    query: { enabled: !!vaultAddr },
+  });
+
+  const { data: vaultOwner } = useDeploymentReadContract({
+    address: vaultAddr,
+    abi: abis.vault,
+    functionName: "owner",
+    query: { enabled: !!vaultAddr },
+  });
+
+  const canHarvest = useMemo(() => {
+    if (!address || !keeper || !vaultOwner) return false;
+    const a = address.toLowerCase();
+    return (
+      (keeper as string).toLowerCase() === a || (vaultOwner as string).toLowerCase() === a
+    );
+  }, [address, keeper, vaultOwner]);
+
+  const harvestFees = useCallback(async () => {
+    if (!vaultAddr) throw new Error("Vault unavailable");
+    if (!canHarvest) throw new Error("NOT_KEEPER");
+    await writeContractAsync({
+      address: vaultAddr,
+      abi: abis.vault,
+      functionName: "harvestFees",
+    });
+  }, [vaultAddr, canHarvest, writeContractAsync]);
+
+  return {
+    harvestFees,
+    canHarvest,
+    isPending: isPending || isConfirming,
+    isSuccess,
+    hash,
+  };
 }
 
 export type EpochCountdown = {

@@ -34,7 +34,7 @@
 | タブ | できること |
 |------|-----------|
 | **ダッシュボード** | 収益グラフ（Cashdrop claim 履歴） |
-| **入金** | Li.FI クロスチェーンブリッジ（mainnet 999。998 非対応） |
+| **ブリッジ** | Li.FI クロスチェーンブリッジ（mainnet 999。998 非対応） |
 | **ポジション** | Vault へ USDC / HYPE deposit、withdraw |
 | **Cashdrop** | Merkle エアドロップ（USDC）の請求 |
 | **紹介** | 紹介コード（将来拡張） |
@@ -43,7 +43,7 @@
 ### Vault の流れ
 
 1. USDC または HYPE（wrap 済み WHYPE）を **HyperpoolVault** に預ける
-2. Vault が **ProjectXAdapter** 経由で Project X NPM 上に LP mint
+2. Vault が **ProjectXAdapter** 経由で Project X NPM 上に LP mint（NPM 上は ERC721 NFT。ユーザーは Vault シェアのみ保持 — 詳細は [architecture.md § NFT](./architecture.md#project-x-lp-ポジションと-nft技術者向け)）
 3. ユーザーは **Vault シェア（ERC20）** を受け取る
 4. withdraw 時はシェア burn → 比例で USDC + WHYPE を受け取る
 
@@ -57,7 +57,7 @@
         ▼
 ┌───────────────────────────────┐
 │  Frontend (Next.js 14)        │
-│  Deposit │ Position │ Cashdrop│
+│  Dashboard │ Bridge │ Position │ Cashdrop│
 │  wagmi / viem │ Li.FI API     │
 └───────────────┬───────────────┘
                 │ JSON-RPC
@@ -163,7 +163,7 @@ hyper_evm/
 A. 自前 DEX を廃止しました。取引は Project X 上で行われ、ユーザーは Vault 経由で LP に参加します。
 
 **Q. Testnet で Li.FI は使える？**  
-A. いいえ（chain 998 非対応）。入金タブのブリッジは mainnet (999) 向けです。998 では Position タブから直接 deposit してください。
+A. いいえ（chain 998 非対応）。ブリッジタブは mainnet (999) 向けです。998 では Position タブから直接 deposit してください。
 
 **Q. 収益グラフはいつ表示される？**  
 A. Cashdrop で USDC を claim した後、localStorage に記録されダッシュボードに反映されます。

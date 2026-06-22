@@ -27,6 +27,7 @@ export function ActivePositionPanel({
   onCollectFees,
   onClose,
   adding,
+  collecting,
   closing,
 }: {
   lpBalance: number;
@@ -41,6 +42,7 @@ export function ActivePositionPanel({
   onCollectFees: () => void;
   onClose: () => void;
   adding: boolean;
+  collecting: boolean;
   closing: boolean;
 }) {
   const { t } = useI18n();
@@ -51,7 +53,7 @@ export function ActivePositionPanel({
   const estApy = estimatedApyFromRange(poolApr, rangeWidthPct);
 
   return (
-    <div className="card-glass rounded-2xl p-4 border border-cyan-500/20 bg-cyan-500/5">
+    <div className="@container card-glass rounded-2xl p-4 border border-cyan-500/20 bg-cyan-500/5">
       <div className="flex items-start justify-between gap-2 mb-3">
         <div>
           <p className="font-semibold text-white">{PROJECT_X_POOL.pair}</p>
@@ -102,32 +104,37 @@ export function ActivePositionPanel({
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
+      <div className="mt-4 grid grid-cols-1 @[26rem]:grid-cols-3 gap-2.5">
         <button
           type="button"
           onClick={onAdd}
           disabled={adding}
-          className="flex items-center justify-center gap-1.5 py-2 rounded-lg border border-zinc-600 text-zinc-300 text-xs hover:border-cyan-500/40 transition-colors disabled:opacity-50"
+          className="w-full inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-3 rounded-xl border border-zinc-600 text-zinc-300 text-sm font-medium hover:border-cyan-500/40 transition-colors disabled:opacity-50"
         >
-          {adding ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-          {t("position.addLiquidity")}
+          {adding ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Plus className="w-4 h-4 shrink-0" />}
+          <span>{t("position.addLiquidity")}</span>
         </button>
         <button
           type="button"
           onClick={onCollectFees}
-          className="flex items-center justify-center gap-1.5 py-2 rounded-lg border border-zinc-600 text-zinc-300 text-xs hover:border-amber-500/40 transition-colors"
+          disabled={collecting}
+          className="w-full inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-3 rounded-xl border border-zinc-600 text-zinc-300 text-sm font-medium hover:border-amber-500/40 transition-colors disabled:opacity-50"
         >
-          <Coins className="w-3 h-3" />
-          {t("position.collectFees")}
+          {collecting ? (
+            <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+          ) : (
+            <Coins className="w-4 h-4 shrink-0" />
+          )}
+          <span>{t("position.collectFees")}</span>
         </button>
         <button
           type="button"
           onClick={onClose}
           disabled={closing}
-          className="flex items-center justify-center gap-1.5 py-2 rounded-lg border border-red-500/40 bg-red-500/10 text-red-400 text-xs hover:bg-red-500/20 transition-colors disabled:opacity-50"
+          className="w-full inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-3 rounded-xl border border-red-500/40 bg-red-500/10 text-red-400 text-sm font-medium hover:bg-red-500/20 transition-colors disabled:opacity-50"
         >
-          {closing ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
-          {t("position.closePair")}
+          {closing ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <X className="w-4 h-4 shrink-0" />}
+          <span>{t("position.closePair")}</span>
         </button>
       </div>
     </div>

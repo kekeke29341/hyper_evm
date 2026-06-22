@@ -1,0 +1,5 @@
+# gcloud CLI は別途インストールが必要です
+# https://cloud.google.com/sdk/docs/install
+#
+# このスターターキットのPython依存はありません。
+# report_publisher.py は subprocess で gcloud を呼び出します。
