@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 import {MockERC20} from "../src/mocks/MockERC20.sol";
 import {MockProjectXNPM} from "../src/mocks/MockProjectXNPM.sol";
+import {MockSwapRouter} from "../src/mocks/MockSwapRouter.sol";
 import {ProjectXAdapter} from "../src/core/ProjectXAdapter.sol";
 import {HyperpoolVault} from "../src/core/HyperpoolVault.sol";
 import {MerkleAirdrop} from "../src/core/MerkleAirdrop.sol";
@@ -55,6 +56,10 @@ contract HyperpoolVaultTest is Test {
             operator
         );
         adapter.setVault(address(vault));
+
+        MockSwapRouter router = new MockSwapRouter(42e6 * 1e12);
+        usdc.mint(address(router), 1_000_000e6);
+        vault.setSwapRouter(address(router));
     }
 
     function test_TokenOrder() public view {
@@ -107,7 +112,7 @@ contract HyperpoolVaultTest is Test {
         assertEq(adapter.positionTokenId(), firstId);
     }
 
-    function test_HarvestFeesSplit3070() public {
+    function test_HarvestFeesSplit3367() public {
         usdc.mint(alice, 10_000e6);
         vm.prank(alice);
         usdc.approve(address(vault), type(uint256).max);
@@ -120,9 +125,9 @@ contract HyperpoolVaultTest is Test {
         uint256 opBefore = usdc.balanceOf(operator);
         uint256 userShare = vault.harvestFees();
 
-        assertEq(userShare, 700e6);
-        assertEq(usdc.balanceOf(operator) - opBefore, 300e6);
-        assertEq(vault.pendingUserRewards(), 700e6);
+        assertEq(userShare, 670e6);
+        assertEq(usdc.balanceOf(operator) - opBefore, 330e6);
+        assertEq(vault.pendingUserRewards(), 670e6);
     }
 
     function test_PullPendingRewardsOnlyAirdrop() public {
@@ -138,8 +143,8 @@ contract HyperpoolVaultTest is Test {
         vm.expectRevert("HyperpoolVault: NOT_AIRDROP");
         vault.pullPendingRewards(alice, 100e6);
 
-        vault.pullPendingRewards(address(airdrop), 700e6);
-        assertEq(usdc.balanceOf(address(airdrop)), 700e6);
+        vault.pullPendingRewards(address(airdrop), 670e6);
+        assertEq(usdc.balanceOf(address(airdrop)), 670e6);
     }
 
     function test_RebalanceUpdatesTicks() public {
@@ -230,7 +235,7 @@ contract HyperpoolVaultTest is Test {
         vaultWithOracle.rebalance(refPrice);
     }
 
-    function test_HarvestHypeFeesSplitsOperatorShare() public {
+    function test_HarvestHypeFeesConvertsToUsdcAndSplits() public {
         usdc.mint(alice, 10_000e6);
         vm.prank(alice);
         usdc.approve(address(vault), type(uint256).max);
@@ -239,12 +244,57 @@ contract HyperpoolVaultTest is Test {
 
         npm.accrueFees(adapter.positionTokenId(), 0, 1e18);
 
-        uint256 opHypeBefore = whype.balanceOf(operator);
+        uint256 opUsdcBefore = usdc.balanceOf(operator);
+        uint256 userUsdc = vault.harvestFees();
+
+        uint256 swappedUsdc = 42e6;
+        uint256 expectedOperator = (swappedUsdc * 3300) / 10_000;
+        uint256 expectedUser = swappedUsdc - expectedOperator;
+
+        assertEq(userUsdc, expectedUser);
+        assertEq(usdc.balanceOf(operator) - opUsdcBefore, expectedOperator);
+        assertEq(vault.pendingUserRewards(), expectedUser);
+        assertEq(whype.balanceOf(operator), 0);
+    }
+
+    function test_HarvestMixedUsdcAndHypeFeesAllUsdc() public {
+        usdc.mint(alice, 10_000e6);
+        vm.prank(alice);
+        usdc.approve(address(vault), type(uint256).max);
+        vm.prank(alice);
+        vault.depositUSDC(1000e6, alice);
+
+        npm.accrueFees(adapter.positionTokenId(), 1000e6, 1e18);
+
+        uint256 opUsdcBefore = usdc.balanceOf(operator);
+        uint256 userUsdc = vault.harvestFees();
+
+        uint256 totalUsdc = 1000e6 + 42e6;
+        uint256 expectedOperator = (totalUsdc * 3300) / 10_000;
+        uint256 expectedUser = totalUsdc - expectedOperator;
+
+        assertEq(userUsdc, expectedUser);
+        assertEq(usdc.balanceOf(operator) - opUsdcBefore, expectedOperator);
+        assertEq(vault.pendingUserRewards(), expectedUser);
+        assertEq(whype.balanceOf(address(vault)), 0);
+        assertEq(whype.balanceOf(operator), 0);
+    }
+
+    function test_HarvestSkipsSwapWhenConvertDisabled() public {
+        usdc.mint(alice, 10_000e6);
+        vm.prank(alice);
+        usdc.approve(address(vault), type(uint256).max);
+        vm.prank(alice);
+        vault.depositUSDC(1000e6, alice);
+
+        vault.setConvertHypeFeesToUsdc(false);
+        npm.accrueFees(adapter.positionTokenId(), 0, 1e18);
+
         uint256 userUsdc = vault.harvestFees();
 
         assertEq(userUsdc, 0);
-        assertEq(whype.balanceOf(operator) - opHypeBefore, (1e18 * 3000) / 10_000);
         assertEq(vault.pendingUserRewards(), 0);
+        assertEq(whype.balanceOf(operator), (1e18 * 3300) / 10_000);
     }
 
     function test_WithdrawReservesPendingUserRewards() public {
@@ -256,13 +306,13 @@ contract HyperpoolVaultTest is Test {
 
         npm.accrueFees(adapter.positionTokenId(), 1000e6, 0);
         vault.harvestFees();
-        assertEq(vault.pendingUserRewards(), 700e6);
+        assertEq(vault.pendingUserRewards(), 670e6);
 
         vm.prank(alice);
         vault.withdraw(shares, alice);
 
-        assertEq(vault.pendingUserRewards(), 700e6);
-        assertGe(usdc.balanceOf(address(vault)), 700e6);
+        assertEq(vault.pendingUserRewards(), 670e6);
+        assertGe(usdc.balanceOf(address(vault)), 670e6);
     }
 
     function test_RevertHarvestFeesFromNonKeeper() public {
@@ -301,6 +351,52 @@ contract HyperpoolVaultTest is Test {
         assertGt(vault.balanceOf(alice), vault.balanceOf(bob));
     }
 
+    /// @notice Two equal deposits with no price movement must yield ~equal shares.
+    /// Guards against pricing a deposit on a NAV that already includes the incoming funds.
+    function test_EqualSequentialDepositsYieldEqualShares() public {
+        usdc.mint(alice, 10_000e6);
+        usdc.mint(bob, 10_000e6);
+
+        vm.startPrank(alice);
+        usdc.approve(address(vault), type(uint256).max);
+        uint256 aliceShares = vault.depositUSDC(1000e6, alice);
+        vm.stopPrank();
+
+        vm.startPrank(bob);
+        usdc.approve(address(vault), type(uint256).max);
+        uint256 bobShares = vault.depositUSDC(1000e6, bob);
+        vm.stopPrank();
+
+        // Only difference allowed is the one-time MINIMUM_VAULT_SHARES lock charged
+        // to the very first depositor (alice).
+        assertApproxEqAbs(bobShares, aliceShares, 1000);
+        assertEq(bobShares, 1000e6);
+    }
+
+    /// @notice A HYPE deposit must mint shares for its USDC-equivalent value, not 1e12x more.
+    /// Guards the refPrice scaling (USDC6/HYPE * 1e12 → divide by 1e30): a regression to /1e18
+    /// would let a tiny HYPE deposit mint enough shares to drain the whole vault.
+    function test_DepositHypeValuedConsistentlyWithUsdc() public {
+        // refPrice default = 42e6 * 1e12  ->  42 USDC per HYPE
+        usdc.mint(alice, 100_000e6);
+        whype.mint(bob, 1_000 ether);
+
+        // Alice seeds the vault with 4200 USDC.
+        vm.startPrank(alice);
+        usdc.approve(address(vault), type(uint256).max);
+        uint256 aliceShares = vault.depositUSDC(4200e6, alice);
+        vm.stopPrank();
+
+        // Bob deposits 100 HYPE = 4200 USDC of value -> should get ~the same shares as Alice.
+        vm.startPrank(bob);
+        whype.approve(address(vault), type(uint256).max);
+        uint256 bobShares = vault.depositHYPE(100 ether, bob);
+        vm.stopPrank();
+
+        // Equal value in, equal shares out (modulo the first-depositor minimum-share lock).
+        assertApproxEqAbs(bobShares, aliceShares, 1000);
+    }
+
     function test_HarvestPullClaimEndToEnd() public {
         usdc.mint(alice, 10_000e6);
         vm.startPrank(alice);
@@ -310,7 +406,7 @@ contract HyperpoolVaultTest is Test {
 
         npm.accrueFees(adapter.positionTokenId(), 1000e6, 0);
         uint256 userPool = vault.harvestFees();
-        assertEq(userPool, 700e6);
+        assertEq(userPool, 670e6);
 
         vault.pullPendingRewards(address(airdrop), userPool);
         assertEq(usdc.balanceOf(address(airdrop)), userPool);

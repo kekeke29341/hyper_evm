@@ -5,7 +5,7 @@ export type RebalanceEvent = {
   lower: number;
   upper: number;
   rangePct: number;
-  action: "create" | "add" | "remove" | "zap";
+  action: "create" | "add" | "remove" | "deposit";
   amountUsd?: number;
 };
 

@@ -1,5 +1,7 @@
 # セキュリティ再々レビュー(第2パス)& 修正案 — 2026-06-15
 
+> **履歴資料:** 本レビューには旧自前AMM / `HyperpoolLiquidityVault` 時点の記述が含まれます。現行Mainnetモデルは `HyperpoolVault` → `ProjectXAdapter` → Project X NPM の代理LPで、`FeeCollector` / `HyperpoolPair` / `HyperpoolRouter` / `PointsDistributor` は本番構成から外れています。
+
 対象: コントラクト全体 + 新規 `HyperpoolLiquidityVault` + 運用スクリプト + CI + テスト。
 前提: 前回レビュー(`docs/security-review-2026-06-12.md`)の指摘がコードに反映済み。本パスは **(1) その修正が正しいかの裏取り**、**(2) 修正によって新たに混入したバグの発見**、**(3) 新規コードの監査** に焦点を当てる。全 Critical/High はソースで直接確認済み。
 
@@ -17,7 +19,7 @@
 | H-2 | `swap` の `origin` 偽装でポイント付替 | ✅ 修正 | `HyperpoolPair.sol:166-167` で `msg.sender == trustedRouter` のときのみ記録。Factory に `trustedRouter`/`setTrustedRouter` 追加 |
 | H-3 | `claimDailyRewards` が無支払いで残高ゼロ化 | ✅ 解消 | 関数を**削除**。`userPoints` はオフチェーン集計用台帳と明記(`PointsDistributor.sol:8`) |
 | M-1/M-2 | `_mintFee` 順序バグ / 二重徴収 | ✅ 解消 | `_mintFee`/`kLast` 全廃で直接 14% 徴収に一本化 |
-| M-3 | エアドロ未請求分の永久ロック | ✅ 修正 | `MerkleAirdrop.recoverUnclaimed`(`:65-69`)、期限ゲート維持 |
+| M-3 | エアドロ未請求分の永久ロック | ✅ 修正 | 未請求USDCはowner回収せず、次回Cashdropへ繰り越し |
 | M-5 | Oracle のゼロ価格/鮮度未検証 | ✅ 修正 | `HyperCoreOracle.sol:19,39` に `require(price != 0)`、デシマル/`l1Block` 鮮度を doc 化 |
 | M-9 | フロント流動性操作が `amountMin=0` | ✅ 修正 | `useDeFi.ts:212-213,261-262` ほかでスリッページから min を算出 |
 | M-10 | CSP なし | ✅ 修正 | `vercel.json` に CSP 追加(下記 N-4 で残課題あり) |

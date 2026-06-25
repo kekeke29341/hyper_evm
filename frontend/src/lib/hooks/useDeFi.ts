@@ -1,9 +1,8 @@
 "use client";
 
-import { useCallback, useState, useMemo, useEffect, useRef } from "react";
+import { useCallback, useState, useMemo, useEffect } from "react";
 import {
   useConnection,
-  useChainId,
   usePublicClient,
   useReadContract,
   useWriteContract,
@@ -19,10 +18,6 @@ import {
   getTokenDecimals,
   type TokenSymbol,
 } from "@/lib/contracts";
-import { PROJECT_X_POOL } from "@/lib/constants";
-import { appendEarningsClaim, earningsStorageKey } from "@/lib/earnings/history";
-import { getMerkleProof } from "@/lib/admin/merkle";
-import MerkleAirdropAbi from "@/lib/contracts/abis/MerkleAirdrop.json";
 import { ensureExactAllowance } from "@/lib/erc20";
 import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
 import { useI18n } from "@/lib/i18n";
@@ -87,7 +82,7 @@ export function useSwap(..._args: [TokenSymbol?, TokenSymbol?]) {
   };
 }
 
-/** @deprecated Use useZapLiquidity / Vault deposit */
+/** @deprecated Use Vault deposit */
 export function useAddLiquidity() {
   return { addLiquidity: async () => {}, isPending: false, isSuccess: false, hash: undefined };
 }
@@ -168,10 +163,7 @@ export function usePoolStats() {
   });
 
   const supply = totalSupply !== undefined ? formatUnits(totalSupply as bigint, VAULT_SHARE_DECIMALS) : "0";
-  const reserveUsdc =
-    vaultUsdcBal !== undefined
-      ? parseFloat(formatUnits(vaultUsdcBal as bigint, 6))
-      : parseFloat(PROJECT_X_POOL.tvl.replace(/[$MK]/g, "")) * (PROJECT_X_POOL.tvl.includes("M") ? 1_000_000 : 1_000);
+  const reserveUsdc = vaultUsdcBal !== undefined ? parseFloat(formatUnits(vaultUsdcBal as bigint, 6)) : 0;
   const reserveKhype = reserveUsdc > 0 ? reserveUsdc / 42 : 0;
 
   return {
@@ -186,6 +178,7 @@ export function usePoolStats() {
 export function useZapLiquidity() {
   const { address } = useConnection();
   const deployment = useDeployment();
+  const chainId = useEffectiveChainId();
   const publicClient = useDeploymentPublicClient();
   const { writeContractAsync, data: hash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
@@ -210,7 +203,8 @@ export function useZapLiquidity() {
         abis.erc20,
         address,
         vaultAddr,
-        amountIn
+        amountIn,
+        chainId
       );
 
       await writeContractAsync({
@@ -218,9 +212,10 @@ export function useZapLiquidity() {
         abi: abis.vault,
         functionName: fn,
         args: [amountIn, address],
+        chainId,
       });
     },
-    [deployment, address, publicClient, writeContractAsync]
+    [deployment, address, chainId, publicClient, writeContractAsync]
   );
 
   return {
@@ -341,6 +336,7 @@ export function useVaultDepositDual() {
 export function useVaultWithdraw() {
   const { address } = useConnection();
   const deployment = useDeployment();
+  const chainId = useEffectiveChainId();
   const publicClient = useDeploymentPublicClient();
   const { writeContractAsync, data: hash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
@@ -356,9 +352,10 @@ export function useVaultWithdraw() {
         abi: abis.vault,
         functionName: "withdraw",
         args: [shareAmount, address],
+        chainId,
       });
     },
-    [deployment, address, publicClient, writeContractAsync]
+    [deployment, address, chainId, publicClient, writeContractAsync]
   );
 
   return { withdraw, isPending: isPending || isConfirming, isSuccess, hash };
@@ -367,6 +364,7 @@ export function useVaultWithdraw() {
 export function useHarvestFees() {
   const { address } = useConnection();
   const deployment = useDeployment();
+  const chainId = useEffectiveChainId();
   const vaultAddr = deployment ? getVaultAddress(deployment) : undefined;
   const { writeContractAsync, data: hash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
@@ -400,8 +398,9 @@ export function useHarvestFees() {
       address: vaultAddr,
       abi: abis.vault,
       functionName: "harvestFees",
+      chainId,
     });
-  }, [vaultAddr, canHarvest, writeContractAsync]);
+  }, [vaultAddr, canHarvest, chainId, writeContractAsync]);
 
   return {
     harvestFees,
@@ -467,114 +466,27 @@ export function useEpochCountdown() {
 
 export function useCashdrop() {
   const { address } = useConnection();
-  const chainId = useChainId();
   const deployment = useDeployment();
-  const { writeContractAsync, data: hash, isPending } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
-  const claimedAmountRef = useRef<string>("0");
-
-  const { data: merkleRoot } = useDeploymentReadContract({
-    address: deployment?.airdrop,
-    abi: MerkleAirdropAbi,
-    functionName: "merkleRoot",
-    query: { enabled: !!deployment },
-  });
-
-  const { data: claimDeadline } = useDeploymentReadContract({
-    address: deployment?.airdrop,
-    abi: MerkleAirdropAbi,
-    functionName: "claimDeadline",
-    query: { enabled: !!deployment },
-  });
-
-  const { data: alreadyClaimed } = useDeploymentReadContract({
-    address: deployment?.airdrop,
-    abi: MerkleAirdropAbi,
-    functionName: "claimed",
-    args: address ? [address] : undefined,
-    query: { enabled: !!deployment && !!address },
-  });
-
-  const { data: airdropBalance } = useDeploymentReadContract({
-    address: deployment?.tokenUSDC,
-    abi: abis.erc20,
-    functionName: "balanceOf",
-    args: deployment?.airdrop ? [deployment.airdrop] : undefined,
-    query: { enabled: !!deployment, refetchInterval: 10000 },
-  });
-
-  const { data: vaultShareToken } = useDeploymentReadContract({
-    address: deployment?.airdrop,
-    abi: MerkleAirdropAbi,
-    functionName: "vaultShareToken",
-    query: { enabled: !!deployment?.airdrop },
-  });
-
-  const claimable = useMemo(() => {
+  const distribution = useMemo(() => {
     if (!deployment?.airdropEntries || !address) return null;
-    const gated =
-      vaultShareToken !== undefined &&
-      vaultShareToken !== null &&
-      (vaultShareToken as string).toLowerCase() !== zeroAddress.toLowerCase();
-    const entries = deployment.airdropEntries.map((e) => ({
-      address: e.address,
-      amount: BigInt(e.amount),
-      minShares: e.minShares ? BigInt(e.minShares) : undefined,
-    }));
-    return getMerkleProof(entries, address, gated);
-  }, [deployment, address, vaultShareToken]);
+    const entry = deployment.airdropEntries.find((e) => e.address.toLowerCase() === address.toLowerCase());
+    return entry ? BigInt(entry.amount) : null;
+  }, [deployment, address]);
 
-  const claim = useCallback(async () => {
-    if (!deployment || !claimable) throw new Error("Nothing to claim");
-    claimedAmountRef.current = formatUnits(claimable.amount, 6);
-    await writeContractAsync({
-      address: deployment.airdrop,
-      abi: MerkleAirdropAbi,
-      functionName: "claim",
-      args: [claimable.amount, claimable.minShares, claimable.proof],
-    });
-  }, [deployment, claimable, writeContractAsync]);
-
-  useEffect(() => {
-    if (!isSuccess || !address || !chainId) return;
-    const amount = parseFloat(claimedAmountRef.current);
-    if (amount > 0) {
-      appendEarningsClaim(earningsStorageKey(chainId, address), amount);
-    }
-  }, [isSuccess, address, chainId]);
-
-  const rootSet =
-    merkleRoot !== undefined &&
-    (merkleRoot as string).toLowerCase() !== `0x${"0".repeat(64)}`;
-
-  const expired =
-    claimDeadline !== undefined &&
-    Number(claimDeadline) > 0 &&
-    Date.now() / 1000 > Number(claimDeadline);
-
-  const hasRewards =
-    !!claimable &&
-    !alreadyClaimed &&
-    rootSet &&
-    !expired &&
-    airdropBalance !== undefined &&
-    (airdropBalance as bigint) >= claimable.amount;
-
-  const availableUsdc =
-    claimable && !alreadyClaimed && rootSet && !expired
-      ? formatUnits(claimable.amount, 6)
-      : "0.00";
+  const hasRewards = distribution !== null && distribution > 0n;
+  const availableUsdc = hasRewards ? formatUnits(distribution, 6) : "0.00";
 
   return {
     hasDeployment: !!deployment,
     hasRewards,
     availableUsdc,
-    alreadyClaimed: !!alreadyClaimed,
-    expired,
-    rootSet,
-    claimDeadline: claimDeadline !== undefined ? Number(claimDeadline) : 0,
-    claim,
-    isPending: isPending || isConfirming,
-    isSuccess,
+    alreadyClaimed: false,
+    expired: false,
+    rootSet: !!deployment?.lastCashdropDistribution,
+    claimDeadline: 0,
+    claim: async () => {},
+    isPending: false,
+    isSuccess: false,
+    lastDistribution: deployment?.lastCashdropDistribution,
   };
 }

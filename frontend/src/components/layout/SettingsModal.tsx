@@ -129,7 +129,7 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose: () =>
               </div>
 
               <p className="text-[10px] text-zinc-600">
-                Hyperpool · HyperEVM DEX · Phase 2 Live
+                Hyperpool · Project X Managed LP · Mainnet Ready
               </p>
             </div>
                 </motion.div>

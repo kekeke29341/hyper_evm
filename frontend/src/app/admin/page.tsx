@@ -5,7 +5,7 @@ const ADMIN_ENABLED = process.env.NEXT_PUBLIC_ADMIN_ENABLED === "true";
 
 export const metadata = {
   title: "Admin | Hyperpool",
-  description: "Hyperpool admin dashboard — vault, Cashdrop, Project X, analytics",
+  description: "Hyperpool admin dashboard — vault, Cashdrop, pools, analytics",
   robots: { index: false, follow: false },
 };
 

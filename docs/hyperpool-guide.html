@@ -91,13 +91,19 @@
 <body>
     <div class="container">
         <h1>Hyperpool 完全ガイド — 初心者から上級者まで</h1>
-        <p class="text-muted text-small">HyperEVM 上のコミュニティ主導 DEX · 更新: 2026/06/16 · 参照: docs/app-overview.md, product-overview.md, architecture.md</p>
+        <p class="text-muted text-small">Project X 代理 LP · 更新: 2026/06/25 · 参照: docs/app-overview.md, product-overview.md, architecture.md</p>
+
+        <div class="note-box">
+            <div class="note-box-header">注意 — 旧自前DEX記述を含む参考資料</div>
+            <p>このHTMLは過去の説明を含む参考資料です。Mainnet準備では <code>docs/app-overview.md</code>、<code>docs/product-overview.md</code>、<code>docs/architecture.md</code>、<code>docs/本番運用/本番環境運用.md</code> を正本として扱ってください。</p>
+            <p>現行モデルは、自前AMM/Router/Pairではなく、ユーザーのVault depositをProject X既存WHYPE/USDC LPへ代理投入する構成です。運営がLP原資を常時用意する必要はありません。</p>
+        </div>
 
         <!-- 結論 -->
         <div class="conclusion">
             <div class="conclusion-header">結論 — 30秒で理解する Hyperpool</div>
             <p><strong>Hyperpool</strong> は自前 DEX ではありません。<strong>Project X</strong> の WHYPE/USDC プールへ資金を代理預け、運営が <strong>+10% / −30%</strong> レンジをリバランスするマネージド LP サービスです。</p>
-            <p>collect した LP 手数料の <strong>70%</strong> を毎朝 JST 7:00–9:00 に USDC で還元（<strong>30%</strong> は運営取り分）。APR は Project X 参考 APY を表示し、脚注で「実質 ≒ 参考 APY × 70%」を明記します。</p>
+            <p>collect した LP 手数料の <strong>67%</strong> を毎朝 JST 7:00 に USDC で自動送金（<strong>33%</strong> は運営取り分）。APR は Project X 参考 APY を表示し、脚注で「実質 ≒ 参考 APY × 67%」を明記します。</p>
             <p style="margin-top:10px"><strong>運営者の方へ:</strong> 数値の合意と確認項目は <a href="#operator">運営者向けセクション</a> をご覧ください。</p>
         </div>
 
@@ -112,11 +118,11 @@
         <h2>数字で見る Hyperpool</h2>
         <div class="summary-box">
             <div class="summary-item">
-                <div class="summary-number">70%</div>
+                <div class="summary-number">67%</div>
                 <div class="summary-label">ユーザー USDC 還元</div>
             </div>
             <div class="summary-item">
-                <div class="summary-number">30%</div>
+                <div class="summary-number">33%</div>
                 <div class="summary-label">運営取り分</div>
             </div>
             <div class="summary-item">
@@ -124,8 +130,8 @@
                 <div class="summary-label">リバランスレンジ</div>
             </div>
             <div class="summary-item">
-                <div class="summary-number">7:00–9:00</div>
-                <div class="summary-label">JST Claim ウィンドウ</div>
+                <div class="summary-number">7:00</div>
+                <div class="summary-label">JST 自動送金</div>
             </div>
             <div class="summary-item">
                 <div class="summary-number">0%</div>

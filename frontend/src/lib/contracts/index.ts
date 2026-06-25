@@ -23,6 +23,13 @@ export type Deployment = {
   tokenKHYPE: Address;
   tokenUSDC: Address;
   airdropEntries?: { address: Address; amount: string; minShares?: string }[];
+  lastCashdropDistribution?: {
+    distributionId: string;
+    txHash: string;
+    amount: string;
+    entries: number;
+    executedAt: string;
+  };
   vaultShareHolders?: { address: Address; shares: string }[];
   merkleRoot?: string;
 };

@@ -1,73 +1,25 @@
 "use client";
 
-import { useEffect } from "react";
 import Link from "next/link";
-import { Loader2, Sparkles, Users } from "lucide-react";
+import { Sparkles, Users } from "lucide-react";
 import { MainCard, PrimaryButton, StatPill } from "@/components/ui/shared";
 import { useApp } from "@/lib/store";
 import { useI18n } from "@/lib/i18n";
 import { tabPath } from "@/lib/routes";
 import { useCashdrop, useEpochCountdown } from "@/lib/hooks/useDeFi";
-import { DEMO_CASHDROP } from "@/lib/demo/data";
-import { useGuestDemo } from "@/lib/hooks/useGuestDemo";
 
 export function CashdropTab() {
-  const { showToast, isConnected, openWalletModal } = useApp();
-  const { isGuestDemo } = useGuestDemo();
+  const { isConnected, openWalletModal } = useApp();
   const { t } = useI18n();
   const {
-    hasDeployment,
     hasRewards,
     availableUsdc,
-    alreadyClaimed,
-    expired,
-    rootSet,
-    claim,
-    isPending,
-    isSuccess,
+    lastDistribution,
   } = useCashdrop();
   const epoch = useEpochCountdown();
-  const inClaimWindow = epoch.isClaimWindow;
-  const displayAvailable = isGuestDemo ? DEMO_CASHDROP.availableUsdc : hasRewards ? availableUsdc : "0.00";
-  const displayHasRewards = isGuestDemo || hasRewards;
-  const canClaim = displayHasRewards && inClaimWindow && isConnected;
-  const showDemoClaimPreview = isGuestDemo && displayHasRewards;
-
-  useEffect(() => {
-    if (isSuccess) showToast(t("cashdrop.claimSuccess"));
-  }, [isSuccess, showToast, t]);
-
-  const handleClaim = async () => {
-    if (!isConnected) {
-      openWalletModal();
-      return;
-    }
-    if (!hasDeployment) {
-      showToast(t("deposit.testnetNote"));
-      return;
-    }
-    if (!inClaimWindow) {
-      showToast(t("cashdrop.outsideWindow"));
-      return;
-    }
-    try {
-      await claim();
-    } catch {
-      showToast(t("cashdrop.claimEmpty"));
-    }
-  };
-
-  const statusMessage = !rootSet
-    ? t("cashdrop.emptyHint")
-    : expired
-      ? t("cashdrop.expired")
-      : alreadyClaimed
-        ? t("cashdrop.alreadyClaimed")
-        : hasRewards && !inClaimWindow
-          ? t("cashdrop.outsideWindow")
-          : !hasRewards
-            ? t("cashdrop.claimEmpty")
-            : null;
+  const displayAvailable = hasRewards ? availableUsdc : "0.00";
+  const displayHasRewards = hasRewards;
+  const statusMessage = displayHasRewards ? t("cashdrop.autoPaidHint") : t("cashdrop.emptyHint");
 
   return (
     <MainCard>
@@ -82,36 +34,22 @@ export function CashdropTab() {
           accent="emerald"
         />
         <StatPill
-          label={inClaimWindow ? t("cashdrop.claimWindowOpen") : t("cashdrop.nextWindow")}
+          label={t("cashdrop.nextPayout")}
           value={epoch.formatted}
           accent="cyan"
         />
-        <StatPill label={t("cashdrop.feeShare")} value="70%" accent="violet" />
+        <StatPill label={t("cashdrop.feeShare")} value="67%" accent="violet" />
       </div>
 
-      {isPending ? (
-        <div className="flex items-center justify-center gap-2 py-8 text-zinc-400">
-          <Loader2 className="w-5 h-5 animate-spin" />
-          {t("common.loading")}
+      {displayHasRewards ? (
+        <div className="p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 text-center mb-4">
+          <p className="text-sm text-emerald-200/90">
+            {t("cashdrop.autoPaidAmount")} {displayAvailable} USDC
+          </p>
+          <p className="text-xs text-zinc-500 mt-1">
+            {lastDistribution?.txHash ? `${t("cashdrop.lastTx")}: ${lastDistribution.txHash.slice(0, 10)}…` : t("cashdrop.autoPaidHint")}
+          </p>
         </div>
-      ) : canClaim ? (
-        <PrimaryButton onClick={handleClaim} disabled={isPending}>
-          {t("cashdrop.claim")} {displayAvailable} USDC
-        </PrimaryButton>
-      ) : showDemoClaimPreview && inClaimWindow ? (
-        <PrimaryButton onClick={openWalletModal}>
-          {t("cashdrop.claim")} {displayAvailable} USDC
-        </PrimaryButton>
-      ) : displayHasRewards && !inClaimWindow ? (
-        <>
-          <div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 text-center mb-4">
-            <p className="text-sm text-amber-200/90">{t("cashdrop.outsideWindow")}</p>
-            <p className="text-xs text-zinc-500 mt-1">
-              {t("cashdrop.nextWindow")}: {epoch.formatted}
-            </p>
-          </div>
-          <PrimaryButton disabled>{t("cashdrop.claim")} {displayAvailable} USDC</PrimaryButton>
-        </>
       ) : (
         <>
           <div className="p-4 rounded-xl border border-dashed border-zinc-700 text-center mb-4">
@@ -119,8 +57,8 @@ export function CashdropTab() {
             <p className="text-sm text-zinc-400">{statusMessage}</p>
             <p className="text-xs text-zinc-600 mt-1">{t("cashdrop.emptyHint")}</p>
           </div>
-          <PrimaryButton disabled={!isConnected} onClick={isConnected ? undefined : openWalletModal}>
-            {isConnected ? t("common.claim") : t("common.connectWallet")}
+          <PrimaryButton disabled={isConnected} onClick={isConnected ? undefined : openWalletModal}>
+            {isConnected ? t("cashdrop.waitForAutoPayout") : t("common.connectWallet")}
           </PrimaryButton>
         </>
       )}

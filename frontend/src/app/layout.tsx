@@ -11,7 +11,7 @@ const geistSans = localFont({
 
 export const metadata: Metadata = {
   title: "Hyperpool | Managed LP on HyperEVM",
-  description: "Hyperpool — Project X managed LP, daily USDC Cashdrop rewards, and cross-chain deposit via Li.FI",
+  description: "Hyperpool — managed LP on HyperEVM, daily USDC Cashdrop rewards, and cross-chain deposit via Li.FI",
 };
 
 export const viewport: Viewport = {

@@ -4,19 +4,13 @@ import { useEffect, useState } from "react";
 import { Plus, Droplets } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { useI18n } from "@/lib/i18n";
-import { POOLS, PROJECT_X_POOL } from "@/lib/constants";
+import { POOLS, PROJECT_X_POOL, MANAGED_LP_RANGE } from "@/lib/constants";
 import { VaultPanel } from "@/components/position/VaultPanel";
 import { RebalanceHistoryPanel } from "@/components/position/RebalanceHistoryPanel";
 import { ActivePositionPanel } from "@/components/position/ActivePositionPanel";
 import { CreatePositionModal } from "@/components/position/CreatePositionModal";
 import { appendRebalanceEvent, readRebalanceHistory, type RebalanceEvent } from "@/lib/liquidity/history";
-import { poolPriceUsdcPerKhype, rangeBounds } from "@/lib/liquidity/metrics";
-import {
-  buildDemoRebalanceEvents,
-  DEMO_POOL,
-  DEMO_POSITION,
-} from "@/lib/demo/data";
-import { useGuestDemo } from "@/lib/hooks/useGuestDemo";
+import { poolPriceUsdcPerKhype, managedRangeBounds } from "@/lib/liquidity/metrics";
 import {
   useDeployment,
   useLpBalance,
@@ -30,25 +24,8 @@ import {
 } from "@/lib/hooks/useDeFi";
 import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
 
-const RANGE_STORAGE_KEY = "hyperpool_position_range";
-
-function readStoredRange(): { lower: number; upper: number; widthPct: number } | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem(RANGE_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-function storeRange(lower: number, upper: number, widthPct: number) {
-  localStorage.setItem(RANGE_STORAGE_KEY, JSON.stringify({ lower, upper, widthPct }));
-}
-
 export function LiquidityTab() {
   const { isConnected, showToast, openWalletModal } = useApp();
-  const { isGuestDemo } = useGuestDemo();
   const { t } = useI18n();
   const chainId = useEffectiveChainId();
   const deployment = useDeployment();
@@ -69,28 +46,16 @@ export function LiquidityTab() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createMode, setCreateMode] = useState<"create" | "add">("create");
-  const [history, setHistory] = useState<RebalanceEvent[]>(() =>
-    isGuestDemo ? buildDemoRebalanceEvents() : []
-  );
+  const [history, setHistory] = useState<RebalanceEvent[]>([]);
 
   const livePrice = poolPriceUsdcPerKhype(pool.reserveKhype, pool.reserveUsdc);
-  const poolReserveKhype =
-    pool.reserveUsdc > 0 && pool.reserveKhype > 0 ? pool.reserveKhype : DEMO_POOL.reserveKhype;
-  const poolReserveUsdc =
-    pool.reserveUsdc > 0 && pool.reserveKhype > 0 ? pool.reserveUsdc : DEMO_POOL.reserveUsdc;
-  const poolTotalSupply = pool.totalSupply > 0 ? pool.totalSupply : DEMO_POOL.totalSupply;
+  const poolReserveKhype = pool.reserveKhype;
+  const poolReserveUsdc = pool.reserveUsdc;
+  const poolTotalSupply = pool.totalSupply;
   const price = livePrice > 0 ? livePrice : poolPriceUsdcPerKhype(poolReserveKhype, poolReserveUsdc);
-  const defaultRange = rangeBounds(price, PROJECT_X_POOL.upperRangePct, PROJECT_X_POOL.lowerRangePct);
-  const storedRange = readStoredRange();
-  const rangeLower = isGuestDemo
-    ? DEMO_POSITION.rangeLower
-    : storedRange?.lower ?? defaultRange.lower;
-  const rangeUpper = isGuestDemo
-    ? DEMO_POSITION.rangeUpper
-    : storedRange?.upper ?? defaultRange.upper;
-  const rangeWidthPct = isGuestDemo
-    ? DEMO_POSITION.rangeWidthPct
-    : storedRange?.widthPct ?? defaultRange.widthPct;
+  const managedRange = managedRangeBounds(price);
+  const rangeLower = managedRange.lower;
+  const rangeUpper = managedRange.upper;
   const poolApr = PROJECT_X_POOL.referenceAprNum;
   const useLiveVaultMetrics = chainId === 998 || chainId === 999;
   const displayTvl =
@@ -104,8 +69,8 @@ export function LiquidityTab() {
     useLiveVaultMetrics && !vaultStats.hasVault ? "—" : PROJECT_X_POOL.referenceApr;
 
   useEffect(() => {
-    if (!isGuestDemo) setHistory(readRebalanceHistory());
-  }, [isGuestDemo]);
+    setHistory(readRebalanceHistory());
+  }, []);
 
   useEffect(() => {
     if (zapSuccess) {
@@ -149,8 +114,7 @@ export function LiquidityTab() {
   };
 
   const handleZap = async (source: "kHYPE" | "USDC", amount: string) => {
-    const bounds = rangeBounds(price, PROJECT_X_POOL.upperRangePct, PROJECT_X_POOL.lowerRangePct);
-    storeRange(bounds.lower, bounds.upper, bounds.widthPct);
+    const bounds = managedRangeBounds(price);
     try {
       await zap(source, amount);
       const next = appendRebalanceEvent({
@@ -158,7 +122,7 @@ export function LiquidityTab() {
         lower: bounds.lower,
         upper: bounds.upper,
         rangePct: bounds.widthPct,
-        action: createMode === "add" ? "add" : "zap",
+        action: createMode === "add" ? "add" : "deposit",
         amountUsd: parseFloat(amount),
       });
       setHistory(next);
@@ -200,24 +164,11 @@ export function LiquidityTab() {
     }
   };
 
-  const hasAnyPosition = isGuestDemo || hasPosition || vaultBalance.hasVaultPosition;
-  const displayLpBalance = isGuestDemo
-    ? DEMO_POSITION.lpBalance
-    : vaultBalance.hasVaultPosition
-      ? vaultStats.vaultLp * (parseFloat(vaultBalance.shares) / (vaultStats.shareSupplyFloat || 1))
-      : parseFloat(lpBalance);
-  const displayRangeWidth = isGuestDemo
-    ? DEMO_POSITION.rangeWidthPct
-    : vaultStats.hasVault
-      ? vaultStats.targetRangeBps / 100
-      : rangeWidthPct;
-
-  const demoKhypeBalance = DEMO_POSITION.walletKhype;
-  const demoUsdcBalance = DEMO_POSITION.walletUsdc;
-  const demoVaultShares = DEMO_POSITION.shares;
-  const demoVaultValueUsd = DEMO_POSITION.valueUsd;
-  const demoVaultKhype = DEMO_POSITION.khype;
-  const demoVaultUsdc = DEMO_POSITION.usdc;
+  const hasAnyPosition = hasPosition || vaultBalance.hasVaultPosition;
+  const displayLpBalance = vaultBalance.hasVaultPosition
+    ? vaultStats.vaultLp * (parseFloat(vaultBalance.shares) / (vaultStats.shareSupplyFloat || 1))
+    : parseFloat(lpBalance);
+  const displayRangeWidth = managedRange.widthPct;
 
   const poolOverview = (
     <div className="space-y-2">
@@ -249,6 +200,7 @@ export function LiquidityTab() {
           <p className="mt-2 text-[10px] text-zinc-500 tabular-nums">
             {t("position.currentPrice")}: {Math.round(price).toLocaleString()} USDC/HYPE
           </p>
+          <p className="mt-1 text-[10px] text-zinc-600">{t("position.managedRangeFixed")}</p>
           <p className="mt-1 text-[10px] text-zinc-600">{t("position.feeSplitFootnote")}</p>
         </div>
       ))}
@@ -260,7 +212,9 @@ export function LiquidityTab() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-1">
         <div>
           <h2 className="text-lg font-semibold text-white">{t("position.title")}</h2>
-          <p className="text-xs text-zinc-500 mt-1">{t("position.subtitle")}</p>
+          <p className="text-xs text-zinc-500 mt-1">
+            {t("position.subtitle")} · {MANAGED_LP_RANGE.label}
+          </p>
         </div>
         <button
           type="button"
@@ -274,13 +228,13 @@ export function LiquidityTab() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="space-y-4">
           <VaultPanel
-            khypeBalance={isGuestDemo ? demoKhypeBalance : khypeBal.balance}
-            usdcBalance={isGuestDemo ? demoUsdcBalance : usdcBal.balance}
-            hasVault={isGuestDemo || vaultStats.hasVault}
-            vaultShares={isGuestDemo ? demoVaultShares : vaultBalance.shares}
-            vaultValueUsd={isGuestDemo ? demoVaultValueUsd : vaultBalance.valueUsd}
-            vaultKhype={isGuestDemo ? demoVaultKhype : vaultBalance.khype}
-            vaultUsdc={isGuestDemo ? demoVaultUsdc : vaultBalance.usdc}
+            khypeBalance={khypeBal.balance}
+            usdcBalance={usdcBal.balance}
+            hasVault={vaultStats.hasVault}
+            vaultShares={vaultBalance.shares}
+            vaultValueUsd={vaultBalance.valueUsd}
+            vaultKhype={vaultBalance.khype}
+            vaultUsdc={vaultBalance.usdc}
             onDeposit={() => openCreate("create")}
             onWithdraw={handleVaultWithdraw}
             withdrawing={withdrawingVault}
@@ -309,13 +263,12 @@ export function LiquidityTab() {
                 onAdd={() => openCreate("add")}
                 onCollectFees={handleCollectFees}
                 onClose={() =>
-                  isGuestDemo
-                    ? openWalletModal()
-                    : vaultBalance.hasVaultPosition
-                      ? handleVaultWithdraw(vaultBalance.shares)
-                      : showToast(t("liquidity.noPositions"))
+                  vaultBalance.hasVaultPosition
+                    ? handleVaultWithdraw(vaultBalance.shares)
+                    : showToast(t("liquidity.noPositions"))
                 }
                 adding={false}
+                canHarvest={canHarvest}
                 collecting={harvestingFees}
                 closing={withdrawingVault}
               />

@@ -56,8 +56,8 @@ export function isPriceInRange(price: number, lower: number, upper: number): boo
   return price >= lower && price <= upper;
 }
 
-/** Net user APY estimate = reference APY × user share (70%) */
-export function estimatedNetApy(referenceAprPercent: number, userShareBps = 7000): number {
+/** Net user APY estimate = reference APY × user share (67%) */
+export function estimatedNetApy(referenceAprPercent: number, userShareBps = 6700): number {
   return (referenceAprPercent * userShareBps) / 10_000;
 }
 
@@ -78,11 +78,16 @@ export function positionValueUsd(
   return hype * price + usdc;
 }
 
-/** Concentrated LP: narrower band → higher fee capture; scaled by 70% user share */
+/** Concentrated LP fee capture estimate; scaled by 67% user share */
 export function estimatedApyFromRange(poolAprPercent: number, rangeWidthPct: number): number {
   const baselineWidth = PROJECT_X_POOL.upperRangePct + PROJECT_X_POOL.lowerRangePct;
   const concentration = baselineWidth / Math.max(rangeWidthPct, 1);
   return estimatedNetApy(poolAprPercent * concentration);
+}
+
+/** Fixed managed range bounds for display (all users share +10% / −30%) */
+export function managedRangeBounds(price: number) {
+  return rangeBounds(price, PROJECT_X_POOL.upperRangePct, PROJECT_X_POOL.lowerRangePct);
 }
 
 export function splitZapAmount(totalUsdc: number): { swap: number; keep: number } {

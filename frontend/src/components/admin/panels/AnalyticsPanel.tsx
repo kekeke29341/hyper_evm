@@ -58,9 +58,9 @@ export function AnalyticsPanel() {
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
-          <StatBox label="Operator share" value="30%" sub={String(operatorWallet ?? "—").slice(0, 14) + "…"} />
-          <StatBox label="User Merkle share" value="70%" sub="JST 7:00–9:00 claim" />
-          <StatBox label="LP range" value="+10% / −30%" sub="Project X WHYPE/USDC" />
+          <StatBox label="Operator share" value="33%" sub={String(operatorWallet ?? "—").slice(0, 14) + "…"} />
+          <StatBox label="User auto payout" value="67%" sub="JST 7:00" />
+          <StatBox label="LP range" value="+10% / −30%" sub="Fixed · HYPE/USDC" />
         </div>
       </AdminCard>
 
@@ -73,7 +73,7 @@ export function AnalyticsPanel() {
             <AddressRow label="ProjectXAdapter" address={deployment.projectXAdapter} />
           )}
           {deployment.projectXPool && (
-            <AddressRow label="Project X pool" address={deployment.projectXPool} />
+            <AddressRow label="Pool" address={deployment.projectXPool} />
           )}
           <AddressRow label="Airdrop" address={deployment.airdrop} />
           {deployment.referralRegistry && (

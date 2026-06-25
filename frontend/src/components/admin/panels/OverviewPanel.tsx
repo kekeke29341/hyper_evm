@@ -22,9 +22,9 @@ export function OverviewPanel() {
 
   const quickActions = [
     { tab: "vault", label: "Vault & harvest", icon: Vault, enabled: isVaultOwner },
-    { tab: "airdrop", label: "Set Merkle root", icon: Gift, enabled: isAirdropOwner },
-    { tab: "rewards", label: "Fee split (30/70)", icon: Coins, enabled: true },
-    { tab: "pools", label: "Project X pool", icon: Droplets, enabled: true },
+    { tab: "airdrop", label: "Auto payout", icon: Gift, enabled: isAirdropOwner },
+    { tab: "rewards", label: "Fee split (33/67)", icon: Coins, enabled: true },
+    { tab: "pools", label: "Pool", icon: Droplets, enabled: true },
     { tab: "system", label: "Keeper / operator", icon: Shield, enabled: isVaultOwner },
   ];
 
@@ -46,7 +46,7 @@ export function OverviewPanel() {
                 ? `${Number(analytics.pendingUserRewards) / 1e6}`
                 : "—"
             }
-            sub="70% user pool (USDC)"
+            sub="67% user pool (USDC)"
           />
         </div>
         {deployment && (

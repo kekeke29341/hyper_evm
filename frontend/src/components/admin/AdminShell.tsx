@@ -35,7 +35,7 @@ import { SystemPanel } from "./panels/SystemPanel";
 const ADMIN_TABS = [
   { id: "overview", label: "Overview", icon: Home },
   { id: "analytics", label: "Analytics", icon: BarChart3 },
-  { id: "pools", label: "Project X", icon: Droplets },
+  { id: "pools", label: "Pool", icon: Droplets },
   { id: "rewards", label: "Rewards", icon: Coins },
   { id: "airdrop", label: "Airdrop", icon: Gift },
   { id: "vault", label: "Vault", icon: Vault },

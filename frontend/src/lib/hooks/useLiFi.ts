@@ -13,8 +13,15 @@ import {
 import type { LifiQuote, LifiStatus } from "@/lib/lifi/types";
 import { abis } from "@/lib/contracts";
 
+// Per-token decimals. USDC/USDT use 6, WBTC uses 8, everything else (ETH/WETH/DAI/kHYPE) 18.
+const TOKEN_DECIMALS: Record<string, number> = {
+  USDC: 6,
+  USDT: 6,
+  WBTC: 8,
+};
+
 function tokenDecimals(symbol: string): number {
-  return symbol === "USDC" ? 6 : 18;
+  return TOKEN_DECIMALS[symbol] ?? 18;
 }
 
 export function useLiFiQuote({

@@ -11,7 +11,6 @@ import { tabPath } from "@/lib/routes";
 import type { EarningsChartMode } from "@/lib/earnings/history";
 import { useCashdrop, useVaultStats } from "@/lib/hooks/useDeFi";
 import { useEarningsDashboard } from "@/lib/hooks/useEarningsDashboard";
-import { DEMO_CASHDROP } from "@/lib/demo/data";
 import { cn } from "@/lib/utils";
 
 function truncateAddress(addr: string): string {
@@ -44,17 +43,14 @@ export function DashboardTab() {
     hasHistory,
     onChainSync,
     onChainLoading,
-    isGuestDemo,
   } = useEarningsDashboard();
 
   const maxMonthly = Math.max(...monthlyRows.map((r) => r.value), 0.01);
-  const showGettingStarted = isConnected && !hasPosition && !isGuestDemo;
-  const showClaimable = isGuestDemo || hasRewards;
-  const claimableUsdc = isGuestDemo ? DEMO_CASHDROP.availableUsdc : availableUsdc;
-  const pendingRewardsUsdc = isGuestDemo
-    ? DEMO_CASHDROP.pendingPoolUsdc
-    : vaultStats.pendingRewardsUsdc;
-  const showPositionStats = isGuestDemo || (isConnected && hasPosition);
+  const showGettingStarted = isConnected && !hasPosition;
+  const showClaimable = hasRewards;
+  const claimableUsdc = availableUsdc;
+  const pendingRewardsUsdc = vaultStats.pendingRewardsUsdc;
+  const showPositionStats = isConnected && hasPosition;
   const aprDisplay =
     metrics.estimatedApr !== null
       ? `${metrics.estimatedApr.toFixed(1)}%`
@@ -187,9 +183,7 @@ export function DashboardTab() {
           </div>
         </div>
         <EarningsTrendChart data={chartData} />
-        {isGuestDemo ? (
-          <p className="mt-3 text-xs text-violet-300/80 text-center">{t("demo.chartNote")}</p>
-        ) : !isConnected ? (
+        {!isConnected ? (
           <p className="mt-3 text-xs text-zinc-500 text-center">
             <button type="button" onClick={openWalletModal} className="text-cyan-400 hover:underline">
               {t("common.connectWallet")}

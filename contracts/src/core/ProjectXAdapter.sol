@@ -41,6 +41,7 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
     event PositionRebalanced(uint256 tokenId, int24 tickLower, int24 tickUpper);
     event FeesCollected(uint256 amount0, uint256 amount1);
     event LiquidityWithdrawn(uint256 amount0, uint256 amount1);
+    event TokenRecovered(address indexed token, address indexed to, uint256 amount);
 
     modifier onlyVault() {
         require(msg.sender == vault, "ProjectXAdapter: NOT_VAULT");
@@ -240,6 +241,15 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
         emit PositionRebalanced(positionTokenId, tickLower, tickUpper);
     }
 
+    /// @notice Recover tokens idle on this adapter (including mistaken WHYPE/USDC sends).
+    /// @dev Idle balances are not included in totalAssetsUsdc(); NPM position liquidity is untouched.
+    function recoverToken(IERC20 token, address to, uint256 amount) external onlyOwner {
+        require(to != address(0), "ProjectXAdapter: ZERO");
+        require(amount > 0, "ProjectXAdapter: ZERO_AMOUNT");
+        token.safeTransfer(to, amount);
+        emit TokenRecovered(address(token), to, amount);
+    }
+
     /// @notice Collect accrued fees to vault
     function collectFees() external onlyVault returns (uint256 amount0, uint256 amount1) {
         require(positionTokenId != 0, "ProjectXAdapter: NO_POSITION");
@@ -275,9 +285,11 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
         return usdcAmt + _hypeToUsdc(hypeAmt, priceUsdc6PerHype18);
     }
 
+    /// @dev refPrice is humanPrice*1e18 (= USDC6/HYPE * 1e12); hypeAmount is 1e18-wei.
+    ///      USDC token amount (6-dec) = hypeAmount * refPrice / 1e30 (1e18 wei + 1e12 price scale).
     function _hypeToUsdc(uint256 hypeAmount, uint256 priceUsdc6PerHype18) internal pure returns (uint256) {
         if (hypeAmount == 0 || priceUsdc6PerHype18 == 0) return 0;
-        return (hypeAmount * priceUsdc6PerHype18) / 1e18;
+        return (hypeAmount * priceUsdc6PerHype18) / 1e30;
     }
 
     function _priceFromAmounts(uint256 amount0, uint256 amount1) internal view returns (uint256) {
@@ -292,7 +304,9 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
             hypeAmt = amount0;
         }
         if (hypeAmt == 0) return refPriceUsdc6PerHype18;
-        return (usdcAmt * 1e18) / hypeAmt;
+        // refPrice canonical scale = humanPrice*1e18 = (USDC6/HYPE)*1e12.
+        // usdcAmt is 6-dec, hypeAmt is 1e18-wei → multiply by 1e30 to land on the 1e18 scale.
+        return (usdcAmt * 1e30) / hypeAmt;
     }
 
     function _ticksFromPrice(uint256 priceUsdc6PerHype18) internal view returns (int24 lower, int24 upper) {

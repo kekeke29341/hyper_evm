@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Loader2, Copy, Check, LogOut, ExternalLink } from "lucide-react";
 import { useApp } from "@/lib/store";
@@ -56,6 +57,8 @@ function WalletButton({
 }
 
 export function WalletModal() {
+  const pathname = usePathname();
+  const isHomePage = pathname === "/";
   const { walletModalOpen, closeWalletModal, showToast } = useApp();
   const { t } = useI18n();
   const {
@@ -249,10 +252,6 @@ export function WalletModal() {
             ) : (
               <>
                 <div className="mb-4">
-                  <WalletAlertNotice compact />
-                </div>
-
-                <div className="mb-4">
                   <p className="text-xs text-zinc-500 mb-2">{t("walletModal.selectNetwork")}</p>
                   <div className="grid grid-cols-2 gap-2">
                     {SUPPORTED_CHAINS.map((chain) => (
@@ -276,12 +275,18 @@ export function WalletModal() {
 
                 <div className="space-y-2">
                   {walletOptions.map((option) => (
-                    <WalletButton
-                      key={option.id}
-                      option={option}
-                      loading={isPending && connectingId === option.id}
-                      onClick={() => handleConnect(option.id)}
-                    />
+                    <div key={option.id}>
+                      {isHomePage && option.id === "metaMask" && (
+                        <div className="mb-2">
+                          <WalletAlertNotice compact />
+                        </div>
+                      )}
+                      <WalletButton
+                        option={option}
+                        loading={isPending && connectingId === option.id}
+                        onClick={() => handleConnect(option.id)}
+                      />
+                    </div>
                   ))}
                 </div>
 

@@ -60,10 +60,10 @@ export function SystemPanel() {
         <div className="space-y-1 mb-4">
           <AddressRow label="Vault" address={vaultAddress ?? "—"} />
           <AddressRow label="Keeper" address={String(vaultKeeper ?? "—")} />
-          <AddressRow label="Operator wallet (30%)" address={String(operatorWallet ?? "—")} />
+          <AddressRow label="Operator wallet (33%)" address={String(operatorWallet ?? "—")} />
           <StatBox
             label="Operator fee"
-            value={operatorFeeBps !== undefined ? `${Number(operatorFeeBps) / 100}%` : "30%"}
+            value={operatorFeeBps !== undefined ? `${Number(operatorFeeBps) / 100}%` : "33%"}
             sub="Immutable unless contract upgraded"
           />
         </div>
@@ -106,7 +106,7 @@ export function SystemPanel() {
           </AdminButton>
         </div>
         <p className="text-[10px] text-zinc-600 mt-3">
-          Rebalance (+10% / −30%) is keeper-driven via <code className="text-zinc-400">scripts/keeper-rebalance.mjs</code>.
+          Rebalance (+10% / −30%, fixed for all users) is keeper-driven via <code className="text-zinc-400">scripts/keeper-rebalance.mjs</code>.
         </p>
       </AdminCard>
 

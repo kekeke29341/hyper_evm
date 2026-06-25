@@ -9,14 +9,17 @@ import { AdminCard, AdminButton, AdminInput, StatBox, AddressRow } from "../Admi
 import { useApp } from "@/lib/store";
 
 export function VaultPanel() {
-  const { deployment, isVaultOwner, vaultAddress } = useAdminAuth();
+  const { deployment, isVaultOwner, vaultAddress, address } = useAdminAuth();
   const { vaultSupply, vaultAssets, pendingUserRewards, vaultKeeper, operatorWallet } = useAdminAnalytics();
-  const { setVaultKeeper, pullPendingRewards, harvestFees, isPending } = useAdminTx();
+  const { setVaultKeeper, pullPendingRewards, harvestFees, recoverVaultForeignToken, isPending } = useAdminTx();
   const { showToast } = useApp();
 
   const [keeper, setKeeper] = useState("");
   const [pullTo, setPullTo] = useState("");
   const [pullAmount, setPullAmount] = useState("");
+  const [foreignToken, setForeignToken] = useState("");
+  const [foreignAmount, setForeignAmount] = useState("");
+  const [foreignDecimals, setForeignDecimals] = useState("18");
 
   if (!vaultAddress) {
     return (
@@ -37,7 +40,7 @@ export function VaultPanel() {
 
   return (
     <div className="space-y-4">
-      <AdminCard title="Hyperpool Vault" subtitle="Project X proxy LP — ERC20 shares">
+      <AdminCard title="Hyperpool Vault" subtitle="Managed LP — ERC20 shares">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <StatBox
             label="Vault shares"
@@ -52,9 +55,9 @@ export function VaultPanel() {
           <StatBox
             label="Pending user rewards"
             value={pendingUserRewards !== undefined ? formatUnits(pendingUserRewards as bigint, 6) : "—"}
-            sub="70% fee pool"
+            sub="67% fee pool"
           />
-          <StatBox label="Range" value="+10% / −30%" sub="Keeper rebalance" />
+          <StatBox label="Range" value="+10% / −30%" sub="Fixed · keeper rebalance" />
         </div>
         <div className="mt-4 space-y-1">
           <AddressRow label="Vault" address={vaultAddress} />
@@ -83,15 +86,15 @@ export function VaultPanel() {
             disabled={isPending}
             onClick={() => run(() => harvestFees(), "Harvest submitted")}
           >
-            Harvest fees (collect + 30/70 split)
+            Harvest fees (collect + 33/67 split)
           </AdminButton>
         </div>
       </AdminCard>
 
-      <AdminCard title="Fund Cashdrop" subtitle="Pull pending 70% pool to Merkle airdrop contract">
+      <AdminCard title="Move Cashdrop funds" subtitle="Normally handled by scripts/daily-rewards.mjs before auto payout">
         <div className="grid sm:grid-cols-2 gap-3">
           <AdminInput
-            label="Recipient (MerkleAirdrop)"
+            label="Recipient (Airdrop payout contract)"
             value={pullTo}
             onChange={setPullTo}
             placeholder={deployment?.airdrop ?? "0x…"}
@@ -113,6 +116,40 @@ export function VaultPanel() {
             }
           >
             pullPendingRewards
+          </AdminButton>
+        </div>
+      </AdminCard>
+
+      <AdminCard
+        title="Recover mistaken send (Vault)"
+        subtitle="Non-USDC / non-HYPE tokens only. Underlying assets require withdraw via vault shares."
+      >
+        <div className="grid sm:grid-cols-2 gap-3">
+          <AdminInput label="Token address" value={foreignToken} onChange={setForeignToken} placeholder="0x…" />
+          <AdminInput label="Amount" value={foreignAmount} onChange={setForeignAmount} placeholder="0.00" />
+          <AdminInput label="Decimals" value={foreignDecimals} onChange={setForeignDecimals} placeholder="18" />
+        </div>
+        <div className="mt-3">
+          <AdminButton
+            disabled={isPending || !isVaultOwner || !foreignToken || !foreignAmount}
+            onClick={() => {
+              if (!address) {
+                showToast("Connect owner wallet");
+                return;
+              }
+              run(
+                () =>
+                  recoverVaultForeignToken(
+                    foreignToken as Address,
+                    address,
+                    foreignAmount,
+                    Number(foreignDecimals) || 18
+                  ),
+                "Foreign token recovered"
+              );
+            }}
+          >
+            recoverForeignToken → connected wallet
           </AdminButton>
         </div>
       </AdminCard>

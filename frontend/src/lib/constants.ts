@@ -18,25 +18,24 @@ export const PROJECT_X_POOL = {
   feeTier: "0.05%",
   referenceApr: "75%",
   referenceAprNum: 75,
-  netAprEstimate: "52.5%",
-  netAprNum: 52.5,
-  userShareBps: 7000,
-  operatorShareBps: 3000,
+  netAprEstimate: "50.25%",
+  netAprNum: 50.25,
+  userShareBps: 6700,
+  operatorShareBps: 3300,
   tvl: "$14.3M",
   volume24h: "$151M",
   upperRangePct: 10,
   lowerRangePct: 30,
 } as const;
 
-export const POOLS = [PROJECT_X_POOL];
+/** Managed LP range — fixed for all users (no per-user selection) */
+export const MANAGED_LP_RANGE = {
+  upperPct: PROJECT_X_POOL.upperRangePct,
+  lowerPct: PROJECT_X_POOL.lowerRangePct,
+  label: `+${PROJECT_X_POOL.upperRangePct}% / −${PROJECT_X_POOL.lowerRangePct}%`,
+} as const;
 
-export const AFFILIATE_LEADERBOARD = [
-  { rank: 1, address: "0x1a...3b", reward: "1,240 USDC" },
-  { rank: 2, address: "0x4c...5d", reward: "980 USDC" },
-  { rank: 3, address: "0x6e...7f", reward: "720 USDC" },
-  { rank: 4, address: "0x8a...9b", reward: "540 USDC" },
-  { rank: 5, address: "0x2c...3d", reward: "410 USDC" },
-];
+export const POOLS = [PROJECT_X_POOL];
 
 export const WALLETS = [
   { name: "MetaMask", chains: ["HyperEVM", "Ethereum"] },

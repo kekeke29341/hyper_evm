@@ -5,12 +5,9 @@ import { AnimatePresence, motion } from "framer-motion";
 import { savePendingReferralCode } from "@/lib/referral/codeStorage";
 import { Header, Footer } from "@/components/layout/Header";
 import { TabHero } from "@/components/layout/TabHero";
-import { SocialProofBar } from "@/components/layout/SocialProofBar";
 import { OnboardingModal } from "@/components/layout/OnboardingModal";
-import { DemoModeBanner } from "@/components/layout/DemoModeBanner";
 import { TestnetGuideBanner } from "@/components/layout/TestnetGuideBanner";
 import { NetworkSwitchBanner } from "@/components/layout/NetworkSwitchBanner";
-import { WalletAlertNotice } from "@/components/layout/WalletAlertNotice";
 import { WalletModal } from "@/components/layout/WalletModal";
 import { Toast } from "@/components/ui/shared";
 import { DepositTab } from "@/components/tabs/DepositTab";
@@ -48,9 +45,6 @@ export default function AppShell({ activeTab }: { activeTab: TabId }) {
     <div className="min-h-screen flex flex-col">
       <Header activeTab={activeTab} />
       <main className="flex-1 px-3 sm:px-4 py-6 sm:py-8 overflow-x-hidden">
-        <SocialProofBar />
-        <DemoModeBanner />
-        <WalletAlertNotice />
         <NetworkSwitchBanner />
         <TestnetGuideBanner />
         <TabHero activeTab={activeTab} />

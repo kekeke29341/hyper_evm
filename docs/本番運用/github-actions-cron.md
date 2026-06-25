@@ -64,13 +64,19 @@ Mainnet 公開後は `999` に変更。
 
 【Daily — JST 7:00】
   GitHub Actions → daily-rewards.mjs
-    → harvestFees / Merkle / setMerkleRoot
+    → harvestFees
+    → HYPE fees を USDC に換金
+    → 33% を operatorWallet へ送金
+    → 67% を Vault share 比率 + 紹介条件で配分
+    → MerkleAirdrop.distributeRewards でユーザーへUSDC自動送金
     → 998.json / 999.json を commit & push
     → Vercel が main ブランチを再デプロイ
-    → ユーザーが Cashdrop タブで claim 可能
+    → Cashdrop / Dashboard に直近送金履歴を表示
 ```
 
-`pendingUserRewards = 0` の日は harvest のみ走り、JSON 変更がなければ commit はスキップされます。
+`pendingUserRewards = 0` かつ送金対象がない日は harvest のみ走り、JSON 変更がなければ commit はスキップされます。
+
+自動送金は `distributionId` で二重実行を防ぎます。同じ配分内容を再実行するとコントラクト側で `DISTRIBUTED` revert になります。
 
 ---
 
@@ -97,7 +103,7 @@ Daily Rewards が JSON を `main` に push するため:
   または
 - Required reviewers がある場合は、bot 用の bypass / PAT 運用を検討
 
-push できないと **オンチェーン Merkle は設定されるが UI の claim 用 JSON が更新されない** 状態になります。
+push できないと **オンチェーン自動送金は完了しているが、UI の直近送金表示 JSON が更新されない** 状態になります。
 
 ---
 
@@ -132,6 +138,8 @@ POOL_USDC=0.01 node scripts/testnet-daily-rewards-smoke.mjs
 | `not deployed` | 該当 chain の deployment JSON |
 | Oracle price unavailable (999) | RPC / oracle、`REF_PRICE_USDC6` |
 | push failed | Branch protection / `contents: write` |
+| `DISTRIBUTED` revert | 同じ distributionId を再実行済み。二重送金防止が働いている |
+| 自動送金Tx失敗 | Airdrop残高、対象者リスト、ガス、RPC、owner権限を確認 |
 | Cashdrop UI に出ない | daily-rewards の commit が main に入ったか、Vercel redeploy |
 
 関連: [チェックリスト.md](./チェックリスト.md) · [テストネット運用.md](./テストネット運用.md)

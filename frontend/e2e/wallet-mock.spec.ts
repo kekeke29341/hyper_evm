@@ -5,7 +5,7 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { headerConnectButton, prepareAppLocale } from "./helpers/ui";
+import { headerConnectButton, prepareAppLocale, walletModal } from "./helpers/ui";
 
 const require = createRequire(`${process.cwd()}/package.json`);
 const web3MockBundle = readFileSync(
@@ -59,7 +59,7 @@ test.describe("Wallet mock (injected)", () => {
     await page.goto("/");
     await headerConnectButton(page).click();
 
-    const modal = page.locator(".fixed.card-glass").filter({ hasText: "Connect Wallet" });
+    const modal = walletModal(page);
     await expect(modal).toBeVisible();
 
     const metaMask = modal.getByRole("button", { name: /^MetaMask/i }).first();
@@ -74,7 +74,7 @@ test.describe("Wallet mock (injected)", () => {
     await page.goto("/");
     await headerConnectButton(page).click();
 
-    const modal = page.locator(".fixed.card-glass").filter({ hasText: "Connect Wallet" });
+    const modal = walletModal(page);
     await modal.getByRole("button", { name: /HyperEVM Testnet/i }).click();
     await expect(modal.getByText("Chain 998")).toBeVisible();
   });

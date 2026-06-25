@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hyperpool ユーザー行動・運営フロー 1枚資料</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans JP", sans-serif;
+      color: #172033;
+      background: #f4f7fb;
+      line-height: 1.65;
+    }
+    .page {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 40px 22px 56px;
+    }
+    .hero {
+      background: linear-gradient(135deg, #111827 0%, #172554 58%, #0f766e 100%);
+      color: #fff;
+      border-radius: 24px;
+      padding: 34px;
+      box-shadow: 0 22px 56px rgba(15, 23, 42, 0.20);
+    }
+    .eyebrow {
+      margin: 0 0 10px;
+      color: #a7f3d0;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    h1, h2, h3 { line-height: 1.25; margin: 0; }
+    h1 {
+      max-width: 880px;
+      font-size: clamp(30px, 4vw, 48px);
+      letter-spacing: -0.04em;
+    }
+    .hero p {
+      max-width: 860px;
+      margin: 18px 0 0;
+      color: #dbeafe;
+      font-size: 16px;
+    }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 22px;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 11px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      color: #f8fafc;
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    section {
+      margin-top: 26px;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 20px;
+      padding: 24px;
+      box-shadow: 0 10px 34px rgba(15, 23, 42, 0.06);
+    }
+    .section-title {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 16px;
+    }
+    h2 {
+      color: #0f172a;
+      font-size: 22px;
+      letter-spacing: -0.02em;
+    }
+    .section-note {
+      margin: 0;
+      color: #64748b;
+      font-size: 13px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .metric {
+      min-height: 112px;
+      padding: 18px;
+      border-radius: 16px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+    }
+    .metric strong {
+      display: block;
+      color: #0f766e;
+      font-size: 28px;
+      letter-spacing: -0.04em;
+      line-height: 1.1;
+    }
+    .metric span {
+      display: block;
+      margin-top: 8px;
+      color: #475569;
+      font-size: 13px;
+    }
+    .two-col {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+    .card {
+      border: 1px solid #e2e8f0;
+      border-radius: 18px;
+      padding: 18px;
+      background: #fbfdff;
+    }
+    .card h3 {
+      color: #172554;
+      font-size: 17px;
+      margin-bottom: 10px;
+    }
+    .card p {
+      margin: 0 0 10px;
+      color: #475569;
+      font-size: 14px;
+    }
+    .steps {
+      display: grid;
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .step {
+      display: grid;
+      grid-template-columns: 34px 1fr;
+      gap: 12px;
+      align-items: start;
+    }
+    .num {
+      width: 34px;
+      height: 34px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      background: #172554;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .step-title {
+      color: #0f172a;
+      font-weight: 800;
+      font-size: 14px;
+    }
+    .step-desc {
+      margin-top: 2px;
+      color: #64748b;
+      font-size: 13px;
+    }
+    .swimlane {
+      display: grid;
+      grid-template-columns: 110px 1fr 1fr 1fr;
+      overflow: hidden;
+      border: 1px solid #dbe4ef;
+      border-radius: 18px;
+    }
+    .lane-head,
+    .time,
+    .cell {
+      padding: 13px 14px;
+      border-right: 1px solid #dbe4ef;
+      border-bottom: 1px solid #dbe4ef;
+    }
+    .lane-head {
+      background: #0f172a;
+      color: #fff;
+      font-weight: 800;
+      font-size: 13px;
+    }
+    .time {
+      background: #f1f5f9;
+      color: #334155;
+      font-weight: 800;
+      font-size: 13px;
+    }
+    .cell {
+      background: #fff;
+      color: #475569;
+      font-size: 13px;
+    }
+    .cell strong {
+      color: #0f172a;
+      display: block;
+      margin-bottom: 3px;
+      font-size: 13px;
+    }
+    .swimlane > :nth-child(4n) { border-right: 0; }
+    .swimlane > :nth-last-child(-n+4) { border-bottom: 0; }
+    .tag {
+      display: inline-block;
+      margin: 0 6px 6px 0;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #e0f2fe;
+      color: #075985;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .tag.warning { background: #fef3c7; color: #92400e; }
+    .tag.danger { background: #fee2e2; color: #991b1b; }
+    .tag.good { background: #dcfce7; color: #166534; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      overflow: hidden;
+      font-size: 13px;
+    }
+    th, td {
+      padding: 12px 13px;
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    th {
+      background: #172554;
+      color: #fff;
+      font-size: 12px;
+      letter-spacing: 0.04em;
+    }
+    tr:nth-child(even) td { background: #f8fafc; }
+    tr:last-child td { border-bottom: 0; }
+    .callout {
+      margin-top: 16px;
+      padding: 16px 18px;
+      border-radius: 16px;
+      border-left: 5px solid #f59e0b;
+      background: #fffbeb;
+      color: #78350f;
+      font-size: 14px;
+    }
+    .danger-box {
+      border-left-color: #ef4444;
+      background: #fef2f2;
+      color: #7f1d1d;
+    }
+    .footer {
+      margin-top: 22px;
+      color: #64748b;
+      font-size: 12px;
+      text-align: right;
+    }
+    a { color: #2563eb; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      padding: 2px 5px;
+      border-radius: 6px;
+      background: #eef2ff;
+      color: #3730a3;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.92em;
+    }
+    @media (max-width: 900px) {
+      .grid, .two-col { grid-template-columns: 1fr; }
+      .swimlane {
+        grid-template-columns: 92px 1fr;
+      }
+      .lane-head:nth-child(3),
+      .lane-head:nth-child(4) { display: none; }
+      .time {
+        grid-row: span 3;
+        border-right: 1px solid #dbe4ef;
+      }
+      .cell { border-right: 0; }
+      .swimlane > :nth-child(4n) { border-right: 0; }
+      .swimlane > :nth-last-child(-n+4) { border-bottom: 1px solid #dbe4ef; }
+    }
+    @media print {
+      body { background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .page { max-width: none; padding: 18mm; }
+      section, .hero { box-shadow: none; break-inside: avoid; }
+      a { color: inherit; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <p class="eyebrow">Hyperpool Operation Map</p>
+      <h1>想定されるユーザーの動きと、運営の動き</h1>
+      <p>
+        Hyperpool を公開した後に起きる行動を、ユーザー・運営・システムの3視点で並べた1枚資料です。
+        打ち合わせでは「ユーザーに何を案内するか」「運営が毎日何を確認するか」「本番前に何を決めるか」をこの順で確認してください。
+      </p>
+      <div class="meta">
+        <span class="pill">ユーザー還元 67%</span>
+        <span class="pill">運営取り分 33%</span>
+        <span class="pill">Cashdrop JST 7:00 自動送金</span>
+        <span class="pill">LP レンジ +10% / −30%</span>
+        <span class="pill">対象: WHYPE/USDC 0.05%</span>
+      </div>
+    </header>
+
+    <section>
+      <div class="section-title">
+        <h2>まず押さえる数字</h2>
+        <p class="section-note">ユーザー説明・運営合意の前提</p>
+      </div>
+      <div class="grid">
+        <div class="metric">
+          <strong>67%</strong>
+          <span>Project X LP 手数料からユーザーへ日次 USDC 還元する比率</span>
+        </div>
+        <div class="metric">
+          <strong>33%</strong>
+          <span>運営ウォレットへ送る比率。公開後に変えにくい前提値</span>
+        </div>
+        <div class="metric">
+          <strong>7:00</strong>
+          <span>毎朝 JST の運営処理で対象ユーザーへUSDCを自動送金</span>
+        </div>
+        <div class="metric">
+          <strong>+10 / −30%</strong>
+          <span>keeper が維持する固定レンジ。ユーザーごとの選択はなし</span>
+        </div>
+      </div>
+      <div class="callout">
+        <strong>説明上の注意:</strong> APR は保証値ではなく参考値です。ユーザーには「Project X 参考 APY × 67% が還元目安」と説明し、価格変動・impermanent loss・スマートコントラクトリスクを別途明記します。
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <h2>ユーザーの動き</h2>
+        <p class="section-note">初回来訪から継続利用まで</p>
+      </div>
+      <div class="two-col">
+        <div class="card">
+          <h3>初回ユーザー</h3>
+          <p>目的は「USDC または HYPE を預け、Project X LP 運用を任せる」ことです。</p>
+          <div class="steps">
+            <div class="step">
+              <div class="num">1</div>
+              <div>
+                <div class="step-title">サイト訪問・ウォレット接続</div>
+                <div class="step-desc">HyperEVM Testnet 998 または Mainnet 999 に接続。チェーン違いはネットワーク切替バナーで案内。</div>
+              </div>
+            </div>
+            <div class="step">
+              <div class="num">2</div>
+              <div>
+                <div class="step-title">資金準備</div>
+                <div class="step-desc">HyperEVM 上の USDC が推奨。他チェーン資金は Mainnet 999 で Li.FI Bridge を利用。Testnet 998 では Bridge は実質非対応。</div>
+              </div>
+            </div>
+            <div class="step">
+              <div class="num">3</div>
+              <div>
+                <div class="step-title">Position で deposit</div>
+                <div class="step-desc">USDC または HYPE を Vault に預ける。ユーザーは Vault share を受け取り、LP NFT は ProjectXAdapter が管理。</div>
+              </div>
+            </div>
+            <div class="step">
+              <div class="num">4</div>
+              <div>
+                <div class="step-title">Dashboard / Position を確認</div>
+                <div class="step-desc">シェア価値、預入状態、レンジ、過去の自動送金履歴を確認。APR は参考表示として扱う。</div>
+              </div>
+            </div>
+            <div class="step">
+              <div class="num">5</div>
+              <div>
+                <div class="step-title">毎朝 Cashdrop を自動受取</div>
+                <div class="step-desc">JST 7:00 の運営処理で、対象額がユーザーウォレットへUSDC送金される。ユーザーの署名・claim操作は不要。</div>
+              </div>
+            </div>
+            <div class="step">
+              <div class="num">6</div>
+              <div>
+                <div class="step-title">必要に応じて withdraw</div>
+                <div class="step-desc">Vault share を burn し、比例配分で USDC + WHYPE を受け取る。ガス用 HYPE は常に必要。</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>継続ユーザー・紹介ユーザー</h3>
+          <p>毎日見る場所と、問い合わせにつながりやすいポイントです。</p>
+          <div>
+            <span class="tag good">Cashdrop 自動送金</span>
+            <span class="tag">紹介コード</span>
+            <span class="tag">追加 deposit</span>
+            <span class="tag warning">送金Tx確認</span>
+            <span class="tag danger">チェーン違い</span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>ユーザー行動</th>
+                <th>よくある期待・質問</th>
+                <th>案内すること</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>毎朝の入金を確認</td>
+                <td>「今日はいくらもらえるか」</td>
+                <td>7:00 以降にウォレット・Cashdropタブ・Dashboardを確認。対象者にはUSDCが自動送金される。</td>
+              </tr>
+              <tr>
+                <td>紹介リンクを共有</td>
+                <td>「紹介報酬は別枠か」</td>
+                <td>紹介者 15%・被紹介者 +10% は 67% プール内での再配分。総額が増える保証ではない。</td>
+              </tr>
+              <tr>
+                <td>APR を見る</td>
+                <td>「この利回りが保証されるか」</td>
+                <td>保証 APR ではなく参考値。手数料量、価格変動、レンジ外時間で変わる。</td>
+              </tr>
+              <tr>
+                <td>出金する</td>
+                <td>「USDC だけで返るか」</td>
+                <td>Vault の構成比に応じて USDC + WHYPE を受け取る。価格変動リスクあり。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <h2>1日の時系列</h2>
+        <p class="section-note">ユーザー・運営・システムのスイムレーン</p>
+      </div>
+      <div class="swimlane" role="table" aria-label="1日の運用タイムライン">
+        <div class="lane-head">時間</div>
+        <div class="lane-head">ユーザー</div>
+        <div class="lane-head">運営</div>
+        <div class="lane-head">システム / コントラクト</div>
+
+        <div class="time">常時</div>
+        <div class="cell"><strong>接続・預入・出金</strong>Position で deposit / withdraw。Dashboard で状態確認。</div>
+        <div class="cell"><strong>監視</strong>RPC、Vercel、Vault TVL、Project X pool、問い合わせを確認。</div>
+        <div class="cell"><strong>Vault 運用</strong>預入資産は ProjectXAdapter 経由で Project X NPM に LP。</div>
+
+        <div class="time">6時間ごと</div>
+        <div class="cell"><strong>基本操作なし</strong>ユーザーは待つだけ。レンジ外なら手数料が減る可能性あり。</div>
+        <div class="cell"><strong>keeper 実行確認</strong><code>keeper-rebalance.mjs</code> の成功、価格乖離、ガス残高を確認。</div>
+        <div class="cell"><strong>rebalance</strong>現在価格を中心に +10% / −30% で組み直し。</div>
+
+        <div class="time">JST 7:00</div>
+        <div class="cell"><strong>Cashdrop 自動受取</strong>対象者のウォレットへUSDCが送金される。</div>
+        <div class="cell"><strong>daily rewards</strong>harvest、HYPE 手数料の USDC 換金、対象者リスト作成、自動送金Txを確認。</div>
+        <div class="cell"><strong>harvest / distribute</strong>33% は運営ウォレット、67% はAirdrop経由でユーザーへ送金。</div>
+
+        <div class="time">7:00 後</div>
+        <div class="cell"><strong>USDC入金確認</strong>ウォレット残高・Dashboard履歴で送金を確認。</div>
+        <div class="cell"><strong>問い合わせ対応</strong>未入金、対象外、アドレス違い、送金Txの失敗を切り分け。</div>
+        <div class="cell"><strong>自動送金イベント</strong><code>Distributed</code> イベントから履歴に反映。</div>
+
+        <div class="time">当日中</div>
+        <div class="cell"><strong>操作不要</strong>ユーザー側に期限やclaim漏れは発生しない。</div>
+        <div class="cell"><strong>送金確認</strong>配分総額、送金成功件数、Airdrop残高を確認。</div>
+        <div class="cell"><strong>二重送金防止</strong>同じ配分IDは再実行不可。</div>
+
+        <div class="time">週次 / 随時</div>
+        <div class="cell"><strong>継続利用</strong>追加 deposit、紹介、withdraw。リスク説明を再確認。</div>
+        <div class="cell"><strong>棚卸し</strong>デプロイ JSON、Vercel env、owner / keeper、cron、アラート、未処理問い合わせを確認。</div>
+        <div class="cell"><strong>設定変更</strong>一部は owner 操作、一部は再デプロイやコントラクト再デプロイが必要。</div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <h2>運営の動き</h2>
+        <p class="section-note">公開前・日次・緊急時</p>
+      </div>
+      <div class="two-col">
+        <div class="card">
+          <h3>公開前にやること</h3>
+          <div class="steps">
+            <div class="step">
+              <div class="num">A</div>
+              <div>
+                <div class="step-title">数値と説明文の合意</div>
+                <div class="step-desc">33% / 67%、Cashdrop 時刻、紹介 15% / +10%、+10% / −30% レンジ、ブリッジ手数料 0% を決定。</div>
+              </div>
+            </div>
+            <div class="step">
+              <div class="num">B</div>
+              <div>
+                <div class="step-title">権限とウォレット整理</div>
+                <div class="step-desc">Vault owner、Airdrop owner、keeper、operatorWallet、緊急停止責任者を決める。Cashdropはユーザー操作なしで自動送金する。</div>
+              </div>
+            </div>
+            <div class="step">
+              <div class="num">C</div>
+              <div>
+                <div class="step-title">インフラ確認</div>
+                <div class="step-desc">Vercel 本番 URL、RPC、WalletConnect、deployment JSON、cron ホスト、GitHub Actions / VPS 移行方針を確認。</div>
+              </div>
+            </div>
+            <div class="step">
+              <div class="num">D</div>
+              <div>
+                <div class="step-title">Mainnet 前のデモ削除</div>
+                <div class="step-desc">未接続時のサンプル残高・APR・Cashdrop 表示は本番公開前に無効化する。</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>毎日見ること</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>確認項目</th>
+                <th>見る場所</th>
+                <th>異常時の初動</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>keeper / rebalance 成功</td>
+                <td>cron ログ、Admin Vault / Pools</td>
+                <td>価格取得、oracle 乖離、keeper ガス、RPC を確認。</td>
+              </tr>
+              <tr>
+                <td>daily rewards / 自動送金成功</td>
+                <td>script ログ、Admin Rewards</td>
+                <td>harvest、配分リスト、distributeRewards、deployment JSON 更新を確認。</td>
+              </tr>
+              <tr>
+                <td>Cashdrop 自動送金</td>
+                <td>Cashdrop UI、Explorer、問い合わせ</td>
+                <td>対象者JSON、distributionId、送金Tx、Airdrop残高、ガス不足を確認。</td>
+              </tr>
+              <tr>
+                <td>運営受取</td>
+                <td>operatorWallet、Explorer</td>
+                <td>33% 受取、HYPE 換金設定、残高差分を確認。</td>
+              </tr>
+              <tr>
+                <td>フロント反映</td>
+                <td>本番 URL、Vercel deployment</td>
+                <td><code>998.json</code> / <code>999.json</code> 変更後の redeploy を確認。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="callout danger-box">
+        <strong>緊急時:</strong> Cashdrop は Airdrop owner が pause、Vault 入出金は Vault owner が pause。異常価格での rebalance は oracle deviation で revert する設計ですが、責任者・連絡網・判断基準は本番前に必ず決めてください。
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <h2>ユーザー接点と運営対応</h2>
+        <p class="section-note">CS・運営チーム向け早見表</p>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>ユーザーの状態</th>
+            <th>画面上の主な場所</th>
+            <th>ユーザーへの案内</th>
+            <th>運営が裏で確認すること</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>ウォレット未接続</td>
+            <td>Header / Wallet Modal</td>
+            <td>ウォレット接続と対象チェーンへの切替を案内。</td>
+            <td>Mainnet 公開時はゲストデモ表示が残っていないか確認。</td>
+          </tr>
+          <tr>
+            <td>資金が別チェーンにある</td>
+            <td>Bridge</td>
+            <td>Mainnet 999 では Li.FI、Testnet 998 では直接 faucet / 手動準備を案内。</td>
+            <td>Li.FI API、手数料 0%、slippage 初期値 0.5% を確認。</td>
+          </tr>
+          <tr>
+            <td>deposit できない</td>
+            <td>Position</td>
+            <td>USDC/HYPE 残高、approve、ガス、チェーンを確認。</td>
+            <td>Vault pause、deployment address、RPC、ProjectXAdapter 状態を確認。</td>
+          </tr>
+          <tr>
+            <td>Cashdrop が 0</td>
+            <td>Cashdrop</td>
+            <td>対象期間の Vault share、対象 wallet、自動送金Txを確認。</td>
+            <td>airdropEntries、distributionId、daily rewards 成功を確認。</td>
+          </tr>
+          <tr>
+            <td>送金が見当たらない</td>
+            <td>Cashdrop</td>
+            <td>ユーザー操作は不要。対象外か送金Tx未反映かを確認すると説明。</td>
+            <td>Distributedイベント、対象者リスト、ウォレットアドレスを確認。</td>
+          </tr>
+          <tr>
+            <td>出金後の資産構成が想定と違う</td>
+            <td>Position / Wallet</td>
+            <td>Vault 構成比に応じて USDC + WHYPE で返ると説明。</td>
+            <td>Vault TVL、adapter position、Project X pool の状態を確認。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <h2>本番前に未決定だと止まる項目</h2>
+        <p class="section-note">運営ミーティング用チェック</p>
+      </div>
+      <div class="two-col">
+        <div class="card">
+          <h3>ビジネス・ユーザー説明</h3>
+          <p><span class="tag warning">要決定</span> 33% / 67% の最終合意</p>
+          <p><span class="tag good">決定</span> Claimボタンは廃止し、毎朝7時に対象者へUSDCを自動送金</p>
+          <p><span class="tag warning">要決定</span> 紹介報酬の説明文と不正対策</p>
+          <p><span class="tag warning">要決定</span> 保証 APR ではないこと、DeFi リスク、利用規約・プライバシーポリシー</p>
+        </div>
+        <div class="card">
+          <h3>開発・DevOps</h3>
+          <p><span class="tag danger">必須</span> Mainnet 999 でゲストデモモードを無効化</p>
+          <p><span class="tag danger">必須</span> Production Admin は無効化。必要時は Preview / ローカルで利用</p>
+          <p><span class="tag warning">要決定</span> owner / keeper / operatorWallet の管理者とバックアップ</p>
+          <p><span class="tag warning">要決定</span> Mac cron 暫定運用から VPS または GitHub Actions へ移行する時期</p>
+        </div>
+      </div>
+      <div class="callout">
+        <strong>参照元:</strong>
+        <a href="./product-overview.md">product-overview.md</a>、
+        <a href="./app-overview.md">app-overview.md</a>、
+        <a href="./admin-guide.md">admin-guide.md</a>、
+        <a href="./本番運用/運営確認事項.md">本番運用/運営確認事項.md</a>。
+      </div>
+    </section>
+
+    <div class="footer">
+      Hyperpool user/operator flow · 更新: 2026-06-25 · 単体 HTML 資料
+    </div>
+  </main>
+</body>
+</html>

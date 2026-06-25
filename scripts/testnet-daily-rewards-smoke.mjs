@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Testnet daily-rewards smoke without harvest (real USDC cannot be mock-minted on 998).
- * Simulates the 70% user pool: fund airdrop from wallet USDC + set Merkle from vaultShareHolders.
+ * Simulates the 67% user pool: fund airdrop from wallet USDC + set Merkle from vaultShareHolders.
  *
  * Usage: source scripts/testnet-env.sh && POOL_USDC=0.02 node scripts/testnet-daily-rewards-smoke.mjs
  */

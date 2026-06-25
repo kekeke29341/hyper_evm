@@ -3,9 +3,11 @@ pragma solidity ^0.8.24;
 
 import {Script, console2} from "forge-std/Script.sol";
 import {VmSafe} from "forge-std/Vm.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {MerkleAirdrop} from "../src/core/MerkleAirdrop.sol";
 import {HyperCoreOracle} from "../src/core/HyperCoreOracle.sol";
 import {MockProjectXNPM} from "../src/mocks/MockProjectXNPM.sol";
+import {MockSwapRouter} from "../src/mocks/MockSwapRouter.sol";
 import {ProjectXAdapter} from "../src/core/ProjectXAdapter.sol";
 import {HyperpoolVault} from "../src/core/HyperpoolVault.sol";
 import {ReferralRegistry} from "../src/core/ReferralRegistry.sol";
@@ -34,6 +36,13 @@ contract DeployHyperpool is Script {
             MockProjectXNPM mockNpm = new MockProjectXNPM();
             npm = address(mockNpm);
             console2.log("Deployed MockProjectXNPM for testnet", npm);
+        }
+
+        address swapRouter = ProjectXConstants.swapRouterForChain(chainId);
+        if (swapRouter == address(0) && chainId == HyperCoreConstants.CHAIN_ID_TESTNET) {
+            MockSwapRouter mockRouter = new MockSwapRouter(42e6 * 1e12);
+            swapRouter = address(mockRouter);
+            console2.log("Deployed MockSwapRouter for testnet", swapRouter);
         }
 
         require(npm != address(0), "DeployHyperpool: NPM not configured for chain");
@@ -70,6 +79,18 @@ contract DeployHyperpool is Script {
         adapter.setVault(address(vault));
 
         airdrop.setVaultShareToken(address(vault));
+
+        if (swapRouter != address(0)) {
+            vault.setSwapRouter(swapRouter);
+            console2.log("Swap router configured", swapRouter);
+            if (chainId == HyperCoreConstants.CHAIN_ID_TESTNET) {
+                uint256 fund = 100e6;
+                if (IERC20(usdc).balanceOf(deployer) >= fund) {
+                    IERC20(usdc).transfer(swapRouter, fund);
+                    console2.log("MockSwapRouter prefunded USDC", fund);
+                }
+            }
+        }
 
         address pool = ProjectXConstants.poolForChain(chainId);
         if (pool != address(0)) {

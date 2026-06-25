@@ -16,7 +16,7 @@ export function RewardsPanel() {
     <div className="space-y-4">
       <AdminCard
         title="Fee distribution"
-        subtitle="Collected Project X LP fees — daily USDC Cashdrop to Vault shareholders"
+        subtitle="Collected LP fees — daily USDC auto payout to Vault shareholders"
       >
         {!isVaultOwner && (
           <div className="mb-4 px-3 py-2 rounded-lg bg-amber-900/20 border border-amber-800/40 text-xs text-amber-300">
@@ -25,12 +25,12 @@ export function RewardsPanel() {
         )}
 
         <div className="grid grid-cols-2 gap-3">
-          <StatBox label="User pool (Merkle)" value={`${userSharePct}%`} sub="Daily USDC Cashdrop" />
+          <StatBox label="User pool" value={`${userSharePct}%`} sub="Daily USDC auto payout" />
           <StatBox label="Operator share" value={`${opsSharePct}%`} sub={String(operatorWallet ?? "—").slice(0, 14) + "…"} />
           <StatBox
             label="Pending user rewards"
             value={pendingUserRewards !== undefined ? formatUnits(pendingUserRewards as bigint, 6) : "—"}
-            sub="USDC in vault (70% pool)"
+            sub="USDC in vault (67% pool)"
           />
           <StatBox
             label="Vault assets (USDC)"
@@ -43,9 +43,10 @@ export function RewardsPanel() {
       <AdminCard title="Daily runbook">
         <ul className="text-sm text-zinc-400 space-y-2 list-disc list-inside">
           <li>JST 7:00 — keeper runs harvest via vault (or scripts/daily-rewards.mjs)</li>
-          <li>30% USDC sent to operator wallet; 70% accrues as pendingUserRewards</li>
-          <li>Build Merkle tree from vault share holders (+ referral boosts) → set root on Airdrop tab</li>
-          <li>Pull pending rewards to MerkleAirdrop → fund → users claim JST 7:00–9:00</li>
+          <li>33% USDC sent to operator wallet; 67% accrues as pendingUserRewards</li>
+          <li>Build recipient list from vault share holders (+ referral boosts)</li>
+          <li>Pull pending rewards to MerkleAirdrop → distributeRewards sends USDC directly to users</li>
+          <li>No user claim button or claim window; users simply receive the payout in their wallet</li>
         </ul>
       </AdminCard>
     </div>

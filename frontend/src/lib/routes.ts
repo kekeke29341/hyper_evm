@@ -38,11 +38,11 @@ const TAB_PAGE_METADATA: Record<TabId, Pick<Metadata, "title" | "description">> 
   },
   liquidity: {
     title: "Position | Hyperpool",
-    description: "Manage your Project X managed LP position, add liquidity, and track vault shares.",
+    description: "Manage your managed LP position, add liquidity, and track vault shares.",
   },
   cashdrop: {
     title: "Cashdrop | Hyperpool",
-    description: "Claim your daily USDC share of collected trading fees (JST 7:00–9:00).",
+    description: "Receive your daily USDC share of collected trading fees automatically at JST 7:00.",
   },
   affiliate: {
     title: "Affiliate | Hyperpool",

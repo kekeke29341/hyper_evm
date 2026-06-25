@@ -1,5 +1,7 @@
 # セキュリティ再レビュー & 修正案(2026-06-12)
 
+> **履歴資料:** 本レビューは旧自前AMM（`HyperpoolPair` / `HyperpoolRouter` / `PointsDistributor`）を含む時点のものです。現行Mainnetモデルは `HyperpoolVault` → `ProjectXAdapter` → Project X NPM の代理LPです。Mainnet判断では最新の `docs/architecture.md` と `docs/本番運用/本番環境運用.md` を正本として参照してください。
+
 対象: コントラクト全体(`contracts/src`)、フロントエンド、デプロイ/運用スクリプト、CI、テスト十分性。
 手法: 4 系統の独立レビュー(コア AMM / インセンティブ系 / 運用・Web 層 / テスト評価)+ Critical/High はソースコードで直接裏取り済み。
 

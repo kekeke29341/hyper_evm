@@ -4,13 +4,13 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Loader2, ChevronRight } from "lucide-react";
-import { PROJECT_X_POOL } from "@/lib/constants";
+import { PROJECT_X_POOL, MANAGED_LP_RANGE } from "@/lib/constants";
 import { useI18n } from "@/lib/i18n";
 import { useTokenBalance } from "@/lib/hooks/useDeFi";
 import {
   formatUsd,
   poolPriceUsdcPerKhype,
-  rangeBounds,
+  managedRangeBounds,
 } from "@/lib/liquidity/metrics";
 import { cn } from "@/lib/utils";
 
@@ -54,7 +54,7 @@ export function CreatePositionModal({
   }, [open]);
 
   const price = poolPriceUsdcPerKhype(reserveKhype, reserveUsdc);
-  const bounds = rangeBounds(price, PROJECT_X_POOL.upperRangePct, PROJECT_X_POOL.lowerRangePct);
+  const bounds = managedRangeBounds(price);
 
   const sourceToken: "kHYPE" | "USDC" = funding === "wallet-khype" ? "kHYPE" : "USDC";
   const balance = funding === "wallet-khype" ? khypeBal.balance : usdcBal.balance;
@@ -212,10 +212,9 @@ export function CreatePositionModal({
 
                 <section>
                   <p className="text-xs text-zinc-500 mb-2">{t("position.rangeWidth")}</p>
-                  <p className="text-sm text-cyan-400 font-medium">
-                    +{PROJECT_X_POOL.upperRangePct}% / −{PROJECT_X_POOL.lowerRangePct}%
-                  </p>
-                  <p className="mt-2 text-[10px] text-zinc-500">{t("position.rangeV2Note")}</p>
+                  <p className="text-sm text-cyan-400 font-medium">{MANAGED_LP_RANGE.label}</p>
+                  <p className="mt-2 text-[10px] text-zinc-500">{t("position.managedRangeFixed")}</p>
+                  <p className="mt-1 text-[10px] text-zinc-500">{t("position.rangeV2Note")}</p>
                   <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                     <div className="p-2 rounded-lg bg-zinc-900/60 border border-zinc-800">
                       <p className="text-zinc-500">{t("position.lower")}</p>
@@ -245,8 +244,7 @@ export function CreatePositionModal({
                     {amount} {sourceToken === "kHYPE" ? "HYPE" : sourceToken} → Vault
                   </p>
                   <p className="text-zinc-500 text-xs">
-                    {t("position.rangeWidth")}: +{PROJECT_X_POOL.upperRangePct}% / −
-                    {PROJECT_X_POOL.lowerRangePct}% ({bounds.lower} – {bounds.upper})
+                    {t("position.rangeWidth")}: {MANAGED_LP_RANGE.label} ({bounds.lower} – {bounds.upper})
                   </p>
                   <p className="text-[10px] text-zinc-500">{t("position.feeSplitFootnote")}</p>
                 </div>

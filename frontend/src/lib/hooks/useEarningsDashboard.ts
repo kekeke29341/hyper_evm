@@ -20,18 +20,12 @@ import {
   fetchOnChainEarningsClaims,
   ON_CHAIN_EARNINGS_CHAIN_IDS,
 } from "@/lib/earnings/onChain";
-import {
-  buildDemoEarningsClaims,
-  DEMO_POSITION,
-  demoPositionStart,
-} from "@/lib/demo/data";
 import { useDeployment, useVaultBalance } from "@/lib/hooks/useDeFi";
 import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
 import { useI18n } from "@/lib/i18n";
 
 export function useEarningsDashboard() {
   const { address } = useConnection();
-  const isGuestDemo = !address;
   const chainId = useEffectiveChainId();
   const { locale } = useI18n();
   const deployment = useDeployment();
@@ -109,25 +103,17 @@ export function useEarningsDashboard() {
     }
   }, [vaultBalance.hasVaultPosition, startKey, refreshLocal]);
 
-  const demoClaims = useMemo(() => buildDemoEarningsClaims(), []);
-
   const claims = useMemo(
     () =>
-      isGuestDemo
-        ? demoClaims
-        : onChainEnabled
-          ? mergeEarningsClaims(onChainClaims, localClaims)
-          : localClaims,
-    [isGuestDemo, demoClaims, onChainEnabled, onChainClaims, localClaims]
+      onChainEnabled
+        ? mergeEarningsClaims(onChainClaims, localClaims)
+        : localClaims,
+    [onChainEnabled, onChainClaims, localClaims]
   );
 
-  const positionValueUsd = isGuestDemo
-    ? DEMO_POSITION.valueUsd
-    : vaultBalance.hasVaultPosition
-      ? vaultBalance.valueUsd
-      : 0;
+  const positionValueUsd = vaultBalance.hasVaultPosition ? vaultBalance.valueUsd : 0;
 
-  const effectivePositionStart = isGuestDemo ? demoPositionStart() : positionStart;
+  const effectivePositionStart = positionStart;
 
   const metrics = useMemo(
     () =>
@@ -152,7 +138,7 @@ export function useEarningsDashboard() {
 
   return {
     hasDeployment: !!deployment,
-    hasPosition: isGuestDemo || vaultBalance.hasVaultPosition,
+    hasPosition: vaultBalance.hasVaultPosition,
     positionValueUsd,
     vaultAddress: deployment ? getVaultAddress(deployment) : undefined,
     metrics,
@@ -161,9 +147,8 @@ export function useEarningsDashboard() {
     setChartMode,
     monthlyRows,
     hasHistory: claims.length > 0,
-    onChainSync: isGuestDemo ? false : onChainEnabled,
-    onChainLoading: isGuestDemo ? false : onChainLoading,
-    isGuestDemo,
+    onChainSync: onChainEnabled,
+    onChainLoading,
     refresh: refreshLocal,
     earningsKey,
   };

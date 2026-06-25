@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title ReferralRegistry — dual-reward referral (15% referrer / 10% referee boost on USDC Cashdrop)
-/// @dev applyRefereeBoost is reserved for future Cashdrop allocation; not used by PointsDistributor (removed).
+/// @dev applyRefereeBoost is available for Cashdrop allocation helpers; daily payouts currently calculate boosts off-chain.
 contract ReferralRegistry is Ownable {
     uint256 public constant REFERRER_BONUS_BPS = 1500; // 15%
     uint256 public constant REFEREE_BOOST_BPS = 1000; // 10%

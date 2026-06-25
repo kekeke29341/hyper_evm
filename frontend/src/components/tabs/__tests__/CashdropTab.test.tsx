@@ -44,4 +44,10 @@ describe("CashdropTab", () => {
     render(<CashdropTab />);
     expect(screen.getByText("common.connectWallet")).toBeInTheDocument();
   });
+
+  it("shows USDC-only harvest disclosure notes", () => {
+    render(<CashdropTab />);
+    expect(screen.getByText("cashdrop.usdcOnlyNote")).toBeInTheDocument();
+    expect(screen.getByText("cashdrop.hypeFeeNote")).toBeInTheDocument();
+  });
 });

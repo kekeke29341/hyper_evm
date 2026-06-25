@@ -70,6 +70,28 @@ async function main() {
     });
   }
 
+  const [swapRouter, convertEnabled, operatorBps] = await Promise.all([
+    client.readContract({ address: vault, abi: vaultAbi, functionName: "swapRouter" }),
+    client.readContract({ address: vault, abi: vaultAbi, functionName: "convertHypeFeesToUsdc" }),
+    client.readContract({ address: vault, abi: vaultAbi, functionName: "operatorFeeBps" }),
+  ]);
+
+  if (swapRouter && swapRouter !== "0x0000000000000000000000000000000000000000") {
+    checks.push({ label: "Vault swapRouter configured", ok: true, detail: swapRouter });
+  } else {
+    checks.push({ label: "Vault swapRouter configured", ok: false, detail: "not set" });
+  }
+  checks.push({
+    label: "convertHypeFeesToUsdc",
+    ok: convertEnabled === true,
+    detail: String(convertEnabled),
+  });
+  checks.push({
+    label: "operatorFeeBps",
+    ok: operatorBps === 3300n,
+    detail: String(operatorBps),
+  });
+
   const totalAssets = await client.readContract({
     address: vault,
     abi: vaultAbi,

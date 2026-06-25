@@ -5,11 +5,13 @@ type WriteContract = (args: {
   abi: readonly unknown[];
   functionName: string;
   args: readonly unknown[];
+  chainId?: number;
 }) => Promise<`0x${string}`>;
 
 type Erc20Abi = readonly unknown[];
 
-/** Approve only the exact amount needed — avoids excessive token allowances */
+/** Approve only the exact amount needed — avoids excessive token allowances.
+ *  Pass `chainId` to pin the approve tx to the deployment chain (must match the read above). */
 export async function ensureExactAllowance(
   publicClient: PublicClient,
   writeContract: WriteContract,
@@ -17,7 +19,8 @@ export async function ensureExactAllowance(
   erc20Abi: Erc20Abi,
   owner: Address,
   spender: Address,
-  amount: bigint
+  amount: bigint,
+  chainId?: number
 ) {
   const allowance = (await publicClient.readContract({
     address: token,
@@ -32,6 +35,7 @@ export async function ensureExactAllowance(
       abi: erc20Abi,
       functionName: "approve",
       args: [spender, amount],
+      ...(chainId !== undefined ? { chainId } : {}),
     });
   }
 }

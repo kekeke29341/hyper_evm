@@ -6,7 +6,6 @@ import { formatUnits } from "viem";
 import { useConnection, usePublicClient } from "wagmi";
 import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
 import { getDeployment } from "@/lib/contracts";
-import { useCashdrop } from "@/lib/hooks/useDeFi";
 import { useReferralStats } from "@/lib/hooks/useReferralAnalytics";
 import { computeReferrerCommission } from "@/lib/referral/earnings";
 import { fetchReferrerMap } from "@/lib/referral/registry";
@@ -17,7 +16,6 @@ export function useReferralEarnings() {
   const deployment = getDeployment(chainId);
   const publicClient = usePublicClient({ chainId });
   const { referralCount } = useReferralStats();
-  const { hasRewards, alreadyClaimed, rootSet } = useCashdrop();
 
   const { data: referrers, isLoading } = useQuery({
     queryKey: [
@@ -50,13 +48,12 @@ export function useReferralEarnings() {
     commissionRaw > 0n ? formatUnits(commissionRaw, 6) : referralCount > 0 ? "0.00" : null;
 
   const hasCommissionThisRound = commissionRaw > 0n;
-  const claimableViaCashdrop = hasCommissionThisRound && hasRewards && !alreadyClaimed && rootSet;
 
   return {
     isLoading,
     commissionUsdc,
     hasCommissionThisRound,
-    claimableViaCashdrop,
-    alreadyClaimedThisRound: hasCommissionThisRound && alreadyClaimed,
+    claimableViaCashdrop: hasCommissionThisRound,
+    alreadyClaimedThisRound: false,
   };
 }

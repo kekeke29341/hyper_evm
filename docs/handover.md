@@ -17,8 +17,8 @@
 
 - Deposit（Li.FI bridge → USDC）/ Position（Vault LP）
 - Keeper rebalance（+10% / −30%）
-- 日次 USDC Cashdrop（手数料 70% · JST 7–9）
-- ダッシュボード（claim 履歴の可視化）
+- 日次 USDC Cashdrop（手数料 67% · JST 7:00 自動送金）
+- ダッシュボード（自動送金履歴の可視化）
 - Admin パネル（`/admin` · Preview/ローカルのみ推奨）
 
 ---
@@ -103,7 +103,7 @@
 
 - `.env.local` / `PRIVATE_KEY` は **絶対に commit しない**
 - Admin パネルは現状オープン — 本番前に要保護
-- MerkleAirdrop の `fund` / `setMerkleRoot` は owner 権限
+- MerkleAirdrop の `distributeRewards` / `pause` / `unpause` は owner 権限
 
 ---
 

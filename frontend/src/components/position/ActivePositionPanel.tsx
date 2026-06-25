@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2, Plus, Coins, X } from "lucide-react";
-import { PROJECT_X_POOL } from "@/lib/constants";
+import { PROJECT_X_POOL, MANAGED_LP_RANGE } from "@/lib/constants";
 import { useI18n } from "@/lib/i18n";
 import { PriceRangeBar } from "@/components/position/PriceRangeBar";
 import {
@@ -27,6 +27,7 @@ export function ActivePositionPanel({
   onCollectFees,
   onClose,
   adding,
+  canHarvest,
   collecting,
   closing,
 }: {
@@ -42,6 +43,7 @@ export function ActivePositionPanel({
   onCollectFees: () => void;
   onClose: () => void;
   adding: boolean;
+  canHarvest: boolean;
   collecting: boolean;
   closing: boolean;
 }) {
@@ -88,7 +90,7 @@ export function ActivePositionPanel({
         </div>
         <div className="flex justify-between pt-2 border-t border-zinc-800">
           <span className="text-zinc-500">{t("position.rangeWidth")}</span>
-          <span className="text-zinc-300 tabular-nums">{rangeWidthPct.toFixed(1)}%</span>
+          <span className="text-zinc-300 tabular-nums">{MANAGED_LP_RANGE.label}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-zinc-500">{t("position.estimatedApy")}</span>
@@ -104,7 +106,7 @@ export function ActivePositionPanel({
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 @[26rem]:grid-cols-3 gap-2.5">
+      <div className="mt-4 grid grid-cols-1 @[26rem]:grid-cols-2 gap-2.5">
         <button
           type="button"
           onClick={onAdd}
@@ -114,19 +116,21 @@ export function ActivePositionPanel({
           {adding ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Plus className="w-4 h-4 shrink-0" />}
           <span>{t("position.addLiquidity")}</span>
         </button>
-        <button
-          type="button"
-          onClick={onCollectFees}
-          disabled={collecting}
-          className="w-full inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-3 rounded-xl border border-zinc-600 text-zinc-300 text-sm font-medium hover:border-amber-500/40 transition-colors disabled:opacity-50"
-        >
-          {collecting ? (
-            <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-          ) : (
-            <Coins className="w-4 h-4 shrink-0" />
-          )}
-          <span>{t("position.collectFees")}</span>
-        </button>
+        {canHarvest && (
+          <button
+            type="button"
+            onClick={onCollectFees}
+            disabled={collecting}
+            className="w-full inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-3 rounded-xl border border-zinc-600 text-zinc-300 text-sm font-medium hover:border-amber-500/40 transition-colors disabled:opacity-50"
+          >
+            {collecting ? (
+              <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+            ) : (
+              <Coins className="w-4 h-4 shrink-0" />
+            )}
+            <span>{t("position.collectFees")}</span>
+          </button>
+        )}
         <button
           type="button"
           onClick={onClose}

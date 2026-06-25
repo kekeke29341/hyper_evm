@@ -66,7 +66,7 @@ forge test --match-path test/ProjectXAdapterTest.t.sol
 | `test/HyperpoolVaultTest.t.sol` | Vault deposit/withdraw/harvest/rebalance |
 | `test/ProjectXAdapterTest.t.sol` | Adapter + Mock NPM / pool NAV 統合 |
 | `test/ProjectXPriceTest.t.sol` | Project X 価格・tick 変換 |
-| `test/MerkleAirdropTest.t.sol` | Cashdrop claim / revert 系 |
+| `test/MerkleAirdropTest.t.sol` | Cashdrop 自動送金 / legacy claim / revert 系 |
 | `test/ReferralRegistryTest.t.sol` | 紹介コード登録・紐付け |
 
 ## フロントエンド

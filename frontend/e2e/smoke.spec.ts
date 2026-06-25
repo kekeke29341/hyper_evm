@@ -12,7 +12,6 @@ test.describe("Hyperpool smoke", () => {
     await page.goto("/");
     await expect(page).toHaveTitle(/Hyperpool/i);
     await expect(page.getByRole("navigation")).toBeVisible();
-    await expect(page.getByRole("region", { name: /wallet alert notice/i })).toBeVisible();
   });
 
   test("can switch between main tabs and update URL", async ({ page }) => {
@@ -70,7 +69,8 @@ test.describe("Testnet deployment (998)", () => {
     test.skip(process.env.NEXT_PUBLIC_ADMIN_ENABLED !== "true", "Admin disabled in this build");
     await page.goto("/admin");
     await expect(page).toHaveURL(/\/admin/);
-    await expect(page.getByText("Admin Dashboard")).toBeVisible();
+    await expect(page.getByRole("heading", { name: /connect owner wallet|admin/i })).toBeVisible();
+    await expect(page.getByRole("navigation")).toBeVisible();
   });
 
   test("deposit tab shows bridge UI when disconnected", async ({ page }) => {

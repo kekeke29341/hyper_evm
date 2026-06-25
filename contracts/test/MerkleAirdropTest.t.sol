@@ -70,7 +70,7 @@ contract MerkleAirdropTest is Test {
         assertEq(token.balanceOf(alice), ALICE_AMOUNT);
     }
 
-    function test_RevertClaimWithoutVaultShares() public {
+    function test_ClaimWithSnapshotSharesAfterWithdraw() public {
         airdrop.setVaultShareToken(address(vaultShares));
 
         bytes32 leaf = _leaf(alice, ALICE_AMOUNT, ALICE_MIN_SHARES, true);
@@ -79,8 +79,9 @@ contract MerkleAirdropTest is Test {
 
         bytes32[] memory proof = new bytes32[](0);
         vm.prank(alice);
-        vm.expectRevert("MerkleAirdrop: INSUFFICIENT_SHARES");
         airdrop.claim(ALICE_AMOUNT, ALICE_MIN_SHARES, proof);
+
+        assertEq(token.balanceOf(alice), ALICE_AMOUNT);
     }
 
     function test_RevertDoubleClaim() public {
@@ -134,7 +135,7 @@ contract MerkleAirdropTest is Test {
         airdrop.setMerkleRoot(bytes32(uint256(1)), block.timestamp - 1);
     }
 
-    function test_RecoverUnclaimedAfterDeadline() public {
+    function test_RecoverUnclaimedRewardTokenDisabled() public {
         bytes32 root = _leaf(alice, ALICE_AMOUNT, 0, false);
         airdrop.setMerkleRoot(root, block.timestamp + 1 days);
         airdrop.fund(ALICE_AMOUNT + 1000e6);
@@ -142,17 +143,71 @@ contract MerkleAirdropTest is Test {
         vm.warp(block.timestamp + 2 days);
 
         address treasury = makeAddr("treasury");
+        vm.expectRevert("MerkleAirdrop: CARRY_FORWARD_ONLY");
         airdrop.recoverUnclaimed(treasury);
-        assertEq(token.balanceOf(treasury), ALICE_AMOUNT + 1000e6);
+        assertEq(token.balanceOf(treasury), 0);
+        assertEq(token.balanceOf(address(airdrop)), ALICE_AMOUNT + 1000e6);
     }
 
-    function test_RevertRecoverBeforeDeadline() public {
-        bytes32 root = _leaf(alice, ALICE_AMOUNT, 0, false);
-        airdrop.setMerkleRoot(root, block.timestamp + 7 days);
-        airdrop.fund(ALICE_AMOUNT);
+    function test_DistributeRewardsByOwner() public {
+        airdrop.fund(ALICE_AMOUNT + BOB_AMOUNT);
 
-        vm.expectRevert("MerkleAirdrop: NOT_EXPIRED");
-        airdrop.recoverUnclaimed(makeAddr("treasury"));
+        address[] memory accounts = new address[](2);
+        accounts[0] = alice;
+        accounts[1] = bob;
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = ALICE_AMOUNT;
+        amounts[1] = BOB_AMOUNT;
+
+        bytes32 distributionId = keccak256("daily-1");
+        airdrop.distributeRewards(distributionId, accounts, amounts);
+
+        assertEq(token.balanceOf(alice), ALICE_AMOUNT);
+        assertEq(token.balanceOf(bob), BOB_AMOUNT);
+        assertTrue(airdrop.distributionExecuted(distributionId));
+    }
+
+    function test_RevertDuplicateDistribution() public {
+        airdrop.fund(ALICE_AMOUNT * 2);
+
+        address[] memory accounts = new address[](1);
+        accounts[0] = alice;
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = ALICE_AMOUNT;
+
+        bytes32 distributionId = keccak256("daily-1");
+        airdrop.distributeRewards(distributionId, accounts, amounts);
+
+        vm.expectRevert("MerkleAirdrop: DISTRIBUTED");
+        airdrop.distributeRewards(distributionId, accounts, amounts);
+    }
+
+    function test_RevertNonOwnerDistribution() public {
+        address[] memory accounts = new address[](1);
+        accounts[0] = alice;
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = ALICE_AMOUNT;
+
+        vm.prank(alice);
+        vm.expectRevert();
+        airdrop.distributeRewards(keccak256("daily-1"), accounts, amounts);
+    }
+
+    function test_RecoverForeignToken() public {
+        MockERC20 other = new MockERC20("OTHER", "OTHER", 18);
+        other.mint(address(airdrop), 1 ether);
+
+        address treasury = makeAddr("treasury");
+        airdrop.recoverForeignToken(other, treasury, 1 ether);
+        assertEq(other.balanceOf(treasury), 1 ether);
+    }
+
+    function test_RevertRecoverRewardTokenAsForeignToken() public {
+        vm.expectRevert("MerkleAirdrop: REWARD_TOKEN");
+        airdrop.recoverForeignToken(token, makeAddr("treasury"), 1);
     }
 
     function test_NewRootAllowsClaimAfterPreviousRoot() public {
@@ -172,5 +227,50 @@ contract MerkleAirdropTest is Test {
         vm.prank(alice);
         airdrop.claim(BOB_AMOUNT, 0, proof);
         assertEq(token.balanceOf(alice), ALICE_AMOUNT + BOB_AMOUNT);
+    }
+
+    /// @notice An account paid via distributeRewards cannot also claim the active root.
+    function test_ClaimBlockedAfterDistributeForSameRoot() public {
+        bytes32 root = _leaf(alice, ALICE_AMOUNT, 0, false);
+        airdrop.setMerkleRoot(root, block.timestamp + 7 days);
+        airdrop.fund(ALICE_AMOUNT * 2);
+
+        address[] memory accounts = new address[](1);
+        accounts[0] = alice;
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = ALICE_AMOUNT;
+        airdrop.distributeRewards(keccak256("daily-1"), accounts, amounts);
+
+        assertEq(token.balanceOf(alice), ALICE_AMOUNT);
+        assertTrue(airdrop.claimed(alice));
+
+        bytes32[] memory proof = new bytes32[](0);
+        vm.prank(alice);
+        vm.expectRevert("MerkleAirdrop: ALREADY_CLAIMED");
+        airdrop.claim(ALICE_AMOUNT, 0, proof);
+    }
+
+    /// @notice distributeRewards skips an account that already pulled the active root via claim.
+    function test_DistributeSkipsAlreadyClaimedAccount() public {
+        bytes32 root = _leaf(alice, ALICE_AMOUNT, 0, false);
+        airdrop.setMerkleRoot(root, block.timestamp + 7 days);
+        airdrop.fund(ALICE_AMOUNT + BOB_AMOUNT);
+
+        bytes32[] memory proof = new bytes32[](0);
+        vm.prank(alice);
+        airdrop.claim(ALICE_AMOUNT, 0, proof);
+        assertEq(token.balanceOf(alice), ALICE_AMOUNT);
+
+        // Operator batch re-includes alice (already claimed) plus bob; alice must be skipped.
+        address[] memory accounts = new address[](2);
+        accounts[0] = alice;
+        accounts[1] = bob;
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = ALICE_AMOUNT;
+        amounts[1] = BOB_AMOUNT;
+        airdrop.distributeRewards(keccak256("daily-1"), accounts, amounts);
+
+        assertEq(token.balanceOf(alice), ALICE_AMOUNT, "alice not double-paid");
+        assertEq(token.balanceOf(bob), BOB_AMOUNT, "bob paid once");
     }
 }

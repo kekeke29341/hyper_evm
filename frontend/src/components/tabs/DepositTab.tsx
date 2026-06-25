@@ -11,8 +11,6 @@ import { useI18n } from "@/lib/i18n";
 import { MainCard, PrimaryButton } from "@/components/ui/shared";
 import { getSlippageBps } from "@/components/layout/SettingsModal";
 import { useLiFiBridge, useLiFiQuote, formatLifiAmount } from "@/lib/hooks/useLiFi";
-import { DEMO_BRIDGE } from "@/lib/demo/data";
-import { useGuestDemo } from "@/lib/hooks/useGuestDemo";
 import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
 import { tabPath } from "@/lib/routes";
 import {
@@ -89,7 +87,6 @@ function TokenRow({
 
 export function DepositTab() {
   const { showToast, openWalletModal, isConnected } = useApp();
-  const { isGuestDemo } = useGuestDemo();
   const { t } = useI18n();
   const walletChainId = useChainId();
   const appChainId = useEffectiveChainId();
@@ -115,21 +112,13 @@ export function DepositTab() {
   const { execute: executeBridge, isPending: isBridgePending, isSuccess: isBridgeSuccess } =
     useLiFiBridge();
 
-  useEffect(() => {
-    if (isGuestDemo && !fromAmount) setFromAmount(DEMO_BRIDGE.fromAmount);
-  }, [isGuestDemo, fromAmount]);
-
   const bridgeAmountOut = useMemo(() => {
-    if (isGuestDemo && fromAmount && parseFloat(fromAmount) > 0) {
-      const ratio = parseFloat(DEMO_BRIDGE.toAmount) / parseFloat(DEMO_BRIDGE.fromAmount);
-      return (parseFloat(fromAmount) * ratio).toFixed(2);
-    }
     if (!lifiQuote.data) return "";
     return formatLifiAmount(
       lifiQuote.data.estimate.toAmount,
       lifiQuote.data.action.toToken.decimals
     );
-  }, [isGuestDemo, fromAmount, lifiQuote.data]);
+  }, [lifiQuote.data]);
 
   const fromTokenOptions = useMemo(() => getSwapTokensForChain(fromChain), [fromChain]);
   const toTokenOptions = useMemo(() => getSwapTokensForChain(toChain), [toChain]);
@@ -178,7 +167,7 @@ export function DepositTab() {
       ? (parseFloat(bridgeAmountOut) / parseFloat(fromAmount)).toFixed(4)
       : "—";
   const actionDisabled = isConnected
-    ? isBridgePending || !fromAmount || (!isGuestDemo && (!lifiQuote.data || lifiQuote.isFetching))
+    ? isBridgePending || !fromAmount || !lifiQuote.data || lifiQuote.isFetching
     : isBridgePending;
 
   return (
@@ -267,12 +256,12 @@ export function DepositTab() {
         readOnly
       />
 
-      {lifiQuote.isFetching && !isGuestDemo && (
+      {lifiQuote.isFetching && (
         <p className="text-xs text-zinc-500 mt-2 flex items-center gap-1">
           <Loader2 className="w-3 h-3 animate-spin" /> {t("deposit.bridgeQuoteLoading")}
         </p>
       )}
-      {lifiQuote.error && !isGuestDemo && (
+      {lifiQuote.error && (
         <p className="text-xs text-red-400/90 mt-2">{(lifiQuote.error as Error).message}</p>
       )}
 
@@ -282,24 +271,18 @@ export function DepositTab() {
         </p>
         <p>
           {t("deposit.slippage")}: {slippageBps / 100}% · {t("deposit.estGas")}:{" "}
-          {isGuestDemo
-            ? `$${DEMO_BRIDGE.gasUsd}`
-            : lifiQuote.data?.estimate.gasCosts?.[0]?.amountUSD
-              ? `$${lifiQuote.data.estimate.gasCosts[0].amountUSD}`
-              : "—"}
+          {lifiQuote.data?.estimate.gasCosts?.[0]?.amountUSD
+            ? `$${lifiQuote.data.estimate.gasCosts[0].amountUSD}`
+            : "—"}
         </p>
-        {(isGuestDemo || lifiQuote.data?.estimate.executionDuration !== undefined) && (
+        {lifiQuote.data?.estimate.executionDuration !== undefined && (
           <p>
             {t("deposit.bridgeDuration")}: ~
-            {isGuestDemo ? DEMO_BRIDGE.durationMinutes : lifiQuote.data?.estimate.executionDuration}{" "}
+            {lifiQuote.data.estimate.executionDuration}{" "}
             {t("deposit.bridgeMinutes")}
           </p>
         )}
       </div>
-
-      {isGuestDemo && (
-        <p className="mt-2 text-[11px] text-violet-300/80">{t("demo.bridgeNote")}</p>
-      )}
 
       <p className="mt-3 text-[11px] text-zinc-600">{t("deposit.afterBridge")}</p>
 

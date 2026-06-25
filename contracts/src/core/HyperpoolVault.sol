@@ -9,6 +9,7 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {ProjectXAdapter} from "./ProjectXAdapter.sol";
 import {HyperCoreOracle} from "./HyperCoreOracle.sol";
+import {IProjectXSwapRouter} from "../interfaces/IProjectXSwapRouter.sol";
 import {HyperCoreConstants} from "../libraries/HyperCoreConstants.sol";
 import {ProjectXConstants} from "../libraries/ProjectXConstants.sol";
 
@@ -30,18 +31,32 @@ contract HyperpoolVault is ERC20, Ownable, Pausable, ReentrancyGuard {
 
     address public keeper;
     address public operatorWallet;
+    address public swapRouter;
     uint256 public operatorFeeBps = ProjectXConstants.OPERATOR_FEE_BPS;
+    uint256 public feeSwapSlippageBps = 50;
+    bool public convertHypeFeesToUsdc = true;
 
-    /// @notice USDC reserved for user Merkle distribution (70% of collected USDC fees)
+    /// @notice USDC reserved for user Merkle distribution (67% of collected USDC fees)
     uint256 public pendingUserRewards;
 
     event Deposit(address indexed caller, address indexed receiver, uint256 amountUSDC, uint256 shares);
     event DepositHype(address indexed caller, address indexed receiver, uint256 amountHype, uint256 shares);
     event Withdraw(address indexed caller, address indexed receiver, uint256 shares, uint256 amountUSDC, uint256 amountHype);
-    event FeesHarvested(uint256 usdcFees, uint256 hypeFees, uint256 operatorUsdc, uint256 operatorHype, uint256 userUsdc);
+    event FeesHarvested(
+        uint256 usdcFees,
+        uint256 hypeFees,
+        uint256 usdcFromHypeSwap,
+        uint256 operatorUsdc,
+        uint256 operatorHype,
+        uint256 userUsdc
+    );
+    event SwapRouterUpdated(address indexed router);
+    event ConvertHypeFeesToUsdcUpdated(bool enabled);
+    event FeeSwapSlippageBpsUpdated(uint256 bps);
     event KeeperUpdated(address indexed keeper);
     event OperatorWalletUpdated(address indexed wallet);
     event RebalanceDeviationBpsUpdated(uint256 bps);
+    event ForeignTokenRecovered(address indexed token, address indexed to, uint256 amount);
 
     modifier onlyKeeperOrOwner() {
         require(msg.sender == keeper || msg.sender == owner(), "HyperpoolVault: NOT_KEEPER");
@@ -96,6 +111,22 @@ contract HyperpoolVault is ERC20, Ownable, Pausable, ReentrancyGuard {
         emit OperatorWalletUpdated(_wallet);
     }
 
+    function setSwapRouter(address _router) external onlyOwner {
+        swapRouter = _router;
+        emit SwapRouterUpdated(_router);
+    }
+
+    function setConvertHypeFeesToUsdc(bool enabled) external onlyOwner {
+        convertHypeFeesToUsdc = enabled;
+        emit ConvertHypeFeesToUsdcUpdated(enabled);
+    }
+
+    function setFeeSwapSlippageBps(uint256 bps) external onlyOwner {
+        require(bps <= ProjectXConstants.BPS, "HyperpoolVault: INVALID_BPS");
+        feeSwapSlippageBps = bps;
+        emit FeeSwapSlippageBpsUpdated(bps);
+    }
+
     function setMaxRebalanceDeviationBps(uint256 bps) external onlyOwner {
         require(bps <= ProjectXConstants.BPS, "HyperpoolVault: INVALID_BPS");
         maxRebalanceDeviationBps = bps;
@@ -128,9 +159,16 @@ contract HyperpoolVault is ERC20, Ownable, Pausable, ReentrancyGuard {
     /// @notice Primary deposit path — USDC only
     function depositUSDC(uint256 amount, address receiver) external nonReentrant whenNotPaused returns (uint256 shares) {
         require(amount > 0 && receiver != address(0), "HyperpoolVault: INVALID");
+
+        // Price shares on the pre-deposit NAV, before the incoming funds land in the vault
+        // (totalAssetsUsdc counts the vault's USDC balance, so reading it after the transfer
+        //  would double-count this deposit and under-mint shares to the depositor).
+        shares = previewSharesForDeposit(amount);
+        require(shares > 0, "HyperpoolVault: ZERO_SHARES");
+
         tokenUSDC.safeTransferFrom(msg.sender, address(this), amount);
 
-        shares = _mintShares(amount, receiver);
+        _mintShares(shares, receiver);
         _deployToAdapter(0, amount);
 
         emit Deposit(msg.sender, receiver, amount, shares);
@@ -139,14 +177,19 @@ contract HyperpoolVault is ERC20, Ownable, Pausable, ReentrancyGuard {
     /// @notice Optional HYPE deposit — valued in USDC via adapter ref price
     function depositHYPE(uint256 amount, address receiver) external nonReentrant whenNotPaused returns (uint256 shares) {
         require(amount > 0 && receiver != address(0), "HyperpoolVault: INVALID");
-        tokenWHYPE.safeTransferFrom(msg.sender, address(this), amount);
 
         uint256 price = adapter.refPriceUsdc6PerHype18();
         require(price > 0, "HyperpoolVault: NO_PRICE");
         uint256 usdcValue = _hypeToUsdc(amount, price);
         require(usdcValue > 0, "HyperpoolVault: ZERO_VALUE");
 
-        shares = _mintShares(usdcValue, receiver);
+        // Price shares on the pre-deposit NAV, before the incoming HYPE lands in the vault.
+        shares = previewSharesForDeposit(usdcValue);
+        require(shares > 0, "HyperpoolVault: ZERO_SHARES");
+
+        tokenWHYPE.safeTransferFrom(msg.sender, address(this), amount);
+
+        _mintShares(shares, receiver);
         _deployToAdapter(amount, 0);
 
         emit DepositHype(msg.sender, receiver, amount, shares);
@@ -175,12 +218,19 @@ contract HyperpoolVault is ERC20, Ownable, Pausable, ReentrancyGuard {
         emit Withdraw(msg.sender, receiver, shares, amountUsdc, amountHype);
     }
 
-    /// @notice Keeper/owner: collect Project X fees; split USDC 30% operator / 70% Merkle pool; HYPE fees 30% operator (70% stays in vault backing shares)
+    /// @notice Keeper/owner: collect Project X fees; optional HYPE→USDC swap; split 33% operator / 67% Merkle (all USDC when swap enabled)
     function harvestFees() external onlyKeeperOrOwner nonReentrant returns (uint256 userUsdc) {
         (uint256 amount0, uint256 amount1) = adapter.collectFees();
         (uint256 usdcFees, uint256 hypeFees) = _mapAdapterAmounts(amount0, amount1);
 
         if (usdcFees == 0 && hypeFees == 0) return 0;
+
+        uint256 usdcFromHypeSwap;
+        if (hypeFees > 0 && convertHypeFeesToUsdc && swapRouter != address(0)) {
+            usdcFromHypeSwap = _swapHypeFeesToUsdc(hypeFees);
+            usdcFees += usdcFromHypeSwap;
+            hypeFees = 0;
+        }
 
         uint256 operatorUsdc = (usdcFees * operatorFeeBps) / ProjectXConstants.BPS;
         userUsdc = usdcFees - operatorUsdc;
@@ -195,7 +245,18 @@ contract HyperpoolVault is ERC20, Ownable, Pausable, ReentrancyGuard {
         }
 
         pendingUserRewards += userUsdc;
-        emit FeesHarvested(usdcFees, hypeFees, operatorUsdc, operatorHype, userUsdc);
+        emit FeesHarvested(usdcFees, hypeFees, usdcFromHypeSwap, operatorUsdc, operatorHype, userUsdc);
+    }
+
+    /// @notice Recover ERC20 tokens accidentally sent to the vault (not WHYPE / USDC).
+    /// @dev Underlying assets back vault shares — use withdraw() for those. WHYPE/USDC mistaken
+    ///      sends increase shareholder NAV; owner must hold shares to withdraw them.
+    function recoverForeignToken(IERC20 token, address to, uint256 amount) external onlyOwner {
+        require(to != address(0), "HyperpoolVault: ZERO");
+        require(address(token) != address(tokenUSDC) && address(token) != address(tokenWHYPE), "HyperpoolVault: UNDERLYING");
+        require(amount > 0, "HyperpoolVault: ZERO_AMOUNT");
+        token.safeTransfer(to, amount);
+        emit ForeignTokenRecovered(address(token), to, amount);
     }
 
     /// @notice Owner pulls pending user rewards to fund Merkle airdrop (airdrop address only)
@@ -251,14 +312,46 @@ contract HyperpoolVault is ERC20, Ownable, Pausable, ReentrancyGuard {
         return (amount1, amount0);
     }
 
+    /// @dev USDC token amount (6 decimals) from a HYPE (1e18-wei) amount.
+    ///      refPrice canonical scale = humanPrice*1e18 (= USDC6/HYPE * 1e12), so the divisor is
+    ///      1e18 (wei) * 1e12 (price scale) = 1e30. Used for both NAV valuation and fee-swap min-out.
     function _hypeToUsdc(uint256 hypeAmount, uint256 priceUsdc6PerHype18) internal pure returns (uint256) {
         if (hypeAmount == 0 || priceUsdc6PerHype18 == 0) return 0;
-        return (hypeAmount * priceUsdc6PerHype18) / 1e18;
+        return (hypeAmount * priceUsdc6PerHype18) / 1e30;
     }
 
-    function _mintShares(uint256 amountUsdc, address receiver) internal returns (uint256 shares) {
-        shares = previewSharesForDeposit(amountUsdc);
-        require(shares > 0, "HyperpoolVault: ZERO_SHARES");
+    /// @dev Alias kept for fee-swap call sites; identical scale to _hypeToUsdc.
+    function _hypeFeeToUsdcTokens(uint256 hypeAmount, uint256 priceUsdc6PerHype18) internal pure returns (uint256) {
+        return _hypeToUsdc(hypeAmount, priceUsdc6PerHype18);
+    }
+
+    /// @dev Swap collected WHYPE fees to USDC via Project X router before 33/67 split
+    function _swapHypeFeesToUsdc(uint256 hypeIn) internal returns (uint256 usdcOut) {
+        uint256 price = adapter.refPriceUsdc6PerHype18();
+        if (price == 0) price = _oraclePriceUsdc6PerHype18();
+        if (price == 0) price = 42e6 * 1e12;
+
+        uint256 expectedOut = _hypeFeeToUsdcTokens(hypeIn, price);
+        uint256 minOut = (expectedOut * (ProjectXConstants.BPS - feeSwapSlippageBps)) / ProjectXConstants.BPS;
+
+        tokenWHYPE.forceApprove(swapRouter, hypeIn);
+        usdcOut = IProjectXSwapRouter(swapRouter).exactInputSingle(
+            IProjectXSwapRouter.ExactInputSingleParams({
+                tokenIn: address(tokenWHYPE),
+                tokenOut: address(tokenUSDC),
+                fee: adapter.fee(),
+                recipient: address(this),
+                deadline: block.timestamp + 1 hours,
+                amountIn: hypeIn,
+                amountOutMinimum: minOut,
+                sqrtPriceLimitX96: 0
+            })
+        );
+    }
+
+    /// @dev Mints `shares` (already priced on pre-deposit NAV by the caller). On the first
+    ///      deposit, also locks MINIMUM_VAULT_SHARES to DEAD to harden against share-inflation.
+    function _mintShares(uint256 shares, address receiver) internal {
         if (totalSupply() == 0) {
             _mint(DEAD, MINIMUM_VAULT_SHARES);
         }

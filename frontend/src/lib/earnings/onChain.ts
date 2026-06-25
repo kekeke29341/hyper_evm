@@ -7,14 +7,19 @@ import {
 } from "viem";
 import type { EarningsClaim } from "./history";
 
-/** Chains where Cashdrop Claimed events are indexed for earnings history */
-export const ON_CHAIN_EARNINGS_CHAIN_IDS = new Set([998, 31337]);
+/** Chains where Cashdrop payout events are indexed for earnings history */
+export const ON_CHAIN_EARNINGS_CHAIN_IDS = new Set([998, 999, 31337]);
 
 export const claimedEvent = parseAbiItem(
   "event Claimed(address indexed account, uint256 amount)"
 );
+export const distributedEvent = parseAbiItem(
+  "event Distributed(bytes32 indexed distributionId, address indexed account, uint256 amount)"
+);
 
 type ClaimedLog = Log<bigint, number, false, typeof claimedEvent>;
+type DistributedLog = Log<bigint, number, false, typeof distributedEvent>;
+type CashdropPayoutLog = ClaimedLog | DistributedLog;
 
 type LogScanPlan = { chunk: bigint; maxLookback: bigint; fastWindows: bigint[] };
 
@@ -71,9 +76,40 @@ async function getClaimedLogsInRange(
   });
 }
 
-function dedupeLogs(logs: ClaimedLog[]) {
+async function getDistributedLogsInRange(
+  publicClient: PublicClient,
+  airdropAddress: Address,
+  account: Address,
+  fromBlock: bigint,
+  toBlock: bigint
+): Promise<DistributedLog[]> {
+  return publicClient.getLogs({
+    address: airdropAddress,
+    event: distributedEvent,
+    args: { account },
+    fromBlock,
+    toBlock,
+    strict: true,
+  });
+}
+
+async function getPayoutLogsInRange(
+  publicClient: PublicClient,
+  airdropAddress: Address,
+  account: Address,
+  fromBlock: bigint,
+  toBlock: bigint
+): Promise<CashdropPayoutLog[]> {
+  const [claimed, distributed] = await Promise.all([
+    getClaimedLogsInRange(publicClient, airdropAddress, account, fromBlock, toBlock).catch(() => []),
+    getDistributedLogsInRange(publicClient, airdropAddress, account, fromBlock, toBlock).catch(() => []),
+  ]);
+  return [...claimed, ...distributed];
+}
+
+function dedupeLogs(logs: CashdropPayoutLog[]) {
   const seen = new Set<string>();
-  const out: ClaimedLog[] = [];
+  const out: CashdropPayoutLog[] = [];
   for (const log of logs) {
     const key = `${log.transactionHash}:${log.logIndex}`;
     if (seen.has(key)) continue;
@@ -95,7 +131,7 @@ async function fetchClaimedLogs(
   for (const window of plan.fastWindows) {
     const fromBlock = latest > window ? latest - window : 0n;
     try {
-      const logs = await getClaimedLogsInRange(
+      const logs = await getPayoutLogsInRange(
         publicClient,
         airdropAddress,
         account,
@@ -108,10 +144,10 @@ async function fetchClaimedLogs(
     }
   }
 
-  const collected: ClaimedLog[] = [];
+  const collected: CashdropPayoutLog[] = [];
   for (const { fromBlock, toBlock } of logScanRanges(latest, plan)) {
     try {
-      const batch = await getClaimedLogsInRange(
+      const batch = await getPayoutLogsInRange(
         publicClient,
         airdropAddress,
         account,

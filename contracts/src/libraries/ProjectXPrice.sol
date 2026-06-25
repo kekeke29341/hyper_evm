@@ -17,11 +17,15 @@ library ProjectXPrice {
     {
         require(priceUsdc6PerHype18 > 0, "ProjectXPrice: ZERO");
 
+        // refPrice is scaled as (USDC 6-dec per HYPE) * 1e12 = humanPrice * 1e18.
+        // The Uniswap pool price is in raw token units, so it must also carry the USDC(6)/WHYPE(18)
+        // decimal gap of 1e12. That makes the bridging constant 1e18 * 1e12 = 1e30 (not 1e18);
+        // omitting the 1e12 mis-scales pool ticks by 1e12 on a real 6-dec-USDC / 18-dec-WHYPE pool.
         uint256 ratioX192;
         if (usdcIsToken0) {
-            ratioX192 = FullMath.mulDiv(1e18, uint256(1) << 192, priceUsdc6PerHype18);
+            ratioX192 = FullMath.mulDiv(1e30, uint256(1) << 192, priceUsdc6PerHype18);
         } else {
-            ratioX192 = FullMath.mulDiv(priceUsdc6PerHype18, uint256(1) << 192, 1e18);
+            ratioX192 = FullMath.mulDiv(priceUsdc6PerHype18, uint256(1) << 192, 1e30);
         }
 
         sqrtPriceX96 = uint160(PoolMath.sqrt(ratioX192));
