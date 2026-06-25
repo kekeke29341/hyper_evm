@@ -126,6 +126,7 @@ export function useAdminAnalytics() {
 
 export function useAdminActions() {
   const chainId = useEffectiveChainId();
+  const { address: connectedAddress } = useConnection();
   const deployment = getDeployment(chainId);
   const vaultAddress = deployment ? getVaultAddress(deployment) : undefined;
   const { writeContractAsync, data: hash, isPending } = useWriteContract();
@@ -167,8 +168,7 @@ export function useAdminActions() {
   const fundAirdrop = async (amountUsdc: string) => {
     if (!deployment) throw new Error("No deployment");
     if (!publicClient) throw new Error("RPC unavailable");
-    const { address: account } = await import("wagmi/actions").then(() => ({ address: undefined }));
-    void account;
+    if (!connectedAddress) throw new Error("Wallet not connected");
     const amount = parseUnits(amountUsdc, 6);
     // Only approve when the existing allowance is insufficient; then fund. The fund tx is the
     // last write, so the success banner (keyed on its receipt) reflects actual funding, not approve.
@@ -177,7 +177,7 @@ export function useAdminActions() {
       writeWithChain,
       deployment.tokenUSDC as Address,
       abis.erc20,
-      ownerForAllowance,
+      connectedAddress,
       deployment.airdrop as Address,
       amount,
       chainId

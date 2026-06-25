@@ -51,3 +51,4 @@ frontend/tsconfig.tsbuildinfo
 # Foundry
 contracts/cache/
 .vercel
+.env*

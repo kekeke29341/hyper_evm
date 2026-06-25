@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useConnection, usePublicClient, useSendTransaction, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { useConfig, useConnection, usePublicClient, useSendTransaction, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { getPublicClient } from "wagmi/actions";
 import { formatUnits, parseUnits, type Address, type Hex } from "viem";
 import {
   getLifiChainId,
@@ -89,6 +90,7 @@ export function useLiFiQuote({
 
 export function useLiFiBridge() {
   const { address } = useConnection();
+  const config = useConfig();
   const publicClient = usePublicClient();
   const { sendTransactionAsync, data: txHash, isPending: isSending } = useSendTransaction();
   const { writeContractAsync, data: approveHash, isPending: isApproving } = useWriteContract();
@@ -136,12 +138,17 @@ export function useLiFiBridge() {
       const fromToken = quote.action.fromToken;
       const approval = quote.estimate.approvalAddress as Address | undefined;
 
+      // Read allowance / wait for the approve on the bridge SOURCE chain — not the wallet's active
+      // chain — so a wallet sitting on the wrong network can't read a stale/zero allowance and either
+      // skip a needed approve (bridge reverts) or issue a redundant one.
+      const fromClient = getPublicClient(config, { chainId: fromChain }) ?? publicClient;
+
       if (
         approval &&
         fromToken.address !== "0x0000000000000000000000000000000000000000" &&
         fromToken.address
       ) {
-        const allowance = (await publicClient.readContract({
+        const allowance = (await fromClient.readContract({
           address: fromToken.address as Address,
           abi: abis.erc20,
           functionName: "allowance",
@@ -157,7 +164,7 @@ export function useLiFiBridge() {
             args: [approval, needed],
             chainId: fromChain,
           });
-          await publicClient.waitForTransactionReceipt({ hash: approvalHash });
+          await fromClient.waitForTransactionReceipt({ hash: approvalHash });
         }
       }
 
@@ -172,7 +179,7 @@ export function useLiFiBridge() {
       void pollStatus(hash, quote.action.fromChainId, quote.action.toChainId);
       return hash;
     },
-    [address, publicClient, writeContractAsync, sendTransactionAsync, pollStatus]
+    [address, config, publicClient, writeContractAsync, sendTransactionAsync, pollStatus]
   );
 
   useEffect(() => {

@@ -88,6 +88,12 @@ export function CreatePositionModal({
   const pctButtons = [25, 50, 75, 100] as const;
 
   const applyPct = (pct: number) => {
+    // MAX must use the exact balance string — float math (bal*100/100) can round up past the
+    // real on-chain balance and make the deposit revert on transferFrom.
+    if (pct === 100) {
+      setAmount(balance || "0");
+      return;
+    }
     const bal = parseFloat(balance || "0");
     if (!bal) return;
     setAmount(String((bal * pct) / 100));
