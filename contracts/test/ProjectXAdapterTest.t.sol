@@ -9,6 +9,7 @@ import {ProjectXAdapter} from "../src/core/ProjectXAdapter.sol";
 import {HyperpoolVault} from "../src/core/HyperpoolVault.sol";
 import {TickMath} from "../src/libraries/TickMath.sol";
 import {ProjectXConstants} from "../src/libraries/ProjectXConstants.sol";
+import {ProjectXPrice} from "../src/libraries/ProjectXPrice.sol";
 
 contract ProjectXAdapterTest is Test {
     MockERC20 whype;
@@ -79,6 +80,60 @@ contract ProjectXAdapterTest is Test {
 
         uint256 navAfter = adapter.totalAssetsUsdc(price);
         assertEq(navAfter, navBefore, "Pool-based NAV must ignore unrelated NPM balances");
+    }
+
+    function test_CurrentPoolPriceTracksSlot0() public {
+        uint256 price = 67e6 * 1e12;
+        bool usdcIsToken0 = address(adapter.token0()) == address(usdc);
+        uint160 sqrtPrice = ProjectXPrice.sqrtPriceX96FromRefPrice(price, usdcIsToken0);
+        adapter.setPool(address(new MockUniswapV3Pool(sqrtPrice, 0)));
+
+        assertApproxEqRel(adapter.currentPoolPriceUsdc6PerHype18(), price, 1e12);
+    }
+
+    function test_WithdrawProRataTransfersMockWithdrawnBalancesToVault() public {
+        usdc.mint(address(vault), 1000e6);
+        whype.mint(address(vault), 10 ether);
+
+        vm.startPrank(address(vault));
+        usdc.transfer(address(adapter), 1000e6);
+        whype.transfer(address(adapter), 10 ether);
+        adapter.deposit(
+            address(adapter.token0()) == address(usdc) ? 1000e6 : 10 ether,
+            address(adapter.token0()) == address(usdc) ? 10 ether : 1000e6
+        );
+
+        uint256 usdcBefore = usdc.balanceOf(address(vault));
+        uint256 whypeBefore = whype.balanceOf(address(vault));
+        adapter.withdrawProRata(1, 2);
+        vm.stopPrank();
+
+        assertGt(usdc.balanceOf(address(vault)), usdcBefore);
+        assertGt(whype.balanceOf(address(vault)), whypeBefore);
+    }
+
+    function test_RebalanceCollectsCreditedNpmWithdrawalsBeforeRemint() public {
+        npm.setCreditWithdrawals(true);
+
+        usdc.mint(address(vault), 1000e6);
+        whype.mint(address(vault), 10 ether);
+
+        vm.startPrank(address(vault));
+        usdc.transfer(address(adapter), 1000e6);
+        whype.transfer(address(adapter), 10 ether);
+        adapter.deposit(
+            address(adapter.token0()) == address(usdc) ? 1000e6 : 10 ether,
+            address(adapter.token0()) == address(usdc) ? 10 ether : 1000e6
+        );
+
+        uint256 oldId = adapter.positionTokenId();
+        adapter.rebalance(50e6 * 1e12);
+        vm.stopPrank();
+
+        uint256 newId = adapter.positionTokenId();
+        assertGt(newId, oldId);
+        (,,,,,,, uint128 newLiq,,,,) = npm.positions(newId);
+        assertGt(newLiq, 0);
     }
 
     function test_CollectFeesMapsUsdcAndHype() public {

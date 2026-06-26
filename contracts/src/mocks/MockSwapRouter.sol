@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IProjectXSwapRouter} from "../interfaces/IProjectXSwapRouter.sol";
 
@@ -24,7 +25,15 @@ contract MockSwapRouter is IProjectXSwapRouter {
         require(params.amountIn > 0, "MockSwapRouter: ZERO_IN");
         IERC20(params.tokenIn).safeTransferFrom(msg.sender, address(this), params.amountIn);
 
-        amountOut = (params.amountIn * priceUsdc6PerHype18) / 1e30;
+        uint8 inDecimals = IERC20Metadata(params.tokenIn).decimals();
+        uint8 outDecimals = IERC20Metadata(params.tokenOut).decimals();
+        if (inDecimals == 18 && outDecimals == 6) {
+            amountOut = (params.amountIn * priceUsdc6PerHype18) / 1e30;
+        } else if (inDecimals == 6 && outDecimals == 18) {
+            amountOut = (params.amountIn * 1e30) / priceUsdc6PerHype18;
+        } else {
+            revert("MockSwapRouter: PAIR");
+        }
         require(amountOut >= params.amountOutMinimum, "MockSwapRouter: SLIPPAGE");
 
         IERC20 out = IERC20(params.tokenOut);

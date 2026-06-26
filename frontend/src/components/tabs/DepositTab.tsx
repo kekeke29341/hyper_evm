@@ -172,9 +172,9 @@ export function DepositTab() {
 
   return (
     <MainCard>
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
         <h2 className="text-lg font-semibold text-white">{t("deposit.title")}</h2>
-        <span className="text-[10px] px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400 font-medium">
+        <span className="text-[10px] px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400 font-medium shrink-0">
           {t("deposit.zeroFees")}
         </span>
       </div>

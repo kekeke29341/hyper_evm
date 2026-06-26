@@ -4,8 +4,8 @@
 
 | レイヤー | フレームワーク | テスト数（目安） |
 |---------|--------------|----------------|
-| スマートコントラクト | Foundry (Forge) | 52 |
-| フロントエンド単体 | Vitest + Testing Library | 50 |
+| スマートコントラクト | Foundry (Forge) | 79 |
+| フロントエンド単体 | Vitest + Testing Library | 58 |
 | E2E | Playwright smoke | 13 |
 | Testnet on-chain | CLI スクリプト | 下記参照 |
 
@@ -15,6 +15,9 @@
 ./scripts/test-all.sh
 # または
 make test
+
+# 運用ドキュメントのアドレス整合性のみ
+make verify-docs
 ```
 
 ## Testnet on-chain E2E
@@ -24,7 +27,7 @@ make test
 ```bash
 source scripts/testnet-env.sh
 
-# 一括
+# 一括（E2E_PRIVATE_KEY が .env.testnet にあれば testnet-e2e-wallet.mjs も実行）
 ./scripts/testnet-run-all.sh
 
 # 個別
@@ -36,9 +39,38 @@ FEE_WHYPE=0.01 FEE_USDC=0 node scripts/testnet-accrue-fees.mjs
 DEPLOYMENT_CHAIN=998 node scripts/daily-rewards.mjs
 POOL_USDC=0.01 node scripts/testnet-daily-rewards-smoke.mjs
 node scripts/testnet-wallet-actions.mjs
+node scripts/testnet-e2e-wallet.mjs   # E2E 専用鍵（MetaMask UI 不要）
 ```
 
 詳細: [本番運用/テストネット運用.md](./本番運用/テストネット運用.md)
+
+## モバイル + 実ウォレット（手動）
+
+携帯と WalletConnect / MetaMask アプリで UI から deposit 等を試す手順:
+
+→ [本番運用/モバイルウォレットテスト.md](./本番運用/モバイルウォレットテスト.md)
+
+## Mainnet release smoke
+
+Mainnet smoke は実資産を使うため、通常のCIには含めません。リリース前または大きなコントラクト変更後に、極小額で手動実行します。
+
+確認項目:
+
+1. `contracts/deployments/999.json` と `frontend/src/lib/contracts/deployments/999.json` が一致
+2. `HyperpoolVault` / `ProjectXAdapter` / `MerkleAirdrop` のオンチェーン配線が正しい
+3. `depositUSDC` または `depositHYPE` が成功し、Project X NPM `positionTokenId` が作成される
+4. `tickLower < currentTick < tickUpper`
+5. `harvestFees` tx が成功
+6. `rebalance(refPrice)` が成功し、`positionTokenId` が更新される
+7. `https://hyper-evm-ten.vercel.app` が 200 を返す
+
+2026-06-25 最終確認:
+
+- `forge test`: 79 passed
+- `npm run test`: 58 passed
+- `NEXT_PUBLIC_DEFAULT_CHAIN_ID=999 NEXT_PUBLIC_ADMIN_ENABLED=false npm run build`: success
+- `npm run typecheck`: success
+- Mainnet `depositUSDC(0.07)` / `harvestFees` / `rebalance(+0.5%)`: success
 
 ## スマートコントラクト
 

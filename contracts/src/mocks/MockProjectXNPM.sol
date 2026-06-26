@@ -12,6 +12,7 @@ contract MockProjectXNPM is ERC721, IProjectXNPM {
     using SafeERC20 for IERC20;
 
     uint256 private _nextId = 1;
+    bool public creditWithdrawals;
 
     struct Position {
         address token0;
@@ -27,6 +28,10 @@ contract MockProjectXNPM is ERC721, IProjectXNPM {
     mapping(uint256 => Position) public storedPositions;
 
     constructor() ERC721("MockProjectXNPM", "MPNPM") {}
+
+    function setCreditWithdrawals(bool enabled) external {
+        creditWithdrawals = enabled;
+    }
 
     function mint(MintParams calldata params)
         external
@@ -94,8 +99,13 @@ contract MockProjectXNPM is ERC721, IProjectXNPM {
         amount0 = (bal0 * params.liquidity) / p.liquidity;
         amount1 = (bal1 * params.liquidity) / p.liquidity;
 
-        if (amount0 > 0) IERC20(p.token0).safeTransfer(msg.sender, amount0);
-        if (amount1 > 0) IERC20(p.token1).safeTransfer(msg.sender, amount1);
+        if (creditWithdrawals) {
+            p.tokensOwed0 += uint128(amount0);
+            p.tokensOwed1 += uint128(amount1);
+        } else {
+            if (amount0 > 0) IERC20(p.token0).safeTransfer(msg.sender, amount0);
+            if (amount1 > 0) IERC20(p.token1).safeTransfer(msg.sender, amount1);
+        }
 
         p.liquidity -= params.liquidity;
     }

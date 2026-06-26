@@ -55,7 +55,10 @@ contract AdminFundRecoveryTest is Test {
             operator
         );
         adapter.setVault(address(vault));
-        vault.setSwapRouter(address(new MockSwapRouter(42e6 * 1e12)));
+        MockSwapRouter router = new MockSwapRouter(42e6 * 1e12);
+        usdc.mint(address(router), 1_000_000e6);
+        whype.mint(address(router), 1_000_000 ether);
+        vault.setSwapRouter(address(router));
         vm.stopPrank();
     }
 
@@ -170,10 +173,11 @@ contract AdminFundRecoveryTest is Test {
 
         uint256 ownerBefore = usdc.balanceOf(owner);
         vm.prank(owner);
-        (uint256 outUsdc,) = vault.withdraw(shares, owner);
+        (uint256 outUsdc, uint256 outHype) = vault.withdraw(shares, owner);
 
-        assertGt(outUsdc, 1000e6);
-        assertGt(usdc.balanceOf(owner), ownerBefore + 1000e6);
+        assertGt(outUsdc, 700e6);
+        assertGt(outHype, 0);
+        assertGt(usdc.balanceOf(owner), ownerBefore + 700e6);
     }
 
     function test_AccidentalUsdcToAdapter_OnlyVaultCanMove() public {

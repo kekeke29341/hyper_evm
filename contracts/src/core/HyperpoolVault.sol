@@ -53,6 +53,7 @@ contract HyperpoolVault is ERC20, Ownable, Pausable, ReentrancyGuard {
     event SwapRouterUpdated(address indexed router);
     event ConvertHypeFeesToUsdcUpdated(bool enabled);
     event FeeSwapSlippageBpsUpdated(uint256 bps);
+    event SingleSidedDepositBalanced(address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 amountOut);
     event KeeperUpdated(address indexed keeper);
     event OperatorWalletUpdated(address indexed wallet);
     event RebalanceDeviationBpsUpdated(uint256 bps);
@@ -291,12 +292,12 @@ contract HyperpoolVault is ERC20, Ownable, Pausable, ReentrancyGuard {
         require(diff * ProjectXConstants.BPS / oraclePrice <= maxRebalanceDeviationBps, "HyperpoolVault: PRICE_DEVIATION");
     }
 
-    /// @dev HyperCore oraclePx uses 8-decimal USD per 1 HYPE → usdc6PerHype18 scale
+    /// @dev HyperCore oraclePx uses 4-decimal USD per 1 HYPE → humanPrice * 1e18 scale.
     function _oraclePriceUsdc6PerHype18() internal view returns (uint256) {
         if (address(oracle) == address(0)) return 0;
         (uint256 px, bool ok) = oracle.tryGetOraclePrice(hypeOracleAssetId);
         if (!ok || px == 0) return 0;
-        return px * 1e10;
+        return px * 1e14;
     }
 
     function _withdrawableUsdc() internal view returns (uint256) {
@@ -325,6 +326,11 @@ contract HyperpoolVault is ERC20, Ownable, Pausable, ReentrancyGuard {
         return _hypeToUsdc(hypeAmount, priceUsdc6PerHype18);
     }
 
+    function _usdcToHype(uint256 usdcAmount, uint256 priceUsdc6PerHype18) internal pure returns (uint256) {
+        if (usdcAmount == 0 || priceUsdc6PerHype18 == 0) return 0;
+        return (usdcAmount * 1e30) / priceUsdc6PerHype18;
+    }
+
     /// @dev Swap collected WHYPE fees to USDC via Project X router before 33/67 split
     function _swapHypeFeesToUsdc(uint256 hypeIn) internal returns (uint256 usdcOut) {
         uint256 price = adapter.refPriceUsdc6PerHype18();
@@ -334,19 +340,7 @@ contract HyperpoolVault is ERC20, Ownable, Pausable, ReentrancyGuard {
         uint256 expectedOut = _hypeFeeToUsdcTokens(hypeIn, price);
         uint256 minOut = (expectedOut * (ProjectXConstants.BPS - feeSwapSlippageBps)) / ProjectXConstants.BPS;
 
-        tokenWHYPE.forceApprove(swapRouter, hypeIn);
-        usdcOut = IProjectXSwapRouter(swapRouter).exactInputSingle(
-            IProjectXSwapRouter.ExactInputSingleParams({
-                tokenIn: address(tokenWHYPE),
-                tokenOut: address(tokenUSDC),
-                fee: adapter.fee(),
-                recipient: address(this),
-                deadline: block.timestamp + 1 hours,
-                amountIn: hypeIn,
-                amountOutMinimum: minOut,
-                sqrtPriceLimitX96: 0
-            })
-        );
+        usdcOut = _swapExact(address(tokenWHYPE), address(tokenUSDC), hypeIn, minOut);
     }
 
     /// @dev Mints `shares` (already priced on pre-deposit NAV by the caller). On the first
@@ -366,6 +360,8 @@ contract HyperpoolVault is ERC20, Ownable, Pausable, ReentrancyGuard {
     }
 
     function _deployToAdapter(uint256 amountHype, uint256 amountUsdc) internal {
+        (amountHype, amountUsdc) = _balanceSingleSidedDeposit(amountHype, amountUsdc);
+
         if (amountHype > 0) {
             tokenWHYPE.safeTransfer(address(adapter), amountHype);
         }
@@ -374,5 +370,60 @@ contract HyperpoolVault is ERC20, Ownable, Pausable, ReentrancyGuard {
         }
         (uint256 amount0, uint256 amount1) = _sortedAmounts(amountHype, amountUsdc);
         adapter.deposit(amount0, amount1);
+    }
+
+    function _balanceSingleSidedDeposit(uint256 amountHype, uint256 amountUsdc)
+        internal
+        returns (uint256 balancedHype, uint256 balancedUsdc)
+    {
+        balancedHype = amountHype;
+        balancedUsdc = amountUsdc;
+        if (swapRouter == address(0)) return (balancedHype, balancedUsdc);
+        if ((amountHype == 0) == (amountUsdc == 0)) return (balancedHype, balancedUsdc);
+
+        uint256 price = adapter.currentPoolPriceUsdc6PerHype18();
+        if (price == 0) price = adapter.refPriceUsdc6PerHype18();
+        if (price == 0) price = _oraclePriceUsdc6PerHype18();
+        require(price > 0, "HyperpoolVault: NO_PRICE");
+
+        if (amountUsdc > 0) {
+            uint256 usdcIn = amountUsdc / 2;
+            if (usdcIn == 0) return (balancedHype, balancedUsdc);
+            uint256 expectedHype = _usdcToHype(usdcIn, price);
+            uint256 minHype = (expectedHype * (ProjectXConstants.BPS - feeSwapSlippageBps)) / ProjectXConstants.BPS;
+            uint256 hypeOut = _swapExact(address(tokenUSDC), address(tokenWHYPE), usdcIn, minHype);
+            balancedUsdc = amountUsdc - usdcIn;
+            balancedHype = hypeOut;
+            emit SingleSidedDepositBalanced(address(tokenUSDC), address(tokenWHYPE), usdcIn, hypeOut);
+            return (balancedHype, balancedUsdc);
+        }
+
+        uint256 hypeIn = amountHype / 2;
+        if (hypeIn == 0) return (balancedHype, balancedUsdc);
+        uint256 expectedUsdc = _hypeToUsdc(hypeIn, price);
+        uint256 minUsdc = (expectedUsdc * (ProjectXConstants.BPS - feeSwapSlippageBps)) / ProjectXConstants.BPS;
+        uint256 usdcOut = _swapExact(address(tokenWHYPE), address(tokenUSDC), hypeIn, minUsdc);
+        balancedHype = amountHype - hypeIn;
+        balancedUsdc = usdcOut;
+        emit SingleSidedDepositBalanced(address(tokenWHYPE), address(tokenUSDC), hypeIn, usdcOut);
+    }
+
+    function _swapExact(address tokenIn, address tokenOut, uint256 amountIn, uint256 minOut)
+        internal
+        returns (uint256 amountOut)
+    {
+        IERC20(tokenIn).forceApprove(swapRouter, amountIn);
+        amountOut = IProjectXSwapRouter(swapRouter).exactInputSingle(
+            IProjectXSwapRouter.ExactInputSingleParams({
+                tokenIn: tokenIn,
+                tokenOut: tokenOut,
+                fee: adapter.fee(),
+                recipient: address(this),
+                deadline: block.timestamp + 1 hours,
+                amountIn: amountIn,
+                amountOutMinimum: minOut,
+                sqrtPriceLimitX96: 0
+            })
+        );
     }
 }

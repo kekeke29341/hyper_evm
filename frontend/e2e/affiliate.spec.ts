@@ -6,11 +6,10 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.describe("Affiliate tab", () => {
-  test("guest mode shows connect-to-create and demo link label", async ({ page }) => {
+  test("guest mode shows connect-to-create prompt", async ({ page }) => {
     await page.goto("/affiliate");
 
     await expect(page.getByText(/Connect your wallet to create a referral code/i)).toBeVisible();
-    await expect(page.getByText(/Sample referral link \(demo\)/i)).toBeVisible();
     await expect(page.getByText(/Your referral link/i)).toHaveCount(0);
     await expect(page.getByPlaceholder("MYCODE")).toHaveCount(0);
   });

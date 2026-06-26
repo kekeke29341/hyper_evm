@@ -15,18 +15,29 @@ function formatRelative(ts: number): string {
 export function RebalanceHistoryPanel({
   events,
   className,
+  bare,
 }: {
   events: RebalanceEvent[];
   className?: string;
+  bare?: boolean;
 }) {
   const { t } = useI18n();
 
   return (
-    <div className={cn("card-glass rounded-2xl p-4 border border-zinc-800", className)}>
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-white">{t("position.rebalanceHistory")}</h3>
-        <span className="text-[10px] text-zinc-500">{events.length} {t("position.events")}</span>
-      </div>
+    <div
+      className={cn(
+        !bare && "card-glass rounded-2xl p-4 border border-zinc-800",
+        className
+      )}
+    >
+      {!bare && (
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-white">{t("position.rebalanceHistory")}</h3>
+          <span className="text-[10px] text-zinc-500">
+            {events.length} {t("position.events")}
+          </span>
+        </div>
+      )}
 
       {events.length === 0 ? (
         <p className="text-xs text-zinc-500 py-4 text-center">{t("position.noHistory")}</p>

@@ -17,7 +17,7 @@ library HyperCoreConstants {
     uint256 internal constant CHAIN_ID_TESTNET = 998;
     uint256 internal constant CHAIN_ID_MAINNET = 999;
 
-    /// @dev HyperCore perp index for HYPE/USD oracle (8-decimal USD price per 1 HYPE)
+    /// @dev HyperCore perp index for HYPE/USD oracle (4-decimal USD price per 1 HYPE)
     uint32 internal constant HYPE_ORACLE_ASSET_ID = 159;
 
     /// @dev Max rebalance price deviation from oracle (5%)

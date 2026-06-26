@@ -56,6 +56,6 @@ done
 
 echo "==> Running Synpress Playwright tests..."
 PLAYWRIGHT_BASE_URL="$BASE" \
-node --import tsx node_modules/@playwright/test/cli.js test \
+npx tsx --tsconfig tsconfig.synpress.json node_modules/@playwright/test/cli.js test \
   --config=playwright.synpress.config.ts \
   --project=wallet-testnet

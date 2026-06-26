@@ -47,40 +47,19 @@ npx vercel@latest --prod --yes
 
 ---
 
-## ゲストデモモード（本番運用開始前の UI プレビュー）
+## ゲストデモモード — 削除済み（2026-06）
 
-ウォレット未接続の訪問者向けに、**サンプルデータ付き UI** を表示する機能がある。商談・デモ用。
+**2026-06 にフロントから完全削除済み。** ウォレット未接続時は空状態 + 接続促進 UI のみ。
 
 | 項目 | 内容 |
 |------|------|
-| 有効条件 | ウォレット **未接続** 時（`useGuestDemo` → `isGuestDemo = !isConnected`） |
-| データ定義 | `frontend/src/lib/demo/data.ts` |
-| バナー | `frontend/src/components/layout/DemoModeBanner.tsx` |
-| 影響タブ | Dashboard / Position / Cashdrop / Bridge / Affiliate / SocialProofBar |
-
-### 本番運用を開始するとき（必須）
-
-**Mainnet (999) で本物の資金・ユーザー受け入れを始める前に、ゲストデモモードを必ず無効化・削除すること。**
-
-- サンプル残高・APR・Cashdrop 額・紹介ランキングを本番 URL で見せ続けると、**誤解・コンプライアンスリスク** になる
-- 本番運用 GO のチェックリストに「デモモード削除済み」を含める
-
-#### 削除・無効化の目安
-
-1. `frontend/src/lib/demo/` および `useGuestDemo` による分岐を削除
-2. 各タブ（`DashboardTab`, `LiquidityTab`, `CashdropTab`, `DepositTab`, `AffiliateTab`）から `isGuestDemo` / デモデータ参照を除去
-3. `DemoModeBanner` を `AppShell` から外し、コンポーネントファイルを削除
-4. `useEarningsDashboard` のゲスト向けサンプル claims 分岐を削除
-5. `SocialProofBar` のゲスト専用表示を見直し（実 TVL のみ、または非表示）
-6. `translations.ts` の `demo.*` キーを削除
-7. `frontend/src/lib/__tests__/demo-data.test.ts` を削除
-8. Redeploy 後、未接続状態で空状態・接続促進 UI のみになることを確認
+| 状態 | **削除済み** — `frontend/src/lib/demo/`、`useGuestDemo`、`DemoModeBanner` なし |
+| 確認 | 未接続で https://hyper-evm-ten.vercel.app を開き、サンプル残高・APR・Cashdrop 額が出ないこと |
 
 #### エージェント向けルール
 
-- **本番運用開始**（Mainnet デプロイ、Vault 本番資金、一般ユーザー公開）の PR / タスクでは、上記削除を **忘れず提案・実施** すること
-- デモモードを「そのまま本番」にしない。お客様への UI プレビュー用途と本番運用は **別フェーズ** として扱う
-- デモを残したまま Mainnet env（`NEXT_PUBLIC_DEFAULT_CHAIN_ID=999`）に切り替えない
+- ゲストデモの再導入は **Mainnet 一般公開 PR では行わない**
+- 商談用プレビューが必要なら **Preview デプロイ or ローカル dev** に限定する
 
 ---
 

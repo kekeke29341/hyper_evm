@@ -9,8 +9,21 @@
 import { testWithSynpress } from "@synthetixio/synpress-core";
 import { MetaMask, metaMaskFixtures } from "@synthetixio/synpress-metamask/playwright";
 import { privateKeyToAccount } from "viem/accounts";
-import hyperevmSetup from "../test/wallet-setup/hyperevm-testnet.setup.ts";
+import { readFileSync, existsSync } from "fs";
+import { join } from "path";
+import sourceSetup from "../test/wallet-setup/hyperevm-testnet.setup.ts";
 import { connectViaMetaMask, confirmPendingTx } from "./helpers/wallet.ts";
+
+/** Cache build hashes the compiled setup; tsx import differs — read cached hash when present. */
+function loadWalletSetup() {
+  const hashFile = join(process.cwd(), ".cache-synpress/.wallet-setup-hash");
+  if (existsSync(hashFile)) {
+    return { ...sourceSetup, hash: readFileSync(hashFile, "utf8").trim() };
+  }
+  return sourceSetup;
+}
+
+const hyperevmSetup = loadWalletSetup();
 
 const test = testWithSynpress(metaMaskFixtures(hyperevmSetup));
 const { expect } = test;

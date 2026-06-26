@@ -27,6 +27,12 @@ fi
 
 node scripts/testnet-wallet-actions.mjs
 
+if [[ -n "${E2E_PRIVATE_KEY:-${SYNPRESS_PRIVATE_KEY:-}}" ]]; then
+  node scripts/testnet-e2e-wallet.mjs
+else
+  echo "⚠ Skipped testnet-e2e-wallet.mjs (set E2E_PRIVATE_KEY in .env.testnet)"
+fi
+
 WITHDRAW_BPS="${WITHDRAW_BPS:-500}" REDEPOSIT=1 node scripts/testnet-vault-smoke.mjs
 node scripts/testnet-sync-shareholders.mjs
 node scripts/verify-testnet.mjs

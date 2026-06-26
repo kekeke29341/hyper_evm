@@ -69,7 +69,7 @@ export function DashboardTab() {
       {showClaimable && (
         <Link
           href={tabPath("cashdrop")}
-          className="w-full flex items-center justify-between gap-3 p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-left hover:bg-emerald-500/15 transition-colors"
+          className="w-full flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-left hover:bg-emerald-500/15 transition-colors"
         >
           <div>
             <p className="text-sm font-medium text-emerald-300">{t("dashboard.claimableNow")}</p>

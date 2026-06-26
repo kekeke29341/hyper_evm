@@ -12,6 +12,9 @@ echo "==> Branch coverage gate"
 echo "==> Ops script unit tests"
 node --test "$ROOT/scripts/__tests__/referral-allocation.test.mjs"
 
+echo "==> Ops doc address guard"
+node "$ROOT/scripts/verify-doc-addresses.mjs"
+
 echo "==> Running frontend unit tests"
 (cd "$ROOT/frontend" && npm run test)
 

@@ -1,4 +1,4 @@
-.PHONY: dev test build health sync-abi ci-local deploy-testnet
+.PHONY: dev test build health sync-abi ci-local deploy-testnet verify-docs
 
 ROOT := $(shell pwd)
 
@@ -17,6 +17,9 @@ health:
 
 sync-abi:
 	node scripts/sync-abi.mjs
+
+verify-docs:
+	node scripts/verify-doc-addresses.mjs
 
 ci-local: test
 	cd frontend && npm run lint && npm run build

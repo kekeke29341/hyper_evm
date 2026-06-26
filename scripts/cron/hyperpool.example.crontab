@@ -1,15 +1,18 @@
 # Hyperpool keeper + daily rewards (JST)
+# Prefer wrapper scripts (env file, git push, healthchecks):
+#   Mac:  scripts/cron/run-*-local.sh  + install-mac-crontab.sh
+#   VPS:  scripts/cron/run-*-vps.sh     + install-vps-crontab.sh
 # Install: crontab -e  then paste lines below (adjust /path/hyper_evm)
 
 SHELL=/bin/bash
 PATH=/usr/local/bin:/usr/bin:/bin
 
-# Shareholder snapshot + harvest + Merkle (JST 07:00)
-0 7 * * * TZ=Asia/Tokyo cd /path/hyper_evm && source scripts/testnet-env.sh && DEPLOYMENT_CHAIN=998 node scripts/daily-rewards.mjs >> /tmp/hyperpool-daily.log 2>&1
+# Shareholder snapshot + harvest + Merkle (JST 07:00) — Testnet 998
+0 7 * * * TZ=Asia/Tokyo /path/hyper_evm/scripts/cron/run-daily-rewards-local.sh >> /tmp/hyperpool-daily.log 2>&1
 
 # Keeper rebalance (every 6 hours; testnet uses SKIP_ORACLE=1 for Mock NPM)
-0 */6 * * * cd /path/hyper_evm && source scripts/testnet-env.sh && DEPLOYMENT_CHAIN=998 SKIP_ORACLE=1 node scripts/keeper-rebalance.mjs >> /tmp/hyperpool-keeper.log 2>&1
+0 */6 * * * /path/hyper_evm/scripts/cron/run-keeper-local.sh >> /tmp/hyperpool-keeper.log 2>&1
 
-# Mainnet (999) — uncomment when live:
-# 0 7 * * * TZ=Asia/Tokyo cd /path/hyper_evm && source .env.mainnet && DEPLOYMENT_CHAIN=999 node scripts/daily-rewards.mjs >> /tmp/hyperpool-daily-mainnet.log 2>&1
-# 0 */6 * * * cd /path/hyper_evm && source .env.mainnet && DEPLOYMENT_CHAIN=999 node scripts/keeper-rebalance.mjs >> /tmp/hyperpool-keeper-mainnet.log 2>&1
+# Mainnet (999) — uncomment when cron env uses DEPLOYMENT_CHAIN=999 and SKIP_ORACLE unset:
+# 0 7 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=999 /path/hyper_evm/scripts/cron/run-daily-rewards-vps.sh >> /tmp/hyperpool-daily-mainnet.log 2>&1
+# 0 */6 * * * DEPLOYMENT_CHAIN=999 SKIP_ORACLE=0 /path/hyper_evm/scripts/cron/run-keeper-vps.sh >> /tmp/hyperpool-keeper-mainnet.log 2>&1

@@ -18,7 +18,7 @@ export function AdminCard({
   subtitle?: string;
 }) {
   return (
-    <div className={cn("card-glass rounded-2xl p-5 border border-zinc-800/80", className)}>
+    <div className={cn("card-glass rounded-2xl p-4 sm:p-5 border border-zinc-800/80", className)}>
       {title && (
         <div className="mb-4">
           <h2 className="text-lg font-semibold text-white">{title}</h2>
@@ -32,9 +32,9 @@ export function AdminCard({
 
 export function StatBox({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="rounded-xl bg-zinc-900/60 border border-zinc-800 p-4">
+    <div className="rounded-xl bg-zinc-900/60 border border-zinc-800 p-3 sm:p-4 min-w-0">
       <p className="text-xs text-zinc-500 uppercase tracking-wide">{label}</p>
-      <p className="text-xl font-bold text-white mt-1">{value}</p>
+      <p className="text-lg sm:text-xl font-bold text-white mt-1 break-words">{value}</p>
       {sub && <p className="text-xs text-zinc-600 mt-1">{sub}</p>}
     </div>
   );
@@ -136,9 +136,11 @@ export function AddressRow({ label, address }: { label: string; address?: string
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-2 text-xs py-1">
+    <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-1 sm:gap-2 text-xs py-1.5 min-w-0">
       <span className="text-zinc-500 shrink-0">{label}</span>
-      <code className="px-2 py-0.5 rounded bg-zinc-900 text-cyan-400 font-mono text-[11px]">{display}</code>
+      <code className="px-2 py-0.5 rounded bg-zinc-900 text-cyan-400 font-mono text-[11px] break-all max-w-full">
+        {display}
+      </code>
       <button type="button" onClick={copy} className="p-1 text-zinc-500 hover:text-white" aria-label="Copy">
         {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
       </button>

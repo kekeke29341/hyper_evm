@@ -5,12 +5,14 @@ import {Test} from "forge-std/Test.sol";
 import {MockERC20} from "../src/mocks/MockERC20.sol";
 import {MockProjectXNPM} from "../src/mocks/MockProjectXNPM.sol";
 import {MockSwapRouter} from "../src/mocks/MockSwapRouter.sol";
+import {MockUniswapV3Pool} from "../src/mocks/MockUniswapV3Pool.sol";
 import {ProjectXAdapter} from "../src/core/ProjectXAdapter.sol";
 import {HyperpoolVault} from "../src/core/HyperpoolVault.sol";
 import {MerkleAirdrop} from "../src/core/MerkleAirdrop.sol";
 import {HyperCoreOracle} from "../src/core/HyperCoreOracle.sol";
 import {HyperCoreConstants} from "../src/libraries/HyperCoreConstants.sol";
 import {ProjectXConstants} from "../src/libraries/ProjectXConstants.sol";
+import {ProjectXPrice} from "../src/libraries/ProjectXPrice.sol";
 
 contract HyperpoolVaultTest is Test {
     MockERC20 whype;
@@ -59,6 +61,7 @@ contract HyperpoolVaultTest is Test {
 
         MockSwapRouter router = new MockSwapRouter(42e6 * 1e12);
         usdc.mint(address(router), 1_000_000e6);
+        whype.mint(address(router), 1_000_000 ether);
         vault.setSwapRouter(address(router));
     }
 
@@ -77,6 +80,8 @@ contract HyperpoolVaultTest is Test {
         assertGt(shares, 0);
         assertEq(vault.balanceOf(alice), shares);
         assertGt(adapter.positionTokenId(), 0);
+        assertGt(usdc.balanceOf(address(npm)), 0);
+        assertGt(whype.balanceOf(address(npm)), 0);
     }
 
     function test_WithdrawReturnsFundsAfterDeposit() public {
@@ -159,6 +164,35 @@ contract HyperpoolVaultTest is Test {
         assertTrue(adapter.tickLower() != lowerBefore || adapter.tickUpper() != adapter.tickLower());
     }
 
+    function test_DepositUsesCurrentPoolPriceWhenMarketMoved() public {
+        uint256 currentPrice = 67e6 * 1e12;
+        bool usdcIsToken0 = address(adapter.token0()) == address(usdc);
+        uint160 sqrtPrice = ProjectXPrice.sqrtPriceX96FromRefPrice(currentPrice, usdcIsToken0);
+        adapter.setPool(address(new MockUniswapV3Pool(sqrtPrice, 0)));
+
+        usdc.mint(alice, 10_000e6);
+        vm.startPrank(alice);
+        usdc.approve(address(vault), type(uint256).max);
+        vault.depositUSDC(1000e6, alice);
+        vm.stopPrank();
+
+        assertApproxEqRel(adapter.refPriceUsdc6PerHype18(), currentPrice, 1e12);
+        assertGt(usdc.balanceOf(address(npm)), 0);
+        assertGt(whype.balanceOf(address(npm)), 0);
+    }
+
+    function test_DepositHypeBalancesIntoBothSides() public {
+        whype.mint(alice, 100 ether);
+        vm.startPrank(alice);
+        whype.approve(address(vault), type(uint256).max);
+        uint256 shares = vault.depositHYPE(1 ether, alice);
+        vm.stopPrank();
+
+        assertGt(shares, 0);
+        assertGt(usdc.balanceOf(address(npm)), 0);
+        assertGt(whype.balanceOf(address(npm)), 0);
+    }
+
     function test_TotalAssetsExcludesPendingRewards() public {
         usdc.mint(alice, 10_000e6);
         vm.prank(alice);
@@ -217,11 +251,11 @@ contract HyperpoolVaultTest is Test {
         );
         oracleAdapter.setVault(address(vaultWithOracle));
 
-        uint256 oraclePx8 = 42e8;
+        uint256 oraclePx4 = 42e4;
         vm.mockCall(
             HyperCoreConstants.PRECOMPILE_ORACLE_PX,
             abi.encode(HyperCoreConstants.HYPE_ORACLE_ASSET_ID),
-            abi.encode(oraclePx8)
+            abi.encode(oraclePx4)
         );
 
         usdc.mint(alice, 5000e6);
@@ -230,7 +264,7 @@ contract HyperpoolVaultTest is Test {
         vaultWithOracle.depositUSDC(1000e6, alice);
         vm.stopPrank();
 
-        uint256 refPrice = (oraclePx8 * 1e10 * 106) / 100;
+        uint256 refPrice = (oraclePx4 * 1e14 * 106) / 100;
         vm.expectRevert("HyperpoolVault: PRICE_DEVIATION");
         vaultWithOracle.rebalance(refPrice);
     }
@@ -369,8 +403,8 @@ contract HyperpoolVaultTest is Test {
 
         // Only difference allowed is the one-time MINIMUM_VAULT_SHARES lock charged
         // to the very first depositor (alice).
-        assertApproxEqAbs(bobShares, aliceShares, 1000);
-        assertEq(bobShares, 1000e6);
+        assertApproxEqAbs(bobShares, aliceShares, 2000);
+        assertApproxEqAbs(bobShares, 1000e6, 2);
     }
 
     /// @notice A HYPE deposit must mint shares for its USDC-equivalent value, not 1e12x more.

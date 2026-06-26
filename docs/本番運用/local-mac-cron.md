@@ -1,7 +1,7 @@
 # 手元 Mac で keeper / 日次 Cashdrop（暫定運用）
 
 GitHub Actions が使えない間、**24 時間起動の Mac** で cron を回します。  
-本番公開前の Testnet 運用・開発向け。**将来 VPS または GitHub Actions へ移行する**（`.cursorrules` 参照）。
+本番公開前の Testnet 運用・開発向け。**本番移行先は VPS を推奨**（[external-cron.md](./external-cron.md) · [vps-cron.md](./vps-cron.md)）。
 
 ---
 
@@ -68,6 +68,6 @@ crontab -l | awk '
 - `git push` には GitHub 認証が必要（SSH または gh auth）
 - daily-rewards は対象者へ直接USDC送金するため、失敗時は `/tmp/hyperpool-daily.log` で Tx、`distributionId`、Airdrop残高を確認
 - 同じ配分の再実行は `distributionExecuted` で拒否され、二重送金を防止
-- Mainnet 公開時は **VPS / GitHub Actions への移行を推奨**
+- Mainnet 公開時は **VPS への移行を推奨**（Mac cron のまま本番公開しない）
 
-関連: [github-actions-cron.md](./github-actions-cron.md) · [チェックリスト.md](./チェックリスト.md)
+関連: [external-cron.md](./external-cron.md) · [vps-cron.md](./vps-cron.md) · [github-actions-cron.md](./github-actions-cron.md) · [チェックリスト.md](./チェックリスト.md)

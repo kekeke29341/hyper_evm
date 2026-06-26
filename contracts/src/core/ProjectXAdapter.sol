@@ -9,6 +9,7 @@ import {IProjectXNPM} from "../interfaces/IProjectXNPM.sol";
 import {IUniswapV3Pool} from "../interfaces/IUniswapV3Pool.sol";
 import {ProjectXConstants} from "../libraries/ProjectXConstants.sol";
 import {ProjectXPrice} from "../libraries/ProjectXPrice.sol";
+import {FullMath} from "../libraries/FullMath.sol";
 import {LiquidityAmounts} from "../libraries/LiquidityAmounts.sol";
 import {TickMath} from "../libraries/TickMath.sol";
 
@@ -81,6 +82,31 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
         pool = IUniswapV3Pool(_pool);
     }
 
+    function currentPoolPriceUsdc6PerHype18() public view returns (uint256) {
+        if (address(pool) == address(0)) return refPriceUsdc6PerHype18;
+        (uint160 sqrtPriceX96,,,,,,) = pool.slot0();
+        if (sqrtPriceX96 == 0) return refPriceUsdc6PerHype18;
+
+        uint256 ratioX96 = FullMath.mulDiv(uint256(sqrtPriceX96), uint256(sqrtPriceX96), uint256(1) << 96);
+        if (ratioX96 == 0) return refPriceUsdc6PerHype18;
+
+        if (address(token0) == address(usdc)) {
+            // Pool raw price is WHYPE(18) per USDC(6). Invert and keep the canonical
+            // humanPrice * 1e18 scale used by the vault.
+            return FullMath.mulDiv(1e30, uint256(1) << 96, ratioX96);
+        }
+
+        // Pool raw price is USDC(6) per WHYPE(18). Apply the 1e12 decimal gap and
+        // scale by 1e18, so refPrice = rawPrice * 1e30.
+        return FullMath.mulDiv(ratioX96, 1e30, uint256(1) << 96);
+    }
+
+    function syncRefPriceFromPool() external onlyVault returns (uint256 price) {
+        price = currentPoolPriceUsdc6PerHype18();
+        require(price > 0, "ProjectXAdapter: ZERO_PRICE");
+        refPriceUsdc6PerHype18 = price;
+    }
+
     function setRangeBps(uint256 _upperBps, uint256 _lowerBps) external onlyOwner {
         require(_upperBps > 0 && _lowerBps > 0, "ProjectXAdapter: INVALID_RANGE");
         upperRangeBps = _upperBps;
@@ -120,7 +146,7 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
         if (amount1 > 0) token1.forceApprove(address(npm), amount1);
 
         if (positionTokenId == 0) {
-            uint256 price = _priceFromAmounts(amount0, amount1);
+            uint256 price = address(pool) != address(0) ? currentPoolPriceUsdc6PerHype18() : _priceFromAmounts(amount0, amount1);
             if (price > 0) refPriceUsdc6PerHype18 = price;
 
             (int24 lower, int24 upper) = _ticksFromPrice(refPriceUsdc6PerHype18);
@@ -174,7 +200,10 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
         uint128 liquidityToRemove = uint128((uint256(liq) * shares) / totalShares);
         if (liquidityToRemove == 0) return (0, 0);
 
-        (amount0, amount1) = npm.decreaseLiquidity(
+        uint256 bal0Before = token0.balanceOf(address(this));
+        uint256 bal1Before = token1.balanceOf(address(this));
+
+        (uint256 owed0, uint256 owed1) = npm.decreaseLiquidity(
             IProjectXNPM.DecreaseLiquidityParams({
                 tokenId: positionTokenId,
                 liquidity: liquidityToRemove,
@@ -184,8 +213,24 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
             })
         );
 
-        if (amount0 > 0) token0.safeTransfer(vault, amount0);
-        if (amount1 > 0) token1.safeTransfer(vault, amount1);
+        (uint256 collected0, uint256 collected1) = npm.collect(
+            IProjectXNPM.CollectParams({
+                tokenId: positionTokenId,
+                recipient: vault,
+                amount0Max: _toUint128(owed0),
+                amount1Max: _toUint128(owed1)
+            })
+        );
+
+        // Mock NPMs may transfer withdrawn liquidity directly to the adapter instead
+        // of crediting it for collect(), while real V3 NPMs use collect().
+        uint256 delta0 = token0.balanceOf(address(this)) - bal0Before;
+        uint256 delta1 = token1.balanceOf(address(this)) - bal1Before;
+        if (delta0 > 0) token0.safeTransfer(vault, delta0);
+        if (delta1 > 0) token1.safeTransfer(vault, delta1);
+
+        amount0 = collected0 + delta0;
+        amount1 = collected1 + delta1;
         emit LiquidityWithdrawn(amount0, amount1);
     }
 
@@ -197,13 +242,21 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
 
         (,,,,,,, uint128 liq,,,,) = npm.positions(positionTokenId);
         if (liq > 0) {
-            npm.decreaseLiquidity(
+            (uint256 owed0, uint256 owed1) = npm.decreaseLiquidity(
                 IProjectXNPM.DecreaseLiquidityParams({
                     tokenId: positionTokenId,
                     liquidity: liq,
                     amount0Min: 0,
                     amount1Min: 0,
                     deadline: block.timestamp + 1 hours
+                })
+            );
+            npm.collect(
+                IProjectXNPM.CollectParams({
+                    tokenId: positionTokenId,
+                    recipient: address(this),
+                    amount0Max: _toUint128(owed0),
+                    amount1Max: _toUint128(owed1)
                 })
             );
         }
@@ -218,8 +271,6 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
         if (bal1 > 0) token1.forceApprove(address(npm), bal1);
 
         if (bal0 > 0 || bal1 > 0) {
-            uint256 min0 = (bal0 * (ProjectXConstants.BPS - slippageBps)) / ProjectXConstants.BPS;
-            uint256 min1 = (bal1 * (ProjectXConstants.BPS - slippageBps)) / ProjectXConstants.BPS;
             (uint256 newId,,,) = npm.mint(
                 IProjectXNPM.MintParams({
                     token0: address(token0),
@@ -229,8 +280,8 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
                     tickUpper: tickUpper,
                     amount0Desired: bal0,
                     amount1Desired: bal1,
-                    amount0Min: min0,
-                    amount1Min: min1,
+                    amount0Min: 0,
+                    amount1Min: 0,
                     recipient: address(this),
                     deadline: block.timestamp + 1 hours
                 })
@@ -314,5 +365,10 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
         return ProjectXPrice.ticksFromRefPrice(
             priceUsdc6PerHype18, usdcIsToken0, upperRangeBps, lowerRangeBps
         );
+    }
+
+    function _toUint128(uint256 value) internal pure returns (uint128) {
+        require(value <= type(uint128).max, "ProjectXAdapter: UINT128");
+        return uint128(value);
     }
 }

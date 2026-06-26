@@ -14,6 +14,9 @@ const CHAIN_TOKENS = {
   999: {
     tokenKHYPE: "0x5555555555555555555555555555555555555555",
     tokenUSDC: "0xb88339CB7199b77E23DB6E890353E22632Ba630f",
+    projectXNpm: "0xeaD19AE861c29bBb2101E834922B2FEee69B9091",
+    projectXPool: "0x6c9A33E3b592C0d65B3Ba59355d5Be0d38259285",
+    swapRouter: "0x1EbDFC75FfE3ba3de61E7138a3E8706aC841Af9B",
   },
 };
 
@@ -133,9 +136,10 @@ async function buildDeploymentFromTxs(txs) {
     deployed: true,
     hyperpoolVault: vault,
     liquidityVault: vault,
-    projectXPool:
-      chainId === 999 ? "0x6c9A33E3b592C0d65B3Ba59355d5Be0d38259285" : undefined,
     ...partial,
+    projectXNpm: CHAIN_TOKENS[chainId].projectXNpm ?? partial.projectXNpm,
+    projectXPool: CHAIN_TOKENS[chainId].projectXPool,
+    swapRouter: CHAIN_TOKENS[chainId].swapRouter,
     tokenKHYPE: CHAIN_TOKENS[chainId].tokenKHYPE,
     tokenUSDC: CHAIN_TOKENS[chainId].tokenUSDC,
   };

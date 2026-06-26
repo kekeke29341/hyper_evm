@@ -55,7 +55,7 @@ export function ActivePositionPanel({
   const estApy = estimatedApyFromRange(poolApr, rangeWidthPct);
 
   return (
-    <div className="@container card-glass rounded-2xl p-4 border border-cyan-500/20 bg-cyan-500/5">
+    <div className="card-glass rounded-2xl p-4 border border-cyan-500/20 bg-cyan-500/5">
       <div className="flex items-start justify-between gap-2 mb-3">
         <div>
           <p className="font-semibold text-white">{PROJECT_X_POOL.pair}</p>
@@ -106,7 +106,7 @@ export function ActivePositionPanel({
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 @[26rem]:grid-cols-2 gap-2.5">
+      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
         <button
           type="button"
           onClick={onAdd}

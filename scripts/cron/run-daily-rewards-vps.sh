@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# Daily harvest + Merkle Cashdrop — for local Mac cron.
+# Daily harvest + Merkle Cashdrop — for Linux VPS cron.
 # Updates deployment JSON and pushes to origin when Merkle changes (Vercel redeploy).
-# See docs/本番運用/local-mac-cron.md
+# See docs/本番運用/vps-cron.md
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-cd "$ROOT"
-
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
-source "$ROOT/scripts/testnet-env.sh"
+source "$SCRIPT_DIR/_vps-common.sh"
+cd "$ROOT"
 
 export DEPLOYMENT_CHAIN="${DEPLOYMENT_CHAIN:-998}"
 CHAIN="$DEPLOYMENT_CHAIN"
+HC_URL="${HEALTHCHECK_DAILY_URL:-}"
 
-node "$ROOT/scripts/daily-rewards.mjs"
+run_with_healthcheck "$HC_URL" node "$ROOT/scripts/daily-rewards.mjs"
 
 DEPLOY_JSON=(
   "$ROOT/contracts/deployments/${CHAIN}.json"
@@ -20,6 +20,7 @@ DEPLOY_JSON=(
 )
 
 if ! git diff --quiet -- "${DEPLOY_JSON[@]}" 2>/dev/null; then
+  ensure_git_identity
   git add "${DEPLOY_JSON[@]}"
   git commit -m "chore(cron): update Cashdrop merkle for chain ${CHAIN}"
   if git push origin HEAD; then

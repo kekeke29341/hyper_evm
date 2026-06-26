@@ -58,23 +58,64 @@ export function AdminShell() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="sticky top-0 z-40 border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur-md">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
-          <Link href="/" className="flex items-center gap-2 text-zinc-400 hover:text-white shrink-0">
-            <ArrowLeft className="w-4 h-4" />
-            <span className="text-sm hidden sm:inline">App</span>
-          </Link>
+      <header className="sticky top-0 z-40 border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur-md safe-top">
+        <div className="max-w-5xl mx-auto px-3 sm:px-4 py-2.5 md:py-3">
+          <div className="flex items-center gap-2 md:gap-3">
+            <Link href="/" className="flex items-center gap-2 text-zinc-400 hover:text-white shrink-0">
+              <ArrowLeft className="w-4 h-4" />
+              <span className="text-sm hidden sm:inline">App</span>
+            </Link>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <Shield className="w-5 h-5 text-amber-400" />
-            <span className="font-bold text-white text-sm sm:text-base">Admin</span>
+            <div className="flex items-center gap-2 shrink-0 min-w-0">
+              <Shield className="w-5 h-5 text-amber-400 shrink-0" />
+              <span className="font-bold text-white text-sm sm:text-base truncate">Admin</span>
+            </div>
+
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700 shrink-0 hidden md:inline">
+              {chainMeta.label}
+            </span>
+
+            <nav
+              className="hidden md:flex flex-1 overflow-x-auto flex gap-1 min-w-0 scrollbar-thin"
+              aria-label="Admin navigation"
+            >
+              {ADMIN_TABS.map((t) => {
+                const Icon = t.icon;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setTab(t.id)}
+                    className={cn(
+                      "flex items-center gap-1.5 px-2.5 py-1.5 text-xs sm:text-sm whitespace-nowrap rounded-md transition-colors shrink-0",
+                      tab === t.id
+                        ? "text-white bg-zinc-800/80 border border-zinc-700"
+                        : "text-zinc-400 hover:text-zinc-200"
+                    )}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    {t.label}
+                  </button>
+                );
+              })}
+            </nav>
+
+            <button
+              type="button"
+              onClick={openWalletModal}
+              className={cn(
+                "text-xs px-2.5 sm:px-3 py-1.5 rounded-lg font-semibold shrink-0 ml-auto md:ml-0 min-h-[36px]",
+                isConnected ? "bg-zinc-800 border border-zinc-700 text-zinc-300" : "gradient-btn"
+              )}
+            >
+              {isConnected && address ? `${address.slice(0, 6)}…${address.slice(-4)}` : "Connect"}
+            </button>
           </div>
 
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700 shrink-0 hidden md:inline">
-            {chainMeta.label}
-          </span>
-
-          <nav className="flex-1 overflow-x-auto flex gap-1 min-w-0 scrollbar-thin">
+          <nav
+            className="md:hidden flex gap-1 mt-2 -mx-1 px-1 overflow-x-auto scrollbar-thin snap-x snap-mandatory scroll-px-2"
+            aria-label="Admin navigation"
+          >
             {ADMIN_TABS.map((t) => {
               const Icon = t.icon;
               return (
@@ -83,7 +124,7 @@ export function AdminShell() {
                   type="button"
                   onClick={() => setTab(t.id)}
                   className={cn(
-                    "flex items-center gap-1.5 px-2.5 py-1.5 text-xs sm:text-sm whitespace-nowrap rounded-md transition-colors",
+                    "flex items-center gap-1.5 px-3 py-2.5 text-xs whitespace-nowrap rounded-md transition-colors shrink-0 min-h-[44px] snap-start",
                     tab === t.id
                       ? "text-white bg-zinc-800/80 border border-zinc-700"
                       : "text-zinc-400 hover:text-zinc-200"
@@ -95,21 +136,10 @@ export function AdminShell() {
               );
             })}
           </nav>
-
-          <button
-            type="button"
-            onClick={openWalletModal}
-            className={cn(
-              "text-xs px-3 py-1.5 rounded-lg font-semibold shrink-0",
-              isConnected ? "bg-zinc-800 border border-zinc-700 text-zinc-300" : "gradient-btn"
-            )}
-          >
-            {isConnected && address ? `${address.slice(0, 6)}…${address.slice(-4)}` : "Connect"}
-          </button>
         </div>
       </header>
 
-      <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-6">
+      <main className="flex-1 max-w-5xl mx-auto w-full px-3 sm:px-4 py-6 overflow-x-hidden">
         <AdminActionsProvider>
           <AdminNetworkBanner />
           <AdminTxBanner />
