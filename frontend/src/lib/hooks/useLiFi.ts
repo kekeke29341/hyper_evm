@@ -21,7 +21,7 @@ const TOKEN_DECIMALS: Record<string, number> = {
   WBTC: 8,
 };
 
-function tokenDecimals(symbol: string): number {
+export function tokenDecimalsForSymbol(symbol: string): number {
   return TOKEN_DECIMALS[symbol] ?? 18;
 }
 
@@ -31,6 +31,7 @@ export function useLiFiQuote({
   fromToken,
   toToken,
   fromAmount,
+  fromTokenDecimals,
   slippageBps,
   enabled,
 }: {
@@ -39,6 +40,7 @@ export function useLiFiQuote({
   fromToken: string;
   toToken: string;
   fromAmount: string;
+  fromTokenDecimals: number;
   slippageBps: number;
   enabled: boolean;
 }) {
@@ -50,7 +52,7 @@ export function useLiFiQuote({
   try {
     parsedAmount =
       fromAmount && parseFloat(fromAmount) > 0
-        ? parseUnits(fromAmount, tokenDecimals(fromToken))
+        ? parseUnits(fromAmount, fromTokenDecimals)
         : null;
   } catch {
     parsedAmount = null;

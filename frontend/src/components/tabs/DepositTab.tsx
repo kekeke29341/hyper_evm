@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { ArrowDownUp, ChevronDown, Loader2, ArrowRightLeft, ExternalLink } from "lucide-react";
+import { ArrowDownUp, Loader2, ArrowRightLeft, ExternalLink } from "lucide-react";
 import { motion } from "framer-motion";
 import { useChainId } from "wagmi";
 import { BRIDGE_CHAINS, EVM_BRIDGE_CHAINS } from "@/lib/constants";
@@ -15,75 +15,15 @@ import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
 import { tabPath } from "@/lib/routes";
 import {
   getBridgeChain,
-  getSwapTokensForChain,
   hyperEvmLifiNotice,
   isEvmBridgeRoute,
-  cycleSwapToken,
-  pickDefaultSwapToken,
-  type SwapToken,
 } from "@/lib/lifi/config";
-
-const TOKEN_COLORS: Record<string, string> = {
-  kHYPE: "bg-emerald-500",
-  USDC: "bg-blue-500",
-  ETH: "bg-indigo-500",
-  WETH: "bg-indigo-500",
-  WBTC: "bg-orange-500",
-  DAI: "bg-yellow-500",
-  USDT: "bg-teal-500",
-};
-
-function TokenRow({
-  label,
-  maxLabel,
-  amount,
-  onAmount,
-  token,
-  onToken,
-  readOnly,
-  tokenOptions,
-}: {
-  label: string;
-  maxLabel: string;
-  amount: string;
-  onAmount: (v: string) => void;
-  token: SwapToken;
-  onToken: () => void;
-  readOnly?: boolean;
-  tokenOptions: SwapToken[];
-}) {
-  const canCycle = tokenOptions.length > 1;
-
-  return (
-    <div className="bg-zinc-800/40 rounded-xl p-4">
-      <div className="flex justify-between text-xs text-zinc-500 mb-2">
-        <span>{label}</span>
-        <span>{maxLabel}</span>
-      </div>
-      <div className="flex items-center gap-3">
-        <input
-          type="text"
-          inputMode="decimal"
-          value={amount}
-          readOnly={readOnly}
-          onChange={(e) => onAmount(e.target.value.replace(/[^0-9.]/g, ""))}
-          placeholder="0.0"
-          className="flex-1 bg-transparent text-2xl sm:text-3xl font-light text-white outline-none w-0 min-w-0"
-        />
-        <button
-          type="button"
-          onClick={onToken}
-          disabled={!canCycle || readOnly}
-          className="flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-700/60 border border-zinc-600 shrink-0 disabled:opacity-70"
-        >
-          <span className={`w-6 h-6 rounded-full ${TOKEN_COLORS[token]}`} />
-          <span className="font-medium">{token === "kHYPE" ? "HYPE" : token}</span>
-          {canCycle && !readOnly && <ChevronDown className="w-4 h-4 text-zinc-400" />}
-        </button>
-      </div>
-    </div>
-  );
-}
+import {
+  bridgeTokenFromSymbol,
+  pickDefaultBridgeToken,
+  type BridgeToken,
+} from "@/lib/lifi/tokens";
+import { TokenSelectDropdown } from "@/components/deposit/TokenSelectDropdown";
 
 export function DepositTab() {
   const { showToast, openWalletModal, isConnected } = useApp();
@@ -93,8 +33,13 @@ export function DepositTab() {
   const [fromAmount, setFromAmount] = useState("");
   const [fromChain, setFromChain] = useState("ethereum");
   const [toChain] = useState("hyperevm");
-  const [fromToken, setFromToken] = useState<SwapToken>("ETH");
-  const [toToken] = useState<SwapToken>("USDC");
+  const [fromToken, setFromToken] = useState<BridgeToken>(() =>
+    pickDefaultBridgeToken("ethereum", "USDC")
+  );
+  const toToken = useMemo(
+    () => bridgeTokenFromSymbol("hyperevm", "USDC"),
+    []
+  );
 
   const slippageBps = getSlippageBps();
   const isEvmBridge = isEvmBridgeRoute(fromChain, toChain);
@@ -102,9 +47,10 @@ export function DepositTab() {
   const lifiQuote = useLiFiQuote({
     fromChainId: fromChain,
     toChainId: toChain,
-    fromToken,
-    toToken,
+    fromToken: fromToken.address,
+    toToken: toToken.address,
     fromAmount,
+    fromTokenDecimals: fromToken.decimals,
     slippageBps,
     enabled: isEvmBridge && !!fromAmount,
   });
@@ -120,8 +66,6 @@ export function DepositTab() {
     );
   }, [lifiQuote.data]);
 
-  const fromTokenOptions = useMemo(() => getSwapTokensForChain(fromChain), [fromChain]);
-  const toTokenOptions = useMemo(() => getSwapTokensForChain(toChain), [toChain]);
   const testnetNote = hyperEvmLifiNotice(walletChainId);
 
   const walletOnFromChain = useMemo(() => {
@@ -134,12 +78,6 @@ export function DepositTab() {
   useEffect(() => {
     if (isBridgeSuccess) showToast(t("deposit.bridgeSuccess"));
   }, [isBridgeSuccess, showToast, t]);
-
-  useEffect(() => {
-    if (!getSwapTokensForChain(fromChain).includes(fromToken)) {
-      setFromToken(pickDefaultSwapToken(fromChain, toToken));
-    }
-  }, [fromChain, fromToken, toToken]);
 
   const handleAction = async () => {
     if (!isConnected) {
@@ -169,6 +107,13 @@ export function DepositTab() {
   const actionDisabled = isConnected
     ? isBridgePending || !fromAmount || !lifiQuote.data || lifiQuote.isFetching
     : isBridgePending;
+
+  const tokenPickerLabels = {
+    searchPlaceholder: t("deposit.tokenSearch"),
+    popularLabel: t("deposit.popularTokens"),
+    emptyLabel: t("deposit.noTokensFound"),
+    loadingLabel: t("deposit.tokensLoading"),
+  };
 
   return (
     <MainCard>
@@ -212,9 +157,7 @@ export function DepositTab() {
           onChange={(e) => {
             const chain = e.target.value;
             setFromChain(chain);
-            if (!getSwapTokensForChain(chain).includes(fromToken)) {
-              setFromToken(pickDefaultSwapToken(chain, toToken));
-            }
+            setFromToken(pickDefaultBridgeToken(chain, toToken.symbol));
           }}
           className="text-xs bg-zinc-900 border border-zinc-700 rounded-lg px-2 py-2 text-zinc-300"
         >
@@ -229,15 +172,32 @@ export function DepositTab() {
         </div>
       </div>
 
-      <TokenRow
-        label={t("common.from")}
-        maxLabel={t("deposit.anyToken")}
-        amount={fromAmount}
-        onAmount={setFromAmount}
-        token={fromToken}
-        onToken={() => setFromToken(cycleSwapToken(fromToken, fromChain, toToken))}
-        tokenOptions={fromTokenOptions}
-      />
+      <div className="bg-zinc-800/40 rounded-xl p-4">
+        <div className="flex justify-between text-xs text-zinc-500 mb-2">
+          <span>{t("common.from")}</span>
+          <span>{t("deposit.anyToken")}</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <input
+            type="text"
+            inputMode="decimal"
+            value={fromAmount}
+            onChange={(e) => setFromAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+            placeholder="0.0"
+            className="flex-1 bg-transparent text-2xl sm:text-3xl font-light text-white outline-none w-0 min-w-0"
+          />
+          <TokenSelectDropdown
+            chainUiId={fromChain}
+            value={fromToken}
+            onChange={setFromToken}
+            excludeSymbol={toToken.symbol}
+            searchPlaceholder={tokenPickerLabels.searchPlaceholder}
+            popularLabel={tokenPickerLabels.popularLabel}
+            emptyLabel={tokenPickerLabels.emptyLabel}
+            loadingLabel={tokenPickerLabels.loadingLabel}
+          />
+        </div>
+      </div>
 
       <div className="flex justify-center -my-2 relative z-10">
         <motion.div className="p-2 rounded-xl bg-zinc-800 border border-zinc-700 text-zinc-500">
@@ -245,16 +205,32 @@ export function DepositTab() {
         </motion.div>
       </div>
 
-      <TokenRow
-        label={t("common.to")}
-        maxLabel={t("deposit.vaultTarget")}
-        amount={bridgeAmountOut}
-        onAmount={() => {}}
-        token={toToken}
-        onToken={() => {}}
-        tokenOptions={toTokenOptions}
-        readOnly
-      />
+      <div className="bg-zinc-800/40 rounded-xl p-4">
+        <div className="flex justify-between text-xs text-zinc-500 mb-2">
+          <span>{t("common.to")}</span>
+          <span>{t("deposit.vaultTarget")}</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <input
+            type="text"
+            inputMode="decimal"
+            value={bridgeAmountOut}
+            readOnly
+            placeholder="0.0"
+            className="flex-1 bg-transparent text-2xl sm:text-3xl font-light text-white outline-none w-0 min-w-0"
+          />
+          <TokenSelectDropdown
+            chainUiId={toChain}
+            value={toToken}
+            disabled
+            onChange={() => {}}
+            searchPlaceholder={tokenPickerLabels.searchPlaceholder}
+            popularLabel={tokenPickerLabels.popularLabel}
+            emptyLabel={tokenPickerLabels.emptyLabel}
+            loadingLabel={tokenPickerLabels.loadingLabel}
+          />
+        </div>
+      </div>
 
       {lifiQuote.isFetching && (
         <p className="text-xs text-zinc-500 mt-2 flex items-center gap-1">
@@ -267,7 +243,7 @@ export function DepositTab() {
 
       <div className="mt-4 space-y-1 text-xs text-zinc-500">
         <p>
-          1 {fromToken === "kHYPE" ? "HYPE" : fromToken} = {rate} {toToken}
+          1 {fromToken.symbol} = {rate} {toToken.symbol}
         </p>
         <p>
           {t("deposit.slippage")}: {slippageBps / 100}% · {t("deposit.estGas")}:{" "}
@@ -285,6 +261,19 @@ export function DepositTab() {
       </div>
 
       <p className="mt-3 text-[11px] text-zinc-600">{t("deposit.afterBridge")}</p>
+
+      {!isConnected && (
+        <p className="mt-2 text-[11px] text-zinc-500">{t("deposit.connectToBridge")}</p>
+      )}
+      {isConnected && !fromAmount && (
+        <p className="mt-2 text-[11px] text-zinc-500">{t("deposit.enterAmount")}</p>
+      )}
+      {isConnected && !!fromAmount && !lifiQuote.data && !lifiQuote.isFetching && (
+        <p className="mt-2 text-[11px] text-amber-400/90">{t("deposit.noRoute")}</p>
+      )}
+      {isConnected && !!fromAmount && !walletOnFromChain && (
+        <p className="mt-2 text-[11px] text-amber-400/90">{t("deposit.switchToFromChain")}</p>
+      )}
 
       <div className="mt-4">
         <PrimaryButton
