@@ -10,7 +10,7 @@ test.beforeEach(async ({ page }) => {
 test.describe("Financial disclosures", () => {
   test("cashdrop tab explains USDC-only auto payout", async ({ page }) => {
     await page.goto("/cashdrop");
-    await expect(page.getByText(/67% of LP fees \(USDC\) → daily auto payout/i)).toBeVisible();
+    await expect(page.getByText(/Most LP fees \(USDC equivalent\) → daily auto payout/i)).toBeVisible();
     await expect(page.getByText(/HYPE fees auto-converted to USDC on harvest/i)).toBeVisible();
     await expect(page.getByText(/Auto payout is based on Vault shares at the distribution snapshot/i)).toBeVisible();
   });
@@ -43,6 +43,6 @@ test.describe("Financial disclosures", () => {
 test.describe("Cashdrop auto payout UI", () => {
   test("shows fee share stat", async ({ page }) => {
     await page.goto("/cashdrop");
-    await expect(page.getByText("User share", { exact: true })).toBeVisible();
+    await expect(page.getByText("Payout model", { exact: true })).toBeVisible();
   });
 });

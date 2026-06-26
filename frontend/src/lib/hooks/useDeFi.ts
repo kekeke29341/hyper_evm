@@ -21,6 +21,7 @@ import {
 import { ensureExactAllowance } from "@/lib/erc20";
 import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
 import { useI18n } from "@/lib/i18n";
+import { lpReservesFromTvl, refPriceToUsdPerHype } from "@/lib/liquidity/price";
 
 export function useDeployment() {
   return getDeployment(useEffectiveChainId());
@@ -144,8 +145,45 @@ export function usePoolReserves() {
   return null;
 }
 
+/** Live HYPE/USDC spot from Project X pool, with oracle / stored ref fallbacks. */
+export function useHypePrice() {
+  const deployment = useDeployment();
+  const adapter = deployment?.projectXAdapter;
+  const vaultAddr = deployment ? getVaultAddress(deployment) : undefined;
+
+  const { data: poolPriceRaw } = useDeploymentReadContract({
+    address: adapter,
+    abi: abis.adapter,
+    functionName: "currentPoolPriceUsdc6PerHype18",
+    query: { enabled: !!adapter, refetchInterval: 30_000 },
+  });
+
+  const { data: oraclePriceRaw } = useDeploymentReadContract({
+    address: vaultAddr,
+    abi: abis.vault,
+    functionName: "oraclePriceUsdc6PerHype18",
+    query: { enabled: !!vaultAddr, refetchInterval: 30_000 },
+  });
+
+  const { data: refPriceRaw } = useDeploymentReadContract({
+    address: adapter,
+    abi: abis.adapter,
+    functionName: "refPriceUsdc6PerHype18",
+    query: { enabled: !!adapter, refetchInterval: 30_000 },
+  });
+
+  const raw =
+    (poolPriceRaw as bigint | undefined) ??
+    (oraclePriceRaw as bigint | undefined) ??
+    (refPriceRaw as bigint | undefined);
+  const priceUsd = raw !== undefined && raw > 0n ? refPriceToUsdPerHype(raw) : 0;
+
+  return { priceUsd, refPriceRaw: raw };
+}
+
 export function usePoolStats() {
   const deployment = useDeployment();
+  const { priceUsd } = useHypePrice();
   const vaultAddr = deployment ? getVaultAddress(deployment) : undefined;
 
   const { data: vaultUsdcBal } = useDeploymentReadContract({
@@ -163,12 +201,15 @@ export function usePoolStats() {
   });
 
   const supply = totalSupply !== undefined ? formatUnits(totalSupply as bigint, VAULT_SHARE_DECIMALS) : "0";
-  const reserveUsdc = vaultUsdcBal !== undefined ? parseFloat(formatUnits(vaultUsdcBal as bigint, 6)) : 0;
-  const reserveKhype = reserveUsdc > 0 ? reserveUsdc / 42 : 0;
+  const totalAssetsUsdc =
+    vaultUsdcBal !== undefined ? parseFloat(formatUnits(vaultUsdcBal as bigint, 6)) : 0;
+  const { reserveHype: reserveKhype, reserveUsdc } = lpReservesFromTvl(totalAssetsUsdc, priceUsd);
 
   return {
     reserveKhype,
     reserveUsdc,
+    totalAssetsUsdc,
+    priceUsd,
     totalSupply: parseFloat(supply),
     totalSupplyRaw: totalSupply as bigint | undefined,
     hasDeployment: !!deployment,

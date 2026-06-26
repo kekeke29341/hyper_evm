@@ -48,11 +48,11 @@ export function LiquidityTab() {
   const [createMode, setCreateMode] = useState<"create" | "add">("create");
   const [history, setHistory] = useState<RebalanceEvent[]>([]);
 
-  const livePrice = poolPriceUsdcPerKhype(pool.reserveKhype, pool.reserveUsdc);
+  const derivedPrice = poolPriceUsdcPerKhype(pool.reserveKhype, pool.reserveUsdc);
   const poolReserveKhype = pool.reserveKhype;
   const poolReserveUsdc = pool.reserveUsdc;
   const poolTotalSupply = pool.totalSupply;
-  const price = livePrice > 0 ? livePrice : poolPriceUsdcPerKhype(poolReserveKhype, poolReserveUsdc);
+  const price = pool.priceUsd > 0 ? pool.priceUsd : derivedPrice;
   const managedRange = managedRangeBounds(price);
   const rangeLower = managedRange.lower;
   const rangeUpper = managedRange.upper;
@@ -61,8 +61,8 @@ export function LiquidityTab() {
   const displayTvl =
     useLiveVaultMetrics && vaultStats.totalAssetsUsdc > 0
       ? `$${Math.round(vaultStats.totalAssetsUsdc).toLocaleString()}`
-      : pool.reserveUsdc > 0
-        ? `$${(pool.reserveUsdc * 2).toFixed(0)}`
+      : pool.totalAssetsUsdc > 0
+        ? `$${Math.round(pool.totalAssetsUsdc).toLocaleString()}`
         : "—";
   const displayVolume = useLiveVaultMetrics ? "—" : PROJECT_X_POOL.volume24h;
   const displayReferenceApr =
@@ -202,6 +202,7 @@ export function LiquidityTab() {
           </p>
           <p className="mt-1 text-[10px] text-zinc-600">{t("position.managedRangeFixed")}</p>
           <p className="mt-1 text-[10px] text-zinc-600">{t("position.feeSplitFootnote")}</p>
+          <p className="mt-1 text-[10px] text-zinc-600">{t("position.poolFeeTierNote")}</p>
         </div>
       ))}
     </div>
@@ -240,6 +241,12 @@ export function LiquidityTab() {
             withdrawing={withdrawingVault}
           />
           <RebalanceHistoryPanel events={history} className="hidden sm:block" />
+          <details className="card-glass rounded-2xl border border-zinc-800 sm:hidden open:pb-4">
+            <summary className="p-4 cursor-pointer text-sm font-semibold text-white list-none">
+              {t("position.rebalanceHistory")}
+            </summary>
+            <RebalanceHistoryPanel events={history} bare className="px-4 pb-4 pt-0" />
+          </details>
         </div>
 
         <div className="space-y-4">

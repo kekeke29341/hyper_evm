@@ -38,7 +38,7 @@ export function CashdropTab() {
           value={epoch.formatted}
           accent="cyan"
         />
-        <StatPill label={t("cashdrop.feeShare")} value="67%" accent="violet" />
+        <StatPill label={t("cashdrop.feeShare")} value={t("cashdrop.feeShareValue")} accent="violet" />
       </div>
 
       {displayHasRewards ? (
