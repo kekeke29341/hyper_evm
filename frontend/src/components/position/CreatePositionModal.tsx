@@ -154,6 +154,7 @@ export function CreatePositionModal({
                       </div>
                     </div>
                     <p className="mt-2 text-[10px] text-zinc-600">{t("position.feeSplitFootnote")}</p>
+                    <p className="mt-1 text-[10px] text-zinc-600">{t("position.poolFeeTierNote")}</p>
                   </div>
                   <p className="mt-2 text-xs text-zinc-500">
                     HYPE/USDC {t("position.currentPrice")}:{" "}
@@ -253,6 +254,7 @@ export function CreatePositionModal({
                     {t("position.rangeWidth")}: {MANAGED_LP_RANGE.label} ({bounds.lower} – {bounds.upper})
                   </p>
                   <p className="text-[10px] text-zinc-500">{t("position.feeSplitFootnote")}</p>
+                  <p className="text-[10px] text-zinc-500">{t("position.poolFeeTierNote")}</p>
                 </div>
                 <div className="flex gap-2">
                   <button
