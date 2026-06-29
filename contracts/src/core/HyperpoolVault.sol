@@ -273,6 +273,7 @@ contract HyperpoolVault is ERC20, Ownable, Pausable, ReentrancyGuard {
         require(refPriceUsdc6PerHype18 > 0, "HyperpoolVault: ZERO_PRICE");
         _enforceOracleDeviation(refPriceUsdc6PerHype18);
         adapter.rebalance(refPriceUsdc6PerHype18);
+        adapter.forwardIdleToVault();
     }
 
     /// @notice HyperCore oracle price as USDC(6) per 1 HYPE (1e18 wei); 0 if unavailable
@@ -370,6 +371,7 @@ contract HyperpoolVault is ERC20, Ownable, Pausable, ReentrancyGuard {
         }
         (uint256 amount0, uint256 amount1) = _sortedAmounts(amountHype, amountUsdc);
         adapter.deposit(amount0, amount1);
+        adapter.forwardIdleToVault();
     }
 
     function _balanceSingleSidedDeposit(uint256 amountHype, uint256 amountUsdc)

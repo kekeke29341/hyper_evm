@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Testnet: deposit wallet USDC into HyperpoolVault.
- * Usage: source scripts/testnet-env.sh && DEPOSIT_USDC=0.03 node scripts/testnet-usdc-deposit.mjs
+ * Usage: source scripts/testnet-env.sh && DEPOSIT_USDC=10 node scripts/testnet-usdc-deposit.mjs
  */
 import fs from "fs";
 import path from "path";
@@ -9,7 +9,7 @@ import { fileURLToPath, pathToFileURL } from "url";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const RPC = process.env.TESTNET_RPC ?? "https://rpcs.chain.link/hyperevm/testnet";
-const DEPOSIT_USDC = process.env.DEPOSIT_USDC ?? "0.03";
+const DEPOSIT_USDC = process.env.DEPOSIT_USDC ?? "10";
 
 function loadEnv() {
   const file = path.join(root, ".env.testnet");

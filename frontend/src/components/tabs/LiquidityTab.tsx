@@ -268,9 +268,6 @@ export function LiquidityTab() {
                 rangeLower={rangeLower}
                 rangeUpper={rangeUpper}
                 rangeWidthPct={displayRangeWidth}
-                positionHype={vaultBalance.khype}
-                positionUsdc={vaultBalance.usdc}
-                positionValueUsd={vaultBalance.valueUsd}
                 onAdd={() => openCreate("add")}
                 onCollectFees={handleCollectFees}
                 onClose={() =>

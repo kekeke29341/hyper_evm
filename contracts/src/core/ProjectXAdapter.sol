@@ -42,6 +42,7 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
     event PositionRebalanced(uint256 tokenId, int24 tickLower, int24 tickUpper);
     event FeesCollected(uint256 amount0, uint256 amount1);
     event LiquidityWithdrawn(uint256 amount0, uint256 amount1);
+    event IdleForwardedToVault(uint256 amount0, uint256 amount1);
     event TokenRecovered(address indexed token, address indexed to, uint256 amount);
 
     modifier onlyVault() {
@@ -113,31 +114,49 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
         lowerRangeBps = _lowerBps;
     }
 
-    /// @notice USDC-equivalent value of this adapter's Project X position
+    /// @notice USDC-equivalent value of this adapter's Project X position plus idle token balances
     /// @dev Uses pool slot0 + position liquidity when `pool` is set; falls back to NPM balances for dedicated mock NPM
     function totalAssetsUsdc(uint256 priceUsdc6PerHype18) external view returns (uint256) {
-        if (positionTokenId == 0) return 0;
+        uint256 positionValue;
 
-        (,,,,, int24 posTickLower, int24 posTickUpper, uint128 positionLiq,,,,) = npm.positions(positionTokenId);
-        if (positionLiq == 0) return 0;
+        if (positionTokenId != 0) {
+            (,,,,, int24 posTickLower, int24 posTickUpper, uint128 positionLiq,,,,) = npm.positions(positionTokenId);
+            if (positionLiq > 0) {
+                uint256 amount0;
+                uint256 amount1;
 
-        uint256 amount0;
-        uint256 amount1;
+                if (address(pool) != address(0)) {
+                    (uint160 sqrtPriceX96,,,,,,) = pool.slot0();
+                    uint160 sqrtLower = TickMath.getSqrtRatioAtTick(posTickLower);
+                    uint160 sqrtUpper = TickMath.getSqrtRatioAtTick(posTickUpper);
+                    (amount0, amount1) = LiquidityAmounts.getAmountsForLiquidity(
+                        sqrtPriceX96, sqrtLower, sqrtUpper, positionLiq
+                    );
+                } else {
+                    amount0 = token0.balanceOf(address(npm));
+                    amount1 = token1.balanceOf(address(npm));
+                }
 
-        if (address(pool) != address(0)) {
-            (uint160 sqrtPriceX96,,,,,,) = pool.slot0();
-            uint160 sqrtLower = TickMath.getSqrtRatioAtTick(posTickLower);
-            uint160 sqrtUpper = TickMath.getSqrtRatioAtTick(posTickUpper);
-            (amount0, amount1) = LiquidityAmounts.getAmountsForLiquidity(
-                sqrtPriceX96, sqrtLower, sqrtUpper, positionLiq
-            );
-        } else {
-            // Dedicated mock/test NPM — all balances belong to this position
-            amount0 = token0.balanceOf(address(npm));
-            amount1 = token1.balanceOf(address(npm));
+                positionValue = _amountsToUsdc(amount0, amount1, priceUsdc6PerHype18);
+            }
         }
 
-        return _amountsToUsdc(amount0, amount1, priceUsdc6PerHype18);
+        return positionValue + idleAssetsUsdc(priceUsdc6PerHype18);
+    }
+
+    /// @notice USDC-equivalent idle WHYPE/USDC on this adapter (not yet in the NPM position)
+    function idleAssetsUsdc(uint256 priceUsdc6PerHype18) public view returns (uint256) {
+        return _amountsToUsdc(token0.balanceOf(address(this)), token1.balanceOf(address(this)), priceUsdc6PerHype18);
+    }
+
+    /// @notice Return idle tokens to the vault so they back vault shares and are withdrawable
+    function forwardIdleToVault() external onlyVault {
+        uint256 bal0 = token0.balanceOf(address(this));
+        uint256 bal1 = token1.balanceOf(address(this));
+        if (bal0 == 0 && bal1 == 0) return;
+        if (bal0 > 0) token0.safeTransfer(vault, bal0);
+        if (bal1 > 0) token1.safeTransfer(vault, bal1);
+        emit IdleForwardedToVault(bal0, bal1);
     }
 
     /// @notice Deposit tokens already held by adapter (vault transfers first)

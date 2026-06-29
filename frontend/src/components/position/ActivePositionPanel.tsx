@@ -32,9 +32,6 @@ export function ActivePositionPanel({
   canHarvest,
   collecting,
   closing,
-  positionHype,
-  positionUsdc,
-  positionValueUsd: positionValueUsdOverride,
 }: {
   lpBalance: number;
   totalSupply: number;
@@ -53,21 +50,13 @@ export function ActivePositionPanel({
   canHarvest: boolean;
   collecting: boolean;
   closing: boolean;
-  /** When set (vault shares), overrides reserve-based token split */
-  positionHype?: number;
-  positionUsdc?: number;
-  positionValueUsd?: number;
 }) {
   const { t } = useI18n();
   const priceReady = !spotPriceLoading && spotPriceUsd > 0;
   const price = priceReady ? spotPriceUsd : poolPriceUsdcPerKhype(reserveKhype, reserveUsdc);
   const inRange = priceReady ? isPriceInRange(price, rangeLower, rangeUpper) : false;
-  const reserveSplit = positionTokenAmounts(lpBalance, totalSupply, reserveKhype, reserveUsdc);
-  const hype = positionHype ?? reserveSplit.hype;
-  const usdc = positionUsdc ?? reserveSplit.usdc;
-  const valueUsd =
-    positionValueUsdOverride ??
-    positionValueUsd(lpBalance, totalSupply, reserveKhype, reserveUsdc);
+  const { hype, usdc } = positionTokenAmounts(lpBalance, totalSupply, reserveKhype, reserveUsdc);
+  const valueUsd = positionValueUsd(lpBalance, totalSupply, reserveKhype, reserveUsdc);
   const estApy = estimatedApyFromRange(poolApr, rangeWidthPct);
 
   return (

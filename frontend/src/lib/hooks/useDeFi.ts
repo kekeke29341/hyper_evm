@@ -21,10 +21,7 @@ import {
 import { ensureExactAllowance } from "@/lib/erc20";
 import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
 import { useI18n } from "@/lib/i18n";
-import {
-  poolPriceUsdcPerHype,
-  positionTokenAmounts,
-} from "@/lib/liquidity/metrics";
+import { positionTokenAmounts } from "@/lib/liquidity/metrics";
 import { lpReservesFromTvl, refPriceToUsdPerHype } from "@/lib/liquidity/price";
 
 export function useDeployment() {
@@ -369,7 +366,6 @@ export function useVaultBalance() {
   const stats = useVaultStats();
   const pool = usePoolStats();
   const vaultAddr = deployment ? getVaultAddress(deployment) : undefined;
-  const adapter = deployment?.projectXAdapter;
 
   const { data, refetch } = useDeploymentReadContract({
     address: vaultAddr,
@@ -379,27 +375,11 @@ export function useVaultBalance() {
     query: { enabled: !!address && stats.hasVault, refetchInterval: 10000 },
   });
 
-  const { data: idleHypeRaw } = useDeploymentReadContract({
-    address: deployment?.tokenKHYPE,
-    abi: abis.erc20,
-    functionName: "balanceOf",
-    args: adapter ? [adapter] : undefined,
-    query: { enabled: !!adapter, refetchInterval: 10000 },
-  });
-
-  const { data: idleUsdcRaw } = useDeploymentReadContract({
-    address: deployment?.tokenUSDC,
-    abi: abis.erc20,
-    functionName: "balanceOf",
-    args: adapter ? [adapter] : undefined,
-    query: { enabled: !!adapter, refetchInterval: 10000 },
-  });
-
   const sharesRaw = data as bigint | undefined;
   const shares = sharesRaw !== undefined ? formatUnits(sharesRaw, VAULT_SHARE_DECIMALS) : "0";
   const userShares = parseFloat(shares);
   const shareFraction = stats.shareSupplyFloat > 0 ? userShares / stats.shareSupplyFloat : 0;
-
+  const assetsUsd = stats.totalAssetsUsdc * shareFraction;
   const lpTokens = positionTokenAmounts(
     userShares,
     pool.totalSupply,
@@ -407,26 +387,13 @@ export function useVaultBalance() {
     pool.reserveUsdc
   );
 
-  const idleHype =
-    idleHypeRaw !== undefined ? parseFloat(formatUnits(idleHypeRaw as bigint, 18)) : 0;
-  const idleUsdc =
-    idleUsdcRaw !== undefined ? parseFloat(formatUnits(idleUsdcRaw as bigint, 6)) : 0;
-
-  const khype = lpTokens.hype + idleHype * shareFraction;
-  const usdc = lpTokens.usdc + idleUsdc * shareFraction;
-
-  const price =
-    pool.priceUsd > 0 ? pool.priceUsd : poolPriceUsdcPerHype(pool.reserveKhype, pool.reserveUsdc);
-  const valueUsd =
-    price > 0 ? khype * price + usdc : stats.totalAssetsUsdc * shareFraction;
-
   return {
     shares,
     sharesRaw,
     hasVaultPosition: sharesRaw !== undefined && sharesRaw > BigInt(0),
-    khype,
-    usdc,
-    valueUsd,
+    khype: lpTokens.hype,
+    usdc: lpTokens.usdc,
+    valueUsd: assetsUsd,
     refetch,
   };
 }

@@ -495,4 +495,43 @@ contract HyperpoolVaultTest is Test {
         vm.expectRevert("HyperpoolVault: ORACLE_UNAVAILABLE");
         vaultWithOracle.rebalance(42e6 * 1e12);
     }
+
+    /// @notice Single-sided USDC deposits must not strand idle WHYPE on the adapter (NAV / withdraw gap).
+    function test_DepositUSDCForwardsAdapterIdleToVault() public {
+        usdc.mint(alice, 10_000e6);
+        vm.startPrank(alice);
+        usdc.approve(address(vault), type(uint256).max);
+        uint256 deposit = 10e6;
+        uint256 shares = vault.depositUSDC(deposit, alice);
+        vm.stopPrank();
+
+        assertGt(shares, 0);
+        assertEq(whype.balanceOf(address(adapter)), 0, "idle WHYPE on adapter");
+        assertEq(usdc.balanceOf(address(adapter)), 0, "idle USDC on adapter");
+
+        uint256 nav = vault.totalAssetsUsdc();
+        assertGe(nav, (deposit * 99) / 100, "NAV should back ~full deposit");
+        assertLe(nav, deposit, "NAV should not exceed deposit on fresh vault");
+    }
+
+    function test_WithdrawReturnsFullNavAfterUSDCDeposit() public {
+        usdc.mint(alice, 10_000e6);
+        vm.startPrank(alice);
+        usdc.approve(address(vault), type(uint256).max);
+        uint256 deposit = 10e6;
+        uint256 shares = vault.depositUSDC(deposit, alice);
+        uint256 navBefore = vault.totalAssetsUsdc();
+        uint256 usdcBefore = usdc.balanceOf(alice);
+        uint256 hypeBefore = whype.balanceOf(alice);
+        vault.withdraw(shares, alice);
+        vm.stopPrank();
+
+        uint256 receivedUsdc = usdc.balanceOf(alice) - usdcBefore;
+        uint256 receivedHype = whype.balanceOf(alice) - hypeBefore;
+        // Mock pool price ~42 USDC/HYPE — value withdrawn should match NAV within 1%
+        uint256 price = adapter.refPriceUsdc6PerHype18();
+        uint256 withdrawnValue = receivedUsdc + (receivedHype * price) / 1e30;
+        assertGe(withdrawnValue, (navBefore * 99) / 100);
+        assertLe(withdrawnValue, navBefore);
+    }
 }
