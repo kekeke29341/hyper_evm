@@ -1,35 +1,15 @@
 {
   "chainId": 999,
   "deployed": true,
-  "hyperpoolVault": "0x2db5fcfc0c9eed612a544b99c9097fbbc0cf502d",
-  "liquidityVault": "0x2db5fcfc0c9eed612a544b99c9097fbbc0cf502d",
-  "oracle": "0xbad1e8b81458dc2f227288b3b83f460c242543b2",
-  "projectXAdapter": "0x3193afc8fbeedb0c2ee5b2f9ed287579c2aa1796",
-  "airdrop": "0x15f6484f12553f9e55b8c7e66aa8b339b1be5896",
-  "referralRegistry": "0x78f8f5e7222974da7078197d5724cce9ac75cd22",
+  "hyperpoolVault": "0xe5f4d055c5e2d29f26862a543377c2525a41dde8",
+  "liquidityVault": "0xe5f4d055c5e2d29f26862a543377c2525a41dde8",
+  "oracle": "0xad6b05b0b4c79264c32136842945f321f58ef94c",
+  "projectXAdapter": "0x462e71b9e66414a2108d35ba6790428a8a046ca4",
+  "airdrop": "0x67d45f8535ec3f268f1acb0fe69ec87ad7aa7431",
+  "referralRegistry": "0xd3439a2b33b48f7ddaa45cd2f0f89de12e36c806",
   "projectXNpm": "0xeaD19AE861c29bBb2101E834922B2FEee69B9091",
   "projectXPool": "0x6c9A33E3b592C0d65B3Ba59355d5Be0d38259285",
   "swapRouter": "0x1EbDFC75FfE3ba3de61E7138a3E8706aC841Af9B",
   "tokenKHYPE": "0x5555555555555555555555555555555555555555",
-  "tokenUSDC": "0xb88339CB7199b77E23DB6E890353E22632Ba630f",
-  "vaultShareHolders": [
-    {
-      "address": "0x0196f2949fbce973d54d2047e3b8bfade06e8cec",
-      "shares": "69000"
-    }
-  ],
-  "airdropEntries": [
-    {
-      "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
-      "amount": "34"
-    }
-  ],
-  "lastCashdropDistribution": {
-    "distributionId": "0xe3431594f6402591c3e61fd5eff930f946bf530ee23746a9a8aeeed1e3f63d44",
-    "txHash": "0x373c58c626f2344a6850b1d1870f318e2465817462fd14710becad2938109d39",
-    "amount": "34",
-    "entries": 1,
-    "executedAt": "2026-06-26T00:32:04.011Z",
-    "smokeFunded": false
-  }
+  "tokenUSDC": "0xb88339CB7199b77E23DB6E890353E22632Ba630f"
 }
