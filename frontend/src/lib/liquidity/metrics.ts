@@ -90,6 +90,23 @@ export function managedRangeBounds(price: number) {
   return rangeBounds(price, PROJECT_X_POOL.upperRangePct, PROJECT_X_POOL.lowerRangePct);
 }
 
+/** Spot price label — avoid showing 0 while RPC reads are in flight. */
+export function formatHypeSpotPrice(
+  priceUsd: number,
+  isLoading: boolean,
+  loadingLabel = "…"
+): string {
+  if (isLoading) return loadingLabel;
+  if (priceUsd <= 0) return "—";
+  return Math.round(priceUsd).toLocaleString();
+}
+
+/** Range bound label — paired with `formatHypeSpotPrice`. */
+export function formatRangeBound(value: number, priceUsd: number, isLoading: boolean): string {
+  if (isLoading || priceUsd <= 0) return "—";
+  return value.toLocaleString();
+}
+
 export function splitZapAmount(totalUsdc: number): { swap: number; keep: number } {
   const half = totalUsdc / 2;
   return { swap: half, keep: half };

@@ -19,6 +19,8 @@ export function ActivePositionPanel({
   totalSupply,
   reserveKhype,
   reserveUsdc,
+  spotPriceUsd,
+  spotPriceLoading = false,
   poolApr,
   rangeLower,
   rangeUpper,
@@ -30,11 +32,16 @@ export function ActivePositionPanel({
   canHarvest,
   collecting,
   closing,
+  positionHype,
+  positionUsdc,
+  positionValueUsd: positionValueUsdOverride,
 }: {
   lpBalance: number;
   totalSupply: number;
   reserveKhype: number;
   reserveUsdc: number;
+  spotPriceUsd: number;
+  spotPriceLoading?: boolean;
   poolApr: number;
   rangeLower: number;
   rangeUpper: number;
@@ -46,12 +53,21 @@ export function ActivePositionPanel({
   canHarvest: boolean;
   collecting: boolean;
   closing: boolean;
+  /** When set (vault shares), overrides reserve-based token split */
+  positionHype?: number;
+  positionUsdc?: number;
+  positionValueUsd?: number;
 }) {
   const { t } = useI18n();
-  const price = poolPriceUsdcPerKhype(reserveKhype, reserveUsdc);
-  const inRange = isPriceInRange(price, rangeLower, rangeUpper);
-  const { hype, usdc } = positionTokenAmounts(lpBalance, totalSupply, reserveKhype, reserveUsdc);
-  const valueUsd = positionValueUsd(lpBalance, totalSupply, reserveKhype, reserveUsdc);
+  const priceReady = !spotPriceLoading && spotPriceUsd > 0;
+  const price = priceReady ? spotPriceUsd : poolPriceUsdcPerKhype(reserveKhype, reserveUsdc);
+  const inRange = priceReady ? isPriceInRange(price, rangeLower, rangeUpper) : false;
+  const reserveSplit = positionTokenAmounts(lpBalance, totalSupply, reserveKhype, reserveUsdc);
+  const hype = positionHype ?? reserveSplit.hype;
+  const usdc = positionUsdc ?? reserveSplit.usdc;
+  const valueUsd =
+    positionValueUsdOverride ??
+    positionValueUsd(lpBalance, totalSupply, reserveKhype, reserveUsdc);
   const estApy = estimatedApyFromRange(poolApr, rangeWidthPct);
 
   return (
@@ -73,7 +89,12 @@ export function ActivePositionPanel({
         </span>
       </div>
 
-      <PriceRangeBar lower={rangeLower} upper={rangeUpper} current={Math.round(price)} inRange={inRange} />
+      <PriceRangeBar
+        lower={rangeLower}
+        upper={rangeUpper}
+        current={priceReady ? Math.round(price) : 0}
+        inRange={inRange}
+      />
 
       <div className="mt-4 space-y-2 text-xs">
         <div className="flex justify-between">

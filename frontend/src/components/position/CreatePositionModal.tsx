@@ -9,7 +9,8 @@ import { useI18n } from "@/lib/i18n";
 import { useTokenBalance } from "@/lib/hooks/useDeFi";
 import {
   formatUsd,
-  poolPriceUsdcPerKhype,
+  formatHypeSpotPrice,
+  formatRangeBound,
   managedRangeBounds,
 } from "@/lib/liquidity/metrics";
 import { cn } from "@/lib/utils";
@@ -19,16 +20,16 @@ type FundingSource = "wallet-khype" | "wallet-usdc" | "vault";
 export function CreatePositionModal({
   open,
   onClose,
-  reserveKhype,
-  reserveUsdc,
+  priceUsd,
+  priceLoading,
   onConfirmZap,
   isPending,
   mode = "create",
 }: {
   open: boolean;
   onClose: () => void;
-  reserveKhype: number;
-  reserveUsdc: number;
+  priceUsd: number;
+  priceLoading: boolean;
   onConfirmZap: (source: "kHYPE" | "USDC", amount: string, rangePct: number) => Promise<void>;
   isPending: boolean;
   mode?: "create" | "add";
@@ -53,14 +54,19 @@ export function CreatePositionModal({
     };
   }, [open]);
 
-  const price = poolPriceUsdcPerKhype(reserveKhype, reserveUsdc);
+  const priceReady = !priceLoading && priceUsd > 0;
+  const price = priceReady ? priceUsd : 0;
   const bounds = managedRangeBounds(price);
+  const priceLabel = formatHypeSpotPrice(priceUsd, priceLoading, t("common.loading"));
+  const lowerLabel = formatRangeBound(bounds.lower, priceUsd, priceLoading);
+  const upperLabel = formatRangeBound(bounds.upper, priceUsd, priceLoading);
 
   const sourceToken: "kHYPE" | "USDC" = funding === "wallet-khype" ? "kHYPE" : "USDC";
   const balance = funding === "wallet-khype" ? khypeBal.balance : usdcBal.balance;
   const amountNum = parseFloat(amount) || 0;
 
-  const canSubmit = funding !== "vault" && amountNum > 0 && amountNum <= parseFloat(balance || "0");
+  const canSubmit =
+    priceReady && funding !== "vault" && amountNum > 0 && amountNum <= parseFloat(balance || "0");
 
   const reset = () => {
     setStep("form");
@@ -158,7 +164,7 @@ export function CreatePositionModal({
                   </div>
                   <p className="mt-2 text-xs text-zinc-500">
                     HYPE/USDC {t("position.currentPrice")}:{" "}
-                    <span className="text-zinc-300 tabular-nums">{Math.round(price).toLocaleString()}</span>
+                    <span className="text-zinc-300 tabular-nums">{priceLabel}</span>
                   </p>
                 </section>
 
@@ -225,11 +231,11 @@ export function CreatePositionModal({
                   <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                     <div className="p-2 rounded-lg bg-zinc-900/60 border border-zinc-800">
                       <p className="text-zinc-500">{t("position.lower")}</p>
-                      <p className="text-white tabular-nums">{bounds.lower.toLocaleString()}</p>
+                      <p className="text-white tabular-nums">{lowerLabel}</p>
                     </div>
                     <div className="p-2 rounded-lg bg-zinc-900/60 border border-zinc-800">
                       <p className="text-zinc-500">{t("position.upper")}</p>
-                      <p className="text-white tabular-nums">{bounds.upper.toLocaleString()}</p>
+                      <p className="text-white tabular-nums">{upperLabel}</p>
                     </div>
                   </div>
                 </section>
@@ -251,7 +257,7 @@ export function CreatePositionModal({
                     {amount} {sourceToken === "kHYPE" ? "HYPE" : sourceToken} → Vault
                   </p>
                   <p className="text-zinc-500 text-xs">
-                    {t("position.rangeWidth")}: {MANAGED_LP_RANGE.label} ({bounds.lower} – {bounds.upper})
+                    {t("position.rangeWidth")}: {MANAGED_LP_RANGE.label} ({lowerLabel} – {upperLabel})
                   </p>
                   <p className="text-[10px] text-zinc-500">{t("position.feeSplitFootnote")}</p>
                   <p className="text-[10px] text-zinc-500">{t("position.poolFeeTierNote")}</p>

@@ -55,6 +55,17 @@ export const translations = {
       pointOperating:
         "当社は MetaMask など関係各所と確認を進めており、アプリは通常どおり稼働中です。",
     },
+    walletGate: {
+      connectTitle: "招待制アクセス",
+      connectBody: "このアプリは許可されたウォレットのみ閲覧できます。続行するにはウォレットを接続してください。",
+      deniedTitle: "アクセスできません",
+      deniedBody: "接続中のウォレットは閲覧許可リストに含まれていません。",
+      switchWallet: "別のウォレットに切り替える",
+      checking: "接続確認中…",
+      misconfiguredTitle: "アクセス制限の設定エラー",
+      misconfiguredBody:
+        "NEXT_PUBLIC_WALLET_GATE_ENABLED=true ですが、NEXT_PUBLIC_ALLOWED_WALLETS が未設定です。",
+    },
     onboarding: {
       skip: "スキップ",
       next: "次へ",
@@ -416,6 +427,17 @@ export const translations = {
         "Your assets remain controlled by your own wallet and on-chain permissions. We never custody your private keys or funds.",
       pointOperating:
         "We are coordinating with MetaMask and relevant partners, and the app continues to operate normally.",
+    },
+    walletGate: {
+      connectTitle: "Invite-only access",
+      connectBody: "This app is limited to approved wallets. Connect your wallet to continue.",
+      deniedTitle: "Access denied",
+      deniedBody: "The connected wallet is not on the allowlist.",
+      switchWallet: "Switch wallet",
+      checking: "Checking connection…",
+      misconfiguredTitle: "Access gate misconfigured",
+      misconfiguredBody:
+        "NEXT_PUBLIC_WALLET_GATE_ENABLED=true but NEXT_PUBLIC_ALLOWED_WALLETS is empty.",
     },
     onboarding: {
       skip: "Skip",

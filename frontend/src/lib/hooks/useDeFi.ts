@@ -21,6 +21,10 @@ import {
 import { ensureExactAllowance } from "@/lib/erc20";
 import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
 import { useI18n } from "@/lib/i18n";
+import {
+  poolPriceUsdcPerHype,
+  positionTokenAmounts,
+} from "@/lib/liquidity/metrics";
 import { lpReservesFromTvl, refPriceToUsdPerHype } from "@/lib/liquidity/price";
 
 export function useDeployment() {
@@ -151,26 +155,30 @@ export function useHypePrice() {
   const adapter = deployment?.projectXAdapter;
   const vaultAddr = deployment ? getVaultAddress(deployment) : undefined;
 
-  const { data: poolPriceRaw } = useDeploymentReadContract({
+  const poolPriceQuery = useDeploymentReadContract({
     address: adapter,
     abi: abis.adapter,
     functionName: "currentPoolPriceUsdc6PerHype18",
     query: { enabled: !!adapter, refetchInterval: 30_000 },
   });
 
-  const { data: oraclePriceRaw } = useDeploymentReadContract({
+  const oraclePriceQuery = useDeploymentReadContract({
     address: vaultAddr,
     abi: abis.vault,
     functionName: "oraclePriceUsdc6PerHype18",
     query: { enabled: !!vaultAddr, refetchInterval: 30_000 },
   });
 
-  const { data: refPriceRaw } = useDeploymentReadContract({
+  const refPriceQuery = useDeploymentReadContract({
     address: adapter,
     abi: abis.adapter,
     functionName: "refPriceUsdc6PerHype18",
     query: { enabled: !!adapter, refetchInterval: 30_000 },
   });
+
+  const poolPriceRaw = poolPriceQuery.data;
+  const oraclePriceRaw = oraclePriceQuery.data;
+  const refPriceRaw = refPriceQuery.data;
 
   const raw =
     (poolPriceRaw as bigint | undefined) ??
@@ -178,12 +186,17 @@ export function useHypePrice() {
     (refPriceRaw as bigint | undefined);
   const priceUsd = raw !== undefined && raw > 0n ? refPriceToUsdPerHype(raw) : 0;
 
-  return { priceUsd, refPriceRaw: raw };
+  const isLoading =
+    !!adapter &&
+    raw === undefined &&
+    (poolPriceQuery.isFetching || oraclePriceQuery.isFetching || refPriceQuery.isFetching);
+
+  return { priceUsd, refPriceRaw: raw, isLoading };
 }
 
 export function usePoolStats() {
   const deployment = useDeployment();
-  const { priceUsd } = useHypePrice();
+  const { priceUsd, isLoading: isPriceLoading } = useHypePrice();
   const vaultAddr = deployment ? getVaultAddress(deployment) : undefined;
 
   const { data: vaultUsdcBal } = useDeploymentReadContract({
@@ -210,6 +223,7 @@ export function usePoolStats() {
     reserveUsdc,
     totalAssetsUsdc,
     priceUsd,
+    isPriceLoading,
     totalSupply: parseFloat(supply),
     totalSupplyRaw: totalSupply as bigint | undefined,
     hasDeployment: !!deployment,
@@ -269,7 +283,26 @@ export function useZapLiquidity() {
 }
 
 export function useLpBalance() {
-  return { balance: "0", hasPosition: false, refetch: () => {} };
+  const { address } = useConnection();
+  const deployment = useDeployment();
+  const vaultAddr = deployment ? getVaultAddress(deployment) : undefined;
+
+  const { data, refetch } = useDeploymentReadContract({
+    address: vaultAddr,
+    abi: abis.vault,
+    functionName: "balanceOf",
+    args: address ? [address] : undefined,
+    query: { enabled: !!address && !!vaultAddr, refetchInterval: 10000 },
+  });
+
+  const raw = data as bigint | undefined;
+  const balance = raw !== undefined ? formatUnits(raw, VAULT_SHARE_DECIMALS) : "0";
+
+  return {
+    balance,
+    hasPosition: raw !== undefined && raw > 0n,
+    refetch,
+  };
 }
 
 export function useVaultStats() {
@@ -334,7 +367,9 @@ export function useVaultBalance() {
   const { address } = useConnection();
   const deployment = useDeployment();
   const stats = useVaultStats();
+  const pool = usePoolStats();
   const vaultAddr = deployment ? getVaultAddress(deployment) : undefined;
+  const adapter = deployment?.projectXAdapter;
 
   const { data, refetch } = useDeploymentReadContract({
     address: vaultAddr,
@@ -344,19 +379,54 @@ export function useVaultBalance() {
     query: { enabled: !!address && stats.hasVault, refetchInterval: 10000 },
   });
 
+  const { data: idleHypeRaw } = useDeploymentReadContract({
+    address: deployment?.tokenKHYPE,
+    abi: abis.erc20,
+    functionName: "balanceOf",
+    args: adapter ? [adapter] : undefined,
+    query: { enabled: !!adapter, refetchInterval: 10000 },
+  });
+
+  const { data: idleUsdcRaw } = useDeploymentReadContract({
+    address: deployment?.tokenUSDC,
+    abi: abis.erc20,
+    functionName: "balanceOf",
+    args: adapter ? [adapter] : undefined,
+    query: { enabled: !!adapter, refetchInterval: 10000 },
+  });
+
   const sharesRaw = data as bigint | undefined;
   const shares = sharesRaw !== undefined ? formatUnits(sharesRaw, VAULT_SHARE_DECIMALS) : "0";
-  const share = stats.shareSupplyFloat > 0 ? parseFloat(shares) / stats.shareSupplyFloat : 0;
+  const userShares = parseFloat(shares);
+  const shareFraction = stats.shareSupplyFloat > 0 ? userShares / stats.shareSupplyFloat : 0;
 
-  const assetsUsd = stats.totalAssetsUsdc * share;
+  const lpTokens = positionTokenAmounts(
+    userShares,
+    pool.totalSupply,
+    pool.reserveKhype,
+    pool.reserveUsdc
+  );
+
+  const idleHype =
+    idleHypeRaw !== undefined ? parseFloat(formatUnits(idleHypeRaw as bigint, 18)) : 0;
+  const idleUsdc =
+    idleUsdcRaw !== undefined ? parseFloat(formatUnits(idleUsdcRaw as bigint, 6)) : 0;
+
+  const khype = lpTokens.hype + idleHype * shareFraction;
+  const usdc = lpTokens.usdc + idleUsdc * shareFraction;
+
+  const price =
+    pool.priceUsd > 0 ? pool.priceUsd : poolPriceUsdcPerHype(pool.reserveKhype, pool.reserveUsdc);
+  const valueUsd =
+    price > 0 ? khype * price + usdc : stats.totalAssetsUsdc * shareFraction;
 
   return {
     shares,
     sharesRaw,
     hasVaultPosition: sharesRaw !== undefined && sharesRaw > BigInt(0),
-    khype: 0,
-    usdc: assetsUsd,
-    valueUsd: assetsUsd,
+    khype,
+    usdc,
+    valueUsd,
     refetch,
   };
 }

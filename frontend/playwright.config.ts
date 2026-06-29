@@ -34,7 +34,7 @@ export default defineConfig({
     },
     {
       name: "wallet-mock",
-      testMatch: /wallet-mock\.spec\.ts/,
+      testMatch: /(wallet-mock|position-price-local)\.spec\.ts/,
       fullyParallel: false,
       workers: 1,
       timeout: 60_000,

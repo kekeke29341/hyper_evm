@@ -9,7 +9,7 @@ import { useApp } from "@/lib/store";
 import { PROJECT_X_POOL } from "@/lib/constants";
 
 export function PoolsPanel() {
-  const { deployment, isVaultOwner, address } = useAdminAuth();
+  const { deployment, isAdapterOwner, isVaultOwner, address } = useAdminAuth();
   const { recoverAdapterToken, isPending } = useAdminTx();
   const { showToast } = useApp();
 
@@ -62,7 +62,7 @@ export function PoolsPanel() {
         </div>
         <div className="mt-3">
           <AdminButton
-            disabled={isPending || !isVaultOwner || !token || !amount || !isAddress(token)}
+            disabled={isPending || !(isAdapterOwner || isVaultOwner) || !token || !amount || !isAddress(token)}
             onClick={() => {
               if (!address) {
                 showToast("Connect owner wallet");

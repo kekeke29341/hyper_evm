@@ -18,6 +18,7 @@ export function AnalyticsPanel() {
     operatorFeeBps,
     operatorWallet,
     airdropPaused,
+    vaultPaused,
   } = useAdminAnalytics();
 
   if (!deployment) {
@@ -55,6 +56,7 @@ export function AnalyticsPanel() {
             value={airdropBalance !== undefined ? formatUnits(airdropBalance as bigint, 6) : "—"}
             sub={airdropPaused ? "Paused" : "Active"}
           />
+          <StatBox label="Vault status" value={vaultPaused ? "Paused" : "Active"} sub="Deposits / withdraws" />
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mt-3">

@@ -10,6 +10,14 @@ import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
 import MerkleAirdropAbi from "@/lib/contracts/abis/MerkleAirdrop.json";
 import ownableAbi from "@/lib/contracts/ownableAbi.json";
 import { buildMerkleRoot, parseAirdropCsv, type AirdropEntry } from "@/lib/admin/merkle";
+import { deviationSeverity, isTickInRange, priceDeviationBps } from "@/lib/admin/health";
+import { npmPositionsAbi, poolSlot0Abi } from "@/lib/admin/minimalAbis";
+import { PROJECT_X_POOL } from "@/lib/constants";
+
+function walletMatches(address: string | undefined, onChain: unknown): boolean {
+  if (!address || !onChain) return false;
+  return (onChain as string).toLowerCase() === address.toLowerCase();
+}
 
 export function useAdminAuth() {
   const { address, isConnected } = useConnection();
@@ -31,21 +39,50 @@ export function useAdminAuth() {
     query: { enabled: !!vaultAddress },
   });
 
+  const { data: adapterOwner } = useReadContract({
+    address: deployment?.projectXAdapter,
+    abi: ownableAbi,
+    functionName: "owner",
+    query: { enabled: !!deployment?.projectXAdapter },
+  });
+
+  const { data: vaultKeeperOnChain } = useReadContract({
+    address: vaultAddress,
+    abi: abis.vault,
+    functionName: "keeper",
+    query: { enabled: !!vaultAddress },
+  });
+
   const roles = useMemo(() => {
-    if (!address) {
-      return { isAdmin: false, isAirdropOwner: false, isVaultOwner: false };
-    }
-    const a = address.toLowerCase();
-    const isAirdropOwner = airdropOwner ? (airdropOwner as string).toLowerCase() === a : false;
-    const isVaultOwner = vaultOwner ? (vaultOwner as string).toLowerCase() === a : false;
+    const isAirdropOwner = walletMatches(address, airdropOwner);
+    const isVaultOwner = walletMatches(address, vaultOwner);
+    const isAdapterOwner = walletMatches(address, adapterOwner);
+    const isKeeper = walletMatches(address, vaultKeeperOnChain);
+    const isAdmin = isAirdropOwner || isVaultOwner;
+    const canRunKeeper = isVaultOwner || isKeeper;
+    const canWrite = isAdmin;
     return {
-      isAdmin: isAirdropOwner || isVaultOwner,
+      isAdmin,
       isAirdropOwner,
       isVaultOwner,
+      isAdapterOwner,
+      isKeeper,
+      canRunKeeper,
+      canWrite,
     };
-  }, [address, airdropOwner, vaultOwner]);
+  }, [address, airdropOwner, vaultOwner, adapterOwner, vaultKeeperOnChain]);
 
-  return { ...roles, isConnected, address, deployment, vaultAddress, airdropOwner, vaultOwner };
+  return {
+    ...roles,
+    isConnected,
+    address,
+    deployment,
+    vaultAddress,
+    airdropOwner,
+    vaultOwner,
+    adapterOwner,
+    vaultKeeper: vaultKeeperOnChain,
+  };
 }
 
 export function useAdminAnalytics() {
@@ -110,6 +147,41 @@ export function useAdminAnalytics() {
     query: { enabled: !!deployment?.airdrop },
   });
 
+  const { data: vaultPaused } = useReadContract({
+    address: vaultAddress,
+    abi: abis.vault,
+    functionName: "paused",
+    query: { enabled: !!vaultAddress, refetchInterval: 10_000 },
+  });
+
+  const { data: maxRebalanceDeviationBps } = useReadContract({
+    address: vaultAddress,
+    abi: abis.vault,
+    functionName: "maxRebalanceDeviationBps",
+    query: { enabled: !!vaultAddress },
+  });
+
+  const { data: convertHypeFeesToUsdc } = useReadContract({
+    address: vaultAddress,
+    abi: abis.vault,
+    functionName: "convertHypeFeesToUsdc",
+    query: { enabled: !!vaultAddress },
+  });
+
+  const { data: feeSwapSlippageBps } = useReadContract({
+    address: vaultAddress,
+    abi: abis.vault,
+    functionName: "feeSwapSlippageBps",
+    query: { enabled: !!vaultAddress },
+  });
+
+  const { data: swapRouter } = useReadContract({
+    address: vaultAddress,
+    abi: abis.vault,
+    functionName: "swapRouter",
+    query: { enabled: !!vaultAddress },
+  });
+
   return {
     deployment,
     vaultAddress,
@@ -121,6 +193,155 @@ export function useAdminAnalytics() {
     operatorFeeBps,
     vaultKeeper,
     airdropPaused,
+    vaultPaused,
+    maxRebalanceDeviationBps,
+    convertHypeFeesToUsdc,
+    feeSwapSlippageBps,
+    swapRouter,
+  };
+}
+
+export function useAdminHealth() {
+  const chainId = useEffectiveChainId();
+  const deployment = getDeployment(chainId);
+  const vaultAddress = deployment ? getVaultAddress(deployment) : undefined;
+  const adapter = deployment?.projectXAdapter;
+  const pool = deployment?.projectXPool ?? PROJECT_X_POOL.poolAddress;
+  const npm = deployment?.projectXNpm;
+
+  const { data: oraclePrice } = useReadContract({
+    address: vaultAddress,
+    abi: abis.vault,
+    functionName: "oraclePriceUsdc6PerHype18",
+    query: { enabled: !!vaultAddress, refetchInterval: 30_000 },
+  });
+
+  const { data: poolPrice } = useReadContract({
+    address: adapter,
+    abi: abis.adapter,
+    functionName: "currentPoolPriceUsdc6PerHype18",
+    query: { enabled: !!adapter, refetchInterval: 30_000 },
+  });
+
+  const { data: refPrice } = useReadContract({
+    address: adapter,
+    abi: abis.adapter,
+    functionName: "refPriceUsdc6PerHype18",
+    query: { enabled: !!adapter, refetchInterval: 30_000 },
+  });
+
+  const { data: positionTokenId } = useReadContract({
+    address: adapter,
+    abi: abis.adapter,
+    functionName: "positionTokenId",
+    query: { enabled: !!adapter, refetchInterval: 30_000 },
+  });
+
+  const { data: tickLower } = useReadContract({
+    address: adapter,
+    abi: abis.adapter,
+    functionName: "tickLower",
+    query: { enabled: !!adapter, refetchInterval: 30_000 },
+  });
+
+  const { data: tickUpper } = useReadContract({
+    address: adapter,
+    abi: abis.adapter,
+    functionName: "tickUpper",
+    query: { enabled: !!adapter, refetchInterval: 30_000 },
+  });
+
+  const { data: adapterVault } = useReadContract({
+    address: adapter,
+    abi: abis.adapter,
+    functionName: "vault",
+    query: { enabled: !!adapter },
+  });
+
+  const { data: slot0 } = useReadContract({
+    address: pool as Address | undefined,
+    abi: poolSlot0Abi,
+    functionName: "slot0",
+    query: { enabled: !!pool, refetchInterval: 30_000 },
+  });
+
+  const tokenId = positionTokenId !== undefined ? (positionTokenId as bigint) : undefined;
+  const hasPosition = tokenId !== undefined && tokenId > 0n;
+
+  const { data: npmPosition } = useReadContract({
+    address: npm as Address | undefined,
+    abi: npmPositionsAbi,
+    functionName: "positions",
+    args: hasPosition ? [tokenId] : undefined,
+    query: { enabled: !!npm && hasPosition, refetchInterval: 30_000 },
+  });
+
+  const { data: maxRebalanceDeviationBps } = useReadContract({
+    address: vaultAddress,
+    abi: abis.vault,
+    functionName: "maxRebalanceDeviationBps",
+    query: { enabled: !!vaultAddress },
+  });
+
+  const { data: distributionExecuted } = useReadContract({
+    address: deployment?.airdrop,
+    abi: MerkleAirdropAbi,
+    functionName: "distributionExecuted",
+    args: deployment?.lastCashdropDistribution?.distributionId
+      ? [deployment.lastCashdropDistribution.distributionId as `0x${string}`]
+      : undefined,
+    query: {
+      enabled: !!deployment?.airdrop && !!deployment.lastCashdropDistribution?.distributionId,
+    },
+  });
+
+  const maxDevBps = maxRebalanceDeviationBps !== undefined ? Number(maxRebalanceDeviationBps) : 500;
+  const oraclePoolDevBps = priceDeviationBps(
+    oraclePrice as bigint | undefined ?? 0n,
+    poolPrice as bigint | undefined ?? 0n
+  );
+  const oracleRefDevBps = priceDeviationBps(
+    oraclePrice as bigint | undefined ?? 0n,
+    refPrice as bigint | undefined ?? 0n
+  );
+
+  const currentTick =
+    slot0 !== undefined ? Number((slot0 as readonly [bigint, number, ...unknown[]])[1]) : null;
+  const lower = tickLower !== undefined ? Number(tickLower) : null;
+  const upper = tickUpper !== undefined ? Number(tickUpper) : null;
+  const inRange =
+    currentTick !== null && lower !== null && upper !== null
+      ? isTickInRange(currentTick, lower, upper)
+      : null;
+
+  const npmLiquidity =
+    npmPosition !== undefined ? (npmPosition as readonly unknown[])[7] as bigint : undefined;
+
+  const vaultLinkOk =
+    vaultAddress && adapterVault
+      ? (adapterVault as string).toLowerCase() === vaultAddress.toLowerCase()
+      : null;
+
+  const usingFallbackRef = refPrice !== undefined && (refPrice as bigint) > 0n && (poolPrice as bigint | undefined ?? 0n) === 0n;
+
+  return {
+    deployment,
+    oraclePrice: oraclePrice as bigint | undefined,
+    poolPrice: poolPrice as bigint | undefined,
+    refPrice: refPrice as bigint | undefined,
+    positionTokenId: tokenId,
+    tickLower: lower,
+    tickUpper: upper,
+    currentTick,
+    inRange,
+    npmLiquidity,
+    oraclePoolDevBps,
+    oracleRefDevBps,
+    maxDevBps,
+    oraclePoolSeverity: deviationSeverity(oraclePoolDevBps, maxDevBps),
+    vaultLinkOk,
+    usingFallbackRef,
+    distributionExecuted: distributionExecuted as boolean | undefined,
   };
 }
 
@@ -248,6 +469,34 @@ export function useAdminActions() {
     });
   };
 
+  const rebalance = async (refPriceUsdc6PerHype18: bigint) => {
+    if (!vaultAddress) throw new Error("No vault");
+    await writeWithChain({
+      address: vaultAddress,
+      abi: abis.vault,
+      functionName: "rebalance",
+      args: [refPriceUsdc6PerHype18],
+    });
+  };
+
+  const pauseVault = async () => {
+    if (!vaultAddress) throw new Error("No vault");
+    await writeWithChain({
+      address: vaultAddress,
+      abi: abis.vault,
+      functionName: "pause",
+    });
+  };
+
+  const unpauseVault = async () => {
+    if (!vaultAddress) throw new Error("No vault");
+    await writeWithChain({
+      address: vaultAddress,
+      abi: abis.vault,
+      functionName: "unpause",
+    });
+  };
+
   const recoverVaultForeignToken = async (token: Address, to: Address, amount: string, decimals: number) => {
     if (!vaultAddress) throw new Error("No vault");
     await writeWithChain({
@@ -295,6 +544,9 @@ export function useAdminActions() {
     setOperatorWallet,
     pullPendingRewards,
     harvestFees,
+    rebalance,
+    pauseVault,
+    unpauseVault,
     recoverVaultForeignToken,
     recoverAdapterToken,
     generateAndSetRoot,

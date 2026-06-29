@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   estimatedApyFromRange,
+  formatHypeSpotPrice,
+  formatRangeBound,
   poolPriceUsdcPerKhype,
   positionValueUsd,
   rangeBounds,
@@ -32,5 +34,17 @@ describe("liquidity metrics", () => {
   it("values LP position from reserves", () => {
     const v = positionValueUsd(10, 100, 50, 1000);
     expect(v).toBeCloseTo(5 * 20 + 100, 2);
+  });
+
+  it("formatHypeSpotPrice avoids zero while loading", () => {
+    expect(formatHypeSpotPrice(0, true, "…")).toBe("…");
+    expect(formatHypeSpotPrice(61.4, false)).toBe("61");
+    expect(formatHypeSpotPrice(0, false)).toBe("—");
+  });
+
+  it("formatRangeBound hides bounds until price is ready", () => {
+    expect(formatRangeBound(43, 0, false)).toBe("—");
+    expect(formatRangeBound(43, 61, true)).toBe("—");
+    expect(formatRangeBound(43, 61, false)).toBe("43");
   });
 });

@@ -10,7 +10,7 @@ import { RebalanceHistoryPanel } from "@/components/position/RebalanceHistoryPan
 import { ActivePositionPanel } from "@/components/position/ActivePositionPanel";
 import { CreatePositionModal } from "@/components/position/CreatePositionModal";
 import { appendRebalanceEvent, readRebalanceHistory, type RebalanceEvent } from "@/lib/liquidity/history";
-import { poolPriceUsdcPerKhype, managedRangeBounds } from "@/lib/liquidity/metrics";
+import { managedRangeBounds, formatHypeSpotPrice } from "@/lib/liquidity/metrics";
 import {
   useDeployment,
   useLpBalance,
@@ -48,14 +48,16 @@ export function LiquidityTab() {
   const [createMode, setCreateMode] = useState<"create" | "add">("create");
   const [history, setHistory] = useState<RebalanceEvent[]>([]);
 
-  const derivedPrice = poolPriceUsdcPerKhype(pool.reserveKhype, pool.reserveUsdc);
   const poolReserveKhype = pool.reserveKhype;
   const poolReserveUsdc = pool.reserveUsdc;
   const poolTotalSupply = pool.totalSupply;
-  const price = pool.priceUsd > 0 ? pool.priceUsd : derivedPrice;
+  const priceLoading = pool.isPriceLoading;
+  const priceReady = !priceLoading && pool.priceUsd > 0;
+  const price = priceReady ? pool.priceUsd : 0;
   const managedRange = managedRangeBounds(price);
   const rangeLower = managedRange.lower;
   const rangeUpper = managedRange.upper;
+  const priceLabel = formatHypeSpotPrice(pool.priceUsd, priceLoading, t("common.loading"));
   const poolApr = PROJECT_X_POOL.referenceAprNum;
   const useLiveVaultMetrics = chainId === 998 || chainId === 999;
   const displayTvl =
@@ -166,7 +168,7 @@ export function LiquidityTab() {
 
   const hasAnyPosition = hasPosition || vaultBalance.hasVaultPosition;
   const displayLpBalance = vaultBalance.hasVaultPosition
-    ? vaultStats.vaultLp * (parseFloat(vaultBalance.shares) / (vaultStats.shareSupplyFloat || 1))
+    ? parseFloat(vaultBalance.shares)
     : parseFloat(lpBalance);
   const displayRangeWidth = managedRange.widthPct;
 
@@ -198,11 +200,8 @@ export function LiquidityTab() {
             </div>
           </div>
           <p className="mt-2 text-[10px] text-zinc-500 tabular-nums">
-            {t("position.currentPrice")}: {Math.round(price).toLocaleString()} USDC/HYPE
+            {t("position.currentPrice")}: {priceLabel} USDC/HYPE
           </p>
-          <p className="mt-1 text-[10px] text-zinc-600">{t("position.managedRangeFixed")}</p>
-          <p className="mt-1 text-[10px] text-zinc-600">{t("position.feeSplitFootnote")}</p>
-          <p className="mt-1 text-[10px] text-zinc-600">{t("position.poolFeeTierNote")}</p>
         </div>
       ))}
     </div>
@@ -263,10 +262,15 @@ export function LiquidityTab() {
                 totalSupply={poolTotalSupply}
                 reserveKhype={poolReserveKhype}
                 reserveUsdc={poolReserveUsdc}
+                spotPriceUsd={pool.priceUsd}
+                spotPriceLoading={priceLoading}
                 poolApr={poolApr}
                 rangeLower={rangeLower}
                 rangeUpper={rangeUpper}
                 rangeWidthPct={displayRangeWidth}
+                positionHype={vaultBalance.khype}
+                positionUsdc={vaultBalance.usdc}
+                positionValueUsd={vaultBalance.valueUsd}
                 onAdd={() => openCreate("add")}
                 onCollectFees={handleCollectFees}
                 onClose={() =>
@@ -300,8 +304,8 @@ export function LiquidityTab() {
       <CreatePositionModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        reserveKhype={pool.reserveKhype}
-        reserveUsdc={pool.reserveUsdc}
+        priceUsd={pool.priceUsd}
+        priceLoading={priceLoading}
         onConfirmZap={handleZap}
         isPending={zapping}
         mode={createMode}
