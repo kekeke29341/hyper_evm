@@ -39,7 +39,7 @@ export const hyperEvmMainnet = defineChain({
     },
   },
   blockExplorers: {
-    default: { name: "Purrsec", url: "https://purrsec.com" },
+    default: { name: "HyperEVMScan", url: "https://hyperevmscan.io" },
   },
 });
 

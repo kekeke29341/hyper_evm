@@ -47,6 +47,61 @@ npx vercel@latest --prod --yes
 
 ---
 
+## コントラクトアドレス変更（Mainnet 999）
+
+`frontend/src/lib/contracts/deployments/999.json` の `hyperpoolVault` / `projectXAdapter` / `projectXPool` などを変えるとき、またはオンチェーンのみ新スタックをデプロイしたときは、**必ず履歴を残す**。
+
+| 項目 | 正本 |
+|------|------|
+| 変更履歴・日時・新旧アドレス | `docs/本番運用/contract-address-changelog.md` |
+| アプリが参照するアドレス | `frontend/src/lib/contracts/deployments/999.json` |
+| スクリプト / cron | `contracts/deployments/999.json`（フロントと同期） |
+
+### エージェント必須
+
+1. **変更前に** `contract-address-changelog.md` の「現在アクティブ」を確認する
+2. **アドレスを変えたら** 同ファイルに **実施日・理由・旧→新アドレス表・アプリ反映有無・Vercel デプロイ有無** を追記する（テンプレートあり）
+3. **オンチェーンのみデプロイ**（アプリ未切替）の場合も履歴に記載し、「現在アクティブ（アプリ）」と「オンチェーンのみ存在」を分けて書く
+4. `999.json` を変えるときは `contracts/deployments/999.json` と **両方** 更新し、`node scripts/sync-abi.mjs` を実行する
+5. ユーザーが「アドレスを変えないで」と指示している間は、`999.json` の更新と Vercel 本番デプロイを **行わない**
+6. アプリ切替後は Vercel 本番（`hyper-evm`）をデプロイし、changelog にデプロイ日時を追記する
+
+### 参考
+
+- 0.3% 移行手順: `docs/本番運用/vault-redeploy-999.md`
+- 運営向け一覧: `docs/本番運用/README.md`
+
+---
+
+## オンチェーン確認 — HyperEVMScan（Mainnet 999）
+
+Mainnet のトランザクション・コントラクト・残高確認は **HyperEVMScan** を使う。`purrsec.com` は 404 等で使えないことがある。
+
+| 項目 | URL |
+|------|-----|
+| **Mainnet エクスプローラー** | https://hyperevmscan.io |
+| アドレス | `https://hyperevmscan.io/address/{address}` |
+| トランザクション | `https://hyperevmscan.io/tx/{hash}` |
+| Testnet（998） | https://testnet.purrsec.com（従来どおり） |
+
+### エージェント必須
+
+- ユーザーへの **Mainnet 確認リンクは HyperEVMScan** を出す（Purrsec Mainnet を案内しない）
+- アプリ内 explorer URL も Mainnet は `https://hyperevmscan.io`（`frontend/src/lib/explorer.ts`）
+- HyperEVMScan の **Token Holdings** は Vault コントラクト上の **idle トークンのみ**表示。LP 本体は Adapter の NPM ポジション側（`totalAssetsUsdc` が正しい NAV）
+
+### 旧 Vault 確認用（2026-06 時点・アプリ本番）
+
+| 役割 | アドレス | HyperEVMScan |
+|------|----------|--------------|
+| HyperpoolVault | `0xe5f4d055c5e2d29f26862a543377c2525a41dde8` | https://hyperevmscan.io/address/0xe5f4d055c5e2d29f26862a543377c2525a41dde8 |
+| 大口ホルダー | `0xf35208bfadc5f7d38334fd71f42fddc7eeb85b55` | https://hyperevmscan.io/address/0xf35208bfadc5f7d38334fd71f42fddc7eeb85b55 |
+| 運営ウォレット | `0x0196f2949FbcE973d54d2047E3B8bfAde06e8cec` | https://hyperevmscan.io/address/0x0196f2949FbcE973d54d2047E3B8bfAde06e8cec |
+
+Read Contract で `totalAssetsUsdc()` / `balanceOf(ホルダー)` / `paused()` を確認する。
+
+---
+
 ## ゲストデモモード — 削除済み（2026-06）
 
 **2026-06 にフロントから完全削除済み。** ウォレット未接続時は空状態 + 接続促進 UI のみ。

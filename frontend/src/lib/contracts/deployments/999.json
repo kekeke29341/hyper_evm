@@ -1,15 +1,62 @@
 {
   "chainId": 999,
   "deployed": true,
-  "hyperpoolVault": "0xe5f4d055c5e2d29f26862a543377c2525a41dde8",
-  "liquidityVault": "0xe5f4d055c5e2d29f26862a543377c2525a41dde8",
+  "hyperpoolVault": "0x03cF822d0192D687cBDc2fAe6B8492a27634aD99",
+  "liquidityVault": "0x03cF822d0192D687cBDc2fAe6B8492a27634aD99",
   "oracle": "0xad6b05b0b4c79264c32136842945f321f58ef94c",
-  "projectXAdapter": "0x462e71b9e66414a2108d35ba6790428a8a046ca4",
+  "projectXAdapter": "0x1A347c716721548C298B426aD90dfbb8B5BF328d",
   "airdrop": "0x67d45f8535ec3f268f1acb0fe69ec87ad7aa7431",
-  "referralRegistry": "0xd3439a2b33b48f7ddaa45cd2f0f89de12e36c806",
+  "referralRegistry": "0x3934abcb5824326b59debdb7c3410a7648b09cd2",
   "projectXNpm": "0xeaD19AE861c29bBb2101E834922B2FEee69B9091",
-  "projectXPool": "0x6c9A33E3b592C0d65B3Ba59355d5Be0d38259285",
+  "projectXPool": "0x422e586C906eb241f784B4F5a633c2C7e59A2F54",
   "swapRouter": "0x1EbDFC75FfE3ba3de61E7138a3E8706aC841Af9B",
   "tokenKHYPE": "0x5555555555555555555555555555555555555555",
-  "tokenUSDC": "0xb88339CB7199b77E23DB6E890353E22632Ba630f"
+  "tokenUSDC": "0xb88339CB7199b77E23DB6E890353E22632Ba630f",
+  "previousVault": "0xF749790D37cc125B6F5d2BC5a64B56577a26d394",
+  "previousAdapter": "0xa6CCDC039e09889ed6E7ee8377e384F0772b706a",
+  "poolMigratedAt": "2026-07-04T03:26:35.000Z",
+  "vaultShareHolders": [
+    {
+      "address": "0x5e450488017dda204999213f672853039e01ebd5",
+      "shares": "6827609125"
+    },
+    {
+      "address": "0xe9861abc02092be10e77279c034cf7384d086591",
+      "shares": "7812527204"
+    },
+    {
+      "address": "0xf35208bfadc5f7d38334fd71f42fddc7eeb85b55",
+      "shares": "35943309"
+    }
+  ],
+  "airdropEntries": [
+    {
+      "address": "0x5E450488017Dda204999213F672853039E01eBD5",
+      "amount": "54994",
+      "minShares": "1"
+    },
+    {
+      "address": "0xe9861Abc02092be10E77279C034cf7384D086591",
+      "amount": "59168",
+      "minShares": "1"
+    }
+  ],
+  "lastCashdropDistribution": {
+    "distributionId": "0x2b21a2e514ae56a72f934a2f1fccfd6c4e53fd53827bc7207209ad6dd2e5efae",
+    "txHash": "0x4204689b37c0a5a1f0c836e3835a729bb73d92eca78c4289f7073bbbbeee76ad",
+    "amount": "114162",
+    "entries": 2,
+    "executedAt": "2026-07-04T23:11:02.911Z",
+    "harvestBlock": "39598474",
+    "harvestTimestamp": "1783204980",
+    "timeWeighted": true
+  },
+  "cashdropWeightCheckpoint": {
+    "blockNumber": "39598474",
+    "timestamp": "1783204980",
+    "balances": {
+      "0x5E450488017Dda204999213F672853039E01eBD5": "6827609125",
+      "0xe9861Abc02092be10E77279C034cf7384D086591": "7812527204"
+    }
+  }
 }

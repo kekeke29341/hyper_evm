@@ -50,6 +50,8 @@ source scripts/testnet-env.sh   # または .env.mainnet
 本番では **本物 Project X NPM** を使用（Mock なし）。
 Mainnet では `testnet-post-deploy.mjs` 相当の運営LP投入は不要です。ユーザーの Vault deposit が既存 Project X WHYPE/USDC LP への代理投入を開始します（運営の任意 smoke deposit は除く）。
 
+**アドレス変更時:** `docs/本番運用/contract-address-changelog.md` に実施日・新旧アドレス・アプリ反映状況を必ず追記する（`.cursorrules` 参照）。
+
 ## デプロイ後
 
 ```bash

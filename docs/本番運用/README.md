@@ -10,7 +10,8 @@
 |---------|------|
 | [現状と全体像.md](./現状と全体像.md) | 2 層構造（Vercel + Vault LP）、機能別の運営作業 |
 | [テストネット運用.md](./テストネット運用.md) | **998 デプロイ済みの現状**・スクリプト一覧・cron |
-| [本番環境運用.md](./本番環境運用.md) | Mainnet (999) 公開前の準備 |
+| [contract-address-changelog.md](./contract-address-changelog.md) | **コントラクトアドレス変更履歴**（日時・新旧アドレス・アプリ反映状況） |
+| [vault-redeploy-999.md](./vault-redeploy-999.md) | **Mainnet Vault 再デプロイ**（7/60/33 分配・移行手順） |
 | [チェックリスト.md](./チェックリスト.md) | コピペ用チェックリスト |
 | [external-cron.md](./external-cron.md) | **外部 cron 候補比較**（GitHub 以外 — VPS 推奨） |
 | [vps-cron.md](./vps-cron.md) | **VPS で keeper / 日次 Cashdrop**（本番移行先） |
@@ -51,4 +52,5 @@ node scripts/sync-abi.mjs
 
 - 公開 UI: https://hyper-evm-ten.vercel.app
 - Testnet Explorer: https://testnet.purrsec.com
+- Mainnet Explorer: https://hyperevmscan.io
 - Testnet ガス: https://app.hyperliquid-testnet.xyz/drip
