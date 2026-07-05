@@ -21,6 +21,10 @@
       "shares": "6827609125"
     },
     {
+      "address": "0xc8d30fdcab0081545c2159303aab957d129c603a",
+      "shares": "10246888498"
+    },
+    {
       "address": "0xe9861abc02092be10e77279c034cf7384d086591",
       "shares": "7812527204"
     },
@@ -32,31 +36,43 @@
   "airdropEntries": [
     {
       "address": "0x5E450488017Dda204999213F672853039E01eBD5",
-      "amount": "54994",
+      "amount": "163903",
+      "minShares": "1"
+    },
+    {
+      "address": "0xc8d30fDCAb0081545c2159303AaB957d129C603a",
+      "amount": "188676",
       "minShares": "1"
     },
     {
       "address": "0xe9861Abc02092be10E77279C034cf7384D086591",
-      "amount": "59168",
+      "amount": "187547",
+      "minShares": "1"
+    },
+    {
+      "address": "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55",
+      "amount": "862",
       "minShares": "1"
     }
   ],
   "lastCashdropDistribution": {
-    "distributionId": "0x2b21a2e514ae56a72f934a2f1fccfd6c4e53fd53827bc7207209ad6dd2e5efae",
-    "txHash": "0x4204689b37c0a5a1f0c836e3835a729bb73d92eca78c4289f7073bbbbeee76ad",
-    "amount": "114162",
-    "entries": 2,
-    "executedAt": "2026-07-04T23:11:02.911Z",
-    "harvestBlock": "39598474",
-    "harvestTimestamp": "1783204980",
+    "distributionId": "0xafe6b0576140ac1c12b6708dc5c209fd7d63b7ff919a6349b9e0f6049393ec18",
+    "txHash": "0xa27b2cae597e48202d6d1483a60a7d38f276df188dc6e33b6d39f27dff7b4f64",
+    "amount": "540988",
+    "entries": 4,
+    "executedAt": "2026-07-05T23:23:03.836Z",
+    "harvestBlock": "39686680",
+    "harvestTimestamp": "1783291740",
     "timeWeighted": true
   },
   "cashdropWeightCheckpoint": {
-    "blockNumber": "39598474",
-    "timestamp": "1783204980",
+    "blockNumber": "39686680",
+    "timestamp": "1783291740",
     "balances": {
       "0x5E450488017Dda204999213F672853039E01eBD5": "6827609125",
-      "0xe9861Abc02092be10E77279C034cf7384D086591": "7812527204"
+      "0xe9861Abc02092be10E77279C034cf7384D086591": "7812527204",
+      "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55": "35943309",
+      "0xc8d30fDCAb0081545c2159303AaB957d129C603a": "10246888498"
     }
   }
 }
