@@ -1,10 +1,10 @@
 {
   "chainId": 999,
   "deployed": true,
-  "hyperpoolVault": "0x03cF822d0192D687cBDc2fAe6B8492a27634aD99",
-  "liquidityVault": "0x03cF822d0192D687cBDc2fAe6B8492a27634aD99",
+  "hyperpoolVault": "0x5D6ee5B7DCCC30c227B4375c77f31fa12aD5874e",
+  "liquidityVault": "0x5D6ee5B7DCCC30c227B4375c77f31fa12aD5874e",
   "oracle": "0xad6b05b0b4c79264c32136842945f321f58ef94c",
-  "projectXAdapter": "0x1A347c716721548C298B426aD90dfbb8B5BF328d",
+  "projectXAdapter": "0x432A72d0894C1B6d967A90abdBef19e9E326e41e",
   "airdrop": "0x67d45f8535ec3f268f1acb0fe69ec87ad7aa7431",
   "referralRegistry": "0x3934abcb5824326b59debdb7c3410a7648b09cd2",
   "projectXNpm": "0xeaD19AE861c29bBb2101E834922B2FEee69B9091",
@@ -12,67 +12,67 @@
   "swapRouter": "0x1EbDFC75FfE3ba3de61E7138a3E8706aC841Af9B",
   "tokenKHYPE": "0x5555555555555555555555555555555555555555",
   "tokenUSDC": "0xb88339CB7199b77E23DB6E890353E22632Ba630f",
-  "previousVault": "0xF749790D37cc125B6F5d2BC5a64B56577a26d394",
-  "previousAdapter": "0xa6CCDC039e09889ed6E7ee8377e384F0772b706a",
-  "poolMigratedAt": "2026-07-04T03:26:35.000Z",
+  "previousVault": "0x03cF822d0192D687cBDc2fAe6B8492a27634aD99",
+  "previousAdapter": "0x1A347c716721548C298B426aD90dfbb8B5BF328d",
+  "poolMigratedAt": "2026-07-06T05:35:00.000Z",
   "vaultShareHolders": [
     {
       "address": "0x5e450488017dda204999213f672853039e01ebd5",
-      "shares": "6827609125"
+      "shares": "6746060795"
     },
     {
       "address": "0xc8d30fdcab0081545c2159303aab957d129c603a",
-      "shares": "10246888498"
+      "shares": "10283831879"
     },
     {
       "address": "0xe9861abc02092be10e77279c034cf7384d086591",
-      "shares": "7812527204"
+      "shares": "7716941295"
     },
     {
       "address": "0xf35208bfadc5f7d38334fd71f42fddc7eeb85b55",
-      "shares": "35943309"
+      "shares": "67884833"
     }
   ],
   "airdropEntries": [
     {
       "address": "0x5E450488017Dda204999213F672853039E01eBD5",
-      "amount": "163903",
+      "amount": "348502",
       "minShares": "1"
     },
     {
       "address": "0xc8d30fDCAb0081545c2159303AaB957d129C603a",
-      "amount": "188676",
+      "amount": "723832",
       "minShares": "1"
     },
     {
       "address": "0xe9861Abc02092be10E77279C034cf7384D086591",
-      "amount": "187547",
+      "amount": "664005",
       "minShares": "1"
     },
     {
       "address": "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55",
-      "amount": "862",
+      "amount": "7088",
       "minShares": "1"
     }
   ],
-  "lastCashdropDistribution": {
-    "distributionId": "0xafe6b0576140ac1c12b6708dc5c209fd7d63b7ff919a6349b9e0f6049393ec18",
-    "txHash": "0xa27b2cae597e48202d6d1483a60a7d38f276df188dc6e33b6d39f27dff7b4f64",
-    "amount": "540988",
-    "entries": 4,
-    "executedAt": "2026-07-05T23:23:03.836Z",
-    "harvestBlock": "39686680",
-    "harvestTimestamp": "1783291740",
-    "timeWeighted": true
-  },
   "cashdropWeightCheckpoint": {
-    "blockNumber": "39686680",
-    "timestamp": "1783291740",
+    "blockNumber": "39781840",
+    "timestamp": "1783385340",
     "balances": {
-      "0x5E450488017Dda204999213F672853039E01eBD5": "6827609125",
-      "0xe9861Abc02092be10E77279C034cf7384D086591": "7812527204",
-      "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55": "35943309",
-      "0xc8d30fDCAb0081545c2159303AaB957d129C603a": "10246888498"
+      "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55": "67884833",
+      "0xe9861Abc02092be10E77279C034cf7384D086591": "7716941295",
+      "0xc8d30fDCAb0081545c2159303AaB957d129C603a": "10283831879",
+      "0x5E450488017Dda204999213F672853039E01eBD5": "6746060795"
     }
+  },
+  "lastCashdropDistribution": {
+    "distributionId": "0x595cb5156d3336148d2a782527f401565bb8581306396fd22c09e0e72a96b913",
+    "txHash": "0xa5763a151600373fd51a8cade572c1095e6718ef24f023a47a0b63cf7f4c796f",
+    "amount": "1743427",
+    "entries": 4,
+    "executedAt": "2026-07-07T01:17:02.996Z",
+    "harvestBlock": "39781840",
+    "harvestTimestamp": "1783385340",
+    "timeWeighted": true
   }
 }
