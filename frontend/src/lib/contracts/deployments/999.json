@@ -1,10 +1,10 @@
 {
   "chainId": 999,
   "deployed": true,
-  "hyperpoolVault": "0xA3f52f8288ae7caDF1C794D03e8245B4BF5499a8",
-  "liquidityVault": "0xA3f52f8288ae7caDF1C794D03e8245B4BF5499a8",
+  "hyperpoolVault": "0x2Efa225A0753010BD63A5c8Ee546E2958e7b7C10",
+  "liquidityVault": "0x2Efa225A0753010BD63A5c8Ee546E2958e7b7C10",
   "oracle": "0xad6b05b0b4c79264c32136842945f321f58ef94c",
-  "projectXAdapter": "0xb62965C1A4dC5F2386FBC0E5719D41AB85DaaA87",
+  "projectXAdapter": "0xbb047b03f9c6889108ffB77f303a30Fe74A76f70",
   "airdrop": "0x67d45f8535ec3f268f1acb0fe69ec87ad7aa7431",
   "referralRegistry": "0x3934abcb5824326b59debdb7c3410a7648b09cd2",
   "projectXNpm": "0xeaD19AE861c29bBb2101E834922B2FEee69B9091",
@@ -12,9 +12,9 @@
   "swapRouter": "0x1EbDFC75FfE3ba3de61E7138a3E8706aC841Af9B",
   "tokenKHYPE": "0x5555555555555555555555555555555555555555",
   "tokenUSDC": "0xb88339CB7199b77E23DB6E890353E22632Ba630f",
-  "previousVault": "0x5D6ee5B7DCCC30c227B4375c77f31fa12aD5874e",
-  "previousAdapter": "0x432A72d0894C1B6d967A90abdBef19e9E326e41e",
-  "poolMigratedAt": "2026-07-08T14:34:00.000Z",
+  "previousVault": "0x95dd6fA9f0403823857ba3B8d7ac6B694531f5e5",
+  "previousAdapter": "0xFc938575CB2d022cB1a64C1CF102d1768C271229",
+  "poolMigratedAt": "2026-07-09T04:35:00.000Z",
   "vaultShareHolders": [],
   "airdropEntries": []
 }
