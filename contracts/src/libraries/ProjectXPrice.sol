@@ -8,7 +8,7 @@ import {TickMath} from "./TickMath.sol";
 
 /// @title ProjectXPrice — ref price ↔ Uniswap V3 ticks for WHYPE/USDC pool
 library ProjectXPrice {
-    int24 internal constant TICK_SPACING = 10;
+    int24 internal constant TICK_SPACING = 60;
 
     function sqrtPriceX96FromRefPrice(uint256 priceUsdc6PerHype18, bool usdcIsToken0)
         internal

@@ -21,6 +21,7 @@ contract AdminFundRecoveryTest is Test {
 
     address owner = makeAddr("owner");
     address operator = makeAddr("operator");
+    address protocolOwner = makeAddr("protocolOwner");
     address user = makeAddr("user");
     address dead = address(0xdEaD);
 
@@ -40,7 +41,7 @@ contract AdminFundRecoveryTest is Test {
             token1,
             address(usdc),
             address(whype),
-            ProjectXConstants.FEE_TIER_500,
+            ProjectXConstants.FEE_TIER_DEFAULT,
             owner
         );
         vault = new HyperpoolVault(
@@ -52,7 +53,8 @@ contract AdminFundRecoveryTest is Test {
             address(airdrop),
             owner,
             owner,
-            operator
+            operator,
+            protocolOwner
         );
         adapter.setVault(address(vault));
         MockSwapRouter router = new MockSwapRouter(42e6 * 1e12);
@@ -86,11 +88,13 @@ contract AdminFundRecoveryTest is Test {
         npm.accrueFees(adapter.positionTokenId(), 1000e6, 0);
 
         uint256 opBefore = usdc.balanceOf(operator);
+        uint256 ownerFeeBefore = usdc.balanceOf(protocolOwner);
         vm.prank(owner);
         vault.harvestFees();
 
-        assertEq(usdc.balanceOf(operator) - opBefore, 330e6);
-        assertEq(vault.pendingUserRewards(), 670e6);
+        assertEq(usdc.balanceOf(operator) - opBefore, 70e6);
+        assertEq(usdc.balanceOf(protocolOwner) - ownerFeeBefore, 330e6);
+        assertEq(vault.pendingUserRewards(), 600e6);
     }
 
     function test_OwnerPullsPendingToAirdropThenDistributesToUser() public {
@@ -190,16 +194,38 @@ contract AdminFundRecoveryTest is Test {
         adapter.deposit(200e6, 0);
     }
 
-    function test_OwnerRecoversIdleUsdcFromAdapter() public {
+    /// @notice Owner cannot sweep underlying (USDC/WHYPE) off the adapter: it backs vault NAV
+    ///         (idleAssetsUsdc) and reaches shareholders via forwardIdleToVault, never the owner.
+    function test_OwnerCannotRecoverUnderlyingFromAdapter() public {
         usdc.mint(address(this), 200e6);
         usdc.transfer(address(adapter), 200e6);
 
-        uint256 before = usdc.balanceOf(owner);
         vm.prank(owner);
+        vm.expectRevert("ProjectXAdapter: UNDERLYING");
         adapter.recoverToken(usdc, owner, 200e6);
 
-        assertEq(usdc.balanceOf(owner), before + 200e6);
-        assertEq(usdc.balanceOf(address(adapter)), 0);
+        whype.mint(address(this), 5 ether);
+        whype.transfer(address(adapter), 5 ether);
+        vm.prank(owner);
+        vm.expectRevert("ProjectXAdapter: UNDERLYING");
+        adapter.recoverToken(whype, owner, 5 ether);
+
+        // Underlying stays on the adapter, available to shareholders.
+        assertEq(usdc.balanceOf(address(adapter)), 200e6);
+        assertEq(whype.balanceOf(address(adapter)), 5 ether);
+    }
+
+    /// @notice Foreign tokens accidentally sent to the adapter remain recoverable.
+    function test_OwnerRecoversForeignTokenFromAdapter() public {
+        MockERC20 stray = new MockERC20("STRAY", "STRAY", 18);
+        stray.mint(address(adapter), 100e18);
+
+        uint256 before = stray.balanceOf(owner);
+        vm.prank(owner);
+        adapter.recoverToken(stray, owner, 100e18);
+
+        assertEq(stray.balanceOf(owner), before + 100e18);
+        assertEq(stray.balanceOf(address(adapter)), 0);
     }
 
     function test_OwnerRecoversForeignTokenFromVault() public {
@@ -244,7 +270,7 @@ contract AdminFundRecoveryTest is Test {
         vault.recoverForeignToken(stray, user, 1e18);
     }
 
-    function test_RecoverAdapterDoesNotDrainNpmPosition() public {
+    function test_RecoverForeignTokenDoesNotDrainNpmPosition() public {
         usdc.mint(user, 10_000e6);
         vm.startPrank(user);
         usdc.approve(address(vault), type(uint256).max);
@@ -253,13 +279,15 @@ contract AdminFundRecoveryTest is Test {
 
         uint256 navBefore = adapter.totalAssetsUsdc(42e6 * 1e12);
 
-        usdc.mint(address(this), 100e6);
-        usdc.transfer(address(adapter), 100e6);
+        // A stray foreign token is recoverable and does not affect NAV or the NPM position.
+        MockERC20 stray = new MockERC20("STRAY", "STRAY", 18);
+        stray.mint(address(adapter), 100e18);
 
         vm.prank(owner);
-        adapter.recoverToken(usdc, owner, 100e6);
+        adapter.recoverToken(stray, owner, 100e18);
 
         assertEq(adapter.totalAssetsUsdc(42e6 * 1e12), navBefore);
+        assertEq(stray.balanceOf(owner), 100e18);
     }
 
     function test_NonOwnerCannotHarvestOrPull() public {

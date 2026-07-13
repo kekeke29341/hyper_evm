@@ -37,7 +37,7 @@ contract DeployLocal is Script {
             token1,
             address(usdc),
             address(whype),
-            ProjectXConstants.FEE_TIER_500,
+            ProjectXConstants.FEE_TIER_DEFAULT,
             deployer
         );
 
@@ -48,6 +48,7 @@ contract DeployLocal is Script {
             address(whype),
             address(usdc),
             address(airdrop),
+            deployer,
             deployer,
             deployer,
             deployer

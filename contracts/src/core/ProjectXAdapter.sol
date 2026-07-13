@@ -149,6 +149,55 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
         return _amountsToUsdc(token0.balanceOf(address(this)), token1.balanceOf(address(this)), priceUsdc6PerHype18);
     }
 
+    /// @notice Current NPM position token amounts at the live pool price (0 if no position)
+    function positionTokenAmounts() external view returns (uint256 amount0, uint256 amount1) {
+        if (positionTokenId == 0 || address(pool) == address(0)) return (0, 0);
+
+        (,,,,, int24 posTickLower, int24 posTickUpper, uint128 positionLiq,,,,) = npm.positions(positionTokenId);
+        if (positionLiq == 0) return (0, 0);
+
+        (uint160 sqrtPriceX96,,,,,,) = pool.slot0();
+        (amount0, amount1) = LiquidityAmounts.getAmountsForLiquidity(
+            sqrtPriceX96,
+            TickMath.getSqrtRatioAtTick(posTickLower),
+            TickMath.getSqrtRatioAtTick(posTickUpper),
+            positionLiq
+        );
+    }
+
+    /// @notice USDC-value split for a new deposit at the current pool price and managed range
+    /// @dev token0 = WHYPE when WHYPE sorts before USDC (mainnet). Used by the vault to avoid 50/50 swaps.
+    function rangeDepositRatioBps() external view returns (uint256 token0Bps, uint256 token1Bps) {
+        if (address(pool) == address(0)) return (5000, 5000);
+
+        (int24 lower, int24 upper) = _depositTickRange();
+        if (lower >= upper) return (5000, 5000);
+
+        (uint160 sqrtPriceX96,,,,,,) = pool.slot0();
+        if (sqrtPriceX96 == 0) return (5000, 5000);
+
+        uint128 unitLiq = uint128(1 << 64);
+        (uint256 amount0, uint256 amount1) = LiquidityAmounts.getAmountsForLiquidity(
+            sqrtPriceX96,
+            TickMath.getSqrtRatioAtTick(lower),
+            TickMath.getSqrtRatioAtTick(upper),
+            unitLiq
+        );
+        if (amount0 == 0 && amount1 == 0) return (5000, 5000);
+
+        uint256 price = currentPoolPriceUsdc6PerHype18();
+        if (price == 0) price = refPriceUsdc6PerHype18;
+        if (price == 0) return (5000, 5000);
+
+        uint256 val0 = _amountsToUsdc(amount0, 0, price);
+        uint256 val1 = _amountsToUsdc(0, amount1, price);
+        uint256 total = val0 + val1;
+        if (total == 0) return (5000, 5000);
+
+        token0Bps = (val0 * ProjectXConstants.BPS) / total;
+        token1Bps = ProjectXConstants.BPS - token0Bps;
+    }
+
     /// @notice Return idle tokens to the vault so they back vault shares and are withdrawable
     function forwardIdleToVault() external onlyVault {
         uint256 bal0 = token0.balanceOf(address(this));
@@ -222,12 +271,13 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
         uint256 bal0Before = token0.balanceOf(address(this));
         uint256 bal1Before = token1.balanceOf(address(this));
 
+        (uint256 min0, uint256 min1) = _decreaseMins(liquidityToRemove);
         (uint256 owed0, uint256 owed1) = npm.decreaseLiquidity(
             IProjectXNPM.DecreaseLiquidityParams({
                 tokenId: positionTokenId,
                 liquidity: liquidityToRemove,
-                amount0Min: 0,
-                amount1Min: 0,
+                amount0Min: min0,
+                amount1Min: min1,
                 deadline: block.timestamp + 1 hours
             })
         );
@@ -261,12 +311,13 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
 
         (,,,,,,, uint128 liq,,,,) = npm.positions(positionTokenId);
         if (liq > 0) {
+            (uint256 min0, uint256 min1) = _decreaseMins(liq);
             (uint256 owed0, uint256 owed1) = npm.decreaseLiquidity(
                 IProjectXNPM.DecreaseLiquidityParams({
                     tokenId: positionTokenId,
                     liquidity: liq,
-                    amount0Min: 0,
-                    amount1Min: 0,
+                    amount0Min: min0,
+                    amount1Min: min1,
                     deadline: block.timestamp + 1 hours
                 })
             );
@@ -311,11 +362,17 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
         emit PositionRebalanced(positionTokenId, tickLower, tickUpper);
     }
 
-    /// @notice Recover tokens idle on this adapter (including mistaken WHYPE/USDC sends).
-    /// @dev Idle balances are not included in totalAssetsUsdc(); NPM position liquidity is untouched.
+    /// @notice Recover non-underlying tokens accidentally sent to this adapter.
+    /// @dev USDC/WHYPE are excluded: idle underlying IS counted in totalAssetsUsdc() (see
+    ///      idleAssetsUsdc), so it backs vault shares. It reaches shareholders via
+    ///      forwardIdleToVault() on the next deposit/rebalance and must never be owner-swept.
     function recoverToken(IERC20 token, address to, uint256 amount) external onlyOwner {
         require(to != address(0), "ProjectXAdapter: ZERO");
         require(amount > 0, "ProjectXAdapter: ZERO_AMOUNT");
+        require(
+            address(token) != address(usdc) && address(token) != address(whype),
+            "ProjectXAdapter: UNDERLYING"
+        );
         token.safeTransfer(to, amount);
         emit TokenRecovered(address(token), to, amount);
     }
@@ -384,6 +441,38 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
         return ProjectXPrice.ticksFromRefPrice(
             priceUsdc6PerHype18, usdcIsToken0, upperRangeBps, lowerRangeBps
         );
+    }
+
+    function _depositTickRange() internal view returns (int24 lower, int24 upper) {
+        if (positionTokenId != 0) {
+            (,,,,, lower, upper,,,,,) = npm.positions(positionTokenId);
+            return (lower, upper);
+        }
+        if (tickLower < tickUpper) return (tickLower, tickUpper);
+
+        // Match first-mint tick selection in deposit(): use live pool price so
+        // rangeDepositRatioBps agrees with the NPM mint range (stale refPrice alone
+        // would skew the swap ratio and USDC-only deposits revert in-range).
+        uint256 price = currentPoolPriceUsdc6PerHype18();
+        if (price == 0) price = refPriceUsdc6PerHype18;
+        if (price == 0) return (0, 0);
+        return _ticksFromPrice(price);
+    }
+
+    /// @dev Slippage-protected minimum amounts for a `decreaseLiquidity` of `liq`, derived from the
+    ///      live pool price and the current position range. Returns (0,0) when no pool is configured
+    ///      (dedicated mock NPM path), preserving the mock behaviour. Protects withdrawals and
+    ///      rebalance unwinds from being sandwiched into a skewed token payout.
+    function _decreaseMins(uint128 liq) internal view returns (uint256 min0, uint256 min1) {
+        if (address(pool) == address(0) || liq == 0) return (0, 0);
+        (uint160 sqrtPriceX96,,,,,,) = pool.slot0();
+        if (sqrtPriceX96 == 0) return (0, 0);
+
+        (uint256 expected0, uint256 expected1) = LiquidityAmounts.getAmountsForLiquidity(
+            sqrtPriceX96, TickMath.getSqrtRatioAtTick(tickLower), TickMath.getSqrtRatioAtTick(tickUpper), liq
+        );
+        min0 = (expected0 * (ProjectXConstants.BPS - slippageBps)) / ProjectXConstants.BPS;
+        min1 = (expected1 * (ProjectXConstants.BPS - slippageBps)) / ProjectXConstants.BPS;
     }
 
     function _toUint128(uint256 value) internal pure returns (uint128) {

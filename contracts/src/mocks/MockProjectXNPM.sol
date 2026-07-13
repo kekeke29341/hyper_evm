@@ -14,6 +14,18 @@ contract MockProjectXNPM is ERC721, IProjectXNPM {
     uint256 private _nextId = 1;
     bool public creditWithdrawals;
 
+    // Test knobs emulating real pool behavior on increaseLiquidity:
+    // - leftover: amounts NOT pulled from the caller (ratio mismatch leftovers)
+    // - zero-liquidity thresholds: a nonzero desired amount below the threshold reverts,
+    //   like a V3 pool.mint computing liquidity == 0 from a dust-sized side
+    // - revertOnIncreaseCall: force the Nth increaseLiquidity call to revert
+    uint256 public increaseLeftover0;
+    uint256 public increaseLeftover1;
+    uint256 public zeroLiquidityThreshold0;
+    uint256 public zeroLiquidityThreshold1;
+    uint256 public increaseCallCount;
+    uint256 public revertOnIncreaseCall;
+
     struct Position {
         address token0;
         address token1;
@@ -31,6 +43,20 @@ contract MockProjectXNPM is ERC721, IProjectXNPM {
 
     function setCreditWithdrawals(bool enabled) external {
         creditWithdrawals = enabled;
+    }
+
+    function setIncreaseLeftover(uint256 leftover0, uint256 leftover1) external {
+        increaseLeftover0 = leftover0;
+        increaseLeftover1 = leftover1;
+    }
+
+    function setZeroLiquidityThresholds(uint256 threshold0, uint256 threshold1) external {
+        zeroLiquidityThreshold0 = threshold0;
+        zeroLiquidityThreshold1 = threshold1;
+    }
+
+    function setRevertOnIncreaseCall(uint256 callIndex) external {
+        revertOnIncreaseCall = callIndex;
     }
 
     function mint(MintParams calldata params)
@@ -71,13 +97,26 @@ contract MockProjectXNPM is ERC721, IProjectXNPM {
         Position storage p = storedPositions[params.tokenId];
         require(p.liquidity > 0, "MockNPM: NO_POSITION");
 
+        increaseCallCount++;
+        if (revertOnIncreaseCall != 0 && increaseCallCount == revertOnIncreaseCall) {
+            revert("MockNPM: FORCED_REVERT");
+        }
+        require(
+            params.amount0Desired == 0 || params.amount0Desired >= zeroLiquidityThreshold0,
+            "MockNPM: ZERO_LIQUIDITY"
+        );
+        require(
+            params.amount1Desired == 0 || params.amount1Desired >= zeroLiquidityThreshold1,
+            "MockNPM: ZERO_LIQUIDITY"
+        );
+
         if (params.amount0Desired > 0) {
-            IERC20(p.token0).safeTransferFrom(msg.sender, address(this), params.amount0Desired);
-            amount0 = params.amount0Desired;
+            amount0 = params.amount0Desired > increaseLeftover0 ? params.amount0Desired - increaseLeftover0 : 0;
+            if (amount0 > 0) IERC20(p.token0).safeTransferFrom(msg.sender, address(this), amount0);
         }
         if (params.amount1Desired > 0) {
-            IERC20(p.token1).safeTransferFrom(msg.sender, address(this), params.amount1Desired);
-            amount1 = params.amount1Desired;
+            amount1 = params.amount1Desired > increaseLeftover1 ? params.amount1Desired - increaseLeftover1 : 0;
+            if (amount1 > 0) IERC20(p.token1).safeTransferFrom(msg.sender, address(this), amount1);
         }
 
         liquidityAdded = uint128(amount0 + amount1);

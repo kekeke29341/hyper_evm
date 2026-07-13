@@ -20,6 +20,11 @@ contract MerkleAirdrop is Ownable, Pausable, ReentrancyGuard {
     bytes32 public merkleRoot;
     uint256 public claimDeadline;
 
+    /// @notice Per-call ceiling on the total paid by `distributeRewards` (blast-radius cap).
+    /// @dev Defaults to unlimited; operators should set it to just above the expected daily
+    ///      Cashdrop so a fat-fingered or compromised batch cannot drain the pooled balance.
+    uint256 public maxDistributionTotal = type(uint256).max;
+
     mapping(bytes32 => mapping(address => bool)) public claimedByRoot;
     mapping(bytes32 => bool) public distributionExecuted;
 
@@ -28,9 +33,17 @@ contract MerkleAirdrop is Ownable, Pausable, ReentrancyGuard {
     event MerkleRootUpdated(bytes32 root, uint256 deadline);
     event VaultShareTokenUpdated(address indexed vaultShareToken);
     event ForeignTokenRecovered(address indexed token, address indexed to, uint256 amount);
+    event MaxDistributionTotalUpdated(uint256 maxTotal);
 
     constructor(address _rewardToken) Ownable(msg.sender) {
         rewardToken = IERC20(_rewardToken);
+    }
+
+    /// @notice Set the per-call ceiling enforced by `distributeRewards`.
+    function setMaxDistributionTotal(uint256 maxTotal) external onlyOwner {
+        require(maxTotal > 0, "MerkleAirdrop: ZERO_MAX");
+        maxDistributionTotal = maxTotal;
+        emit MaxDistributionTotalUpdated(maxTotal);
     }
 
     function setVaultShareToken(address _vaultShareToken) external onlyOwner {
@@ -109,12 +122,15 @@ contract MerkleAirdrop is Ownable, Pausable, ReentrancyGuard {
 
         bytes32 root = merkleRoot;
         distributionExecuted[distributionId] = true;
+        uint256 paid;
         for (uint256 i = 0; i < accounts.length; i++) {
             require(accounts[i] != address(0), "MerkleAirdrop: ZERO_ADDRESS");
             require(amounts[i] > 0, "MerkleAirdrop: ZERO_AMOUNT");
             // Skip anyone who already pulled the active root via claim(); avoids double payment.
             if (root != bytes32(0) && claimedByRoot[root][accounts[i]]) continue;
             if (root != bytes32(0)) claimedByRoot[root][accounts[i]] = true;
+            paid += amounts[i];
+            require(paid <= maxDistributionTotal, "MerkleAirdrop: OVER_MAX");
             rewardToken.safeTransfer(accounts[i], amounts[i]);
             emit Distributed(distributionId, accounts[i], amounts[i]);
         }

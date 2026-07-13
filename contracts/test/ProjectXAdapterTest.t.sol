@@ -34,7 +34,7 @@ contract ProjectXAdapterTest is Test {
             token1,
             address(usdc),
             address(whype),
-            ProjectXConstants.FEE_TIER_500,
+            ProjectXConstants.FEE_TIER_DEFAULT,
             address(this)
         );
 
@@ -45,6 +45,7 @@ contract ProjectXAdapterTest is Test {
             address(whype),
             address(usdc),
             makeAddr("airdrop"),
+            address(this),
             address(this),
             address(this),
             address(this)
@@ -154,5 +155,59 @@ contract ProjectXAdapterTest is Test {
             assertEq(amount1, 100e6);
             assertEq(amount0, 1e17);
         }
+    }
+
+    function test_RangeDepositRatioUsesLivePriceWhenNoPosition() public {
+        uint256 livePrice = 67e6 * 1e12;
+        bool usdcIsToken0 = address(adapter.token0()) == address(usdc);
+
+        uint160 liveSqrt = ProjectXPrice.sqrtPriceX96FromRefPrice(livePrice, usdcIsToken0);
+        adapter.setPool(address(new MockUniswapV3Pool(liveSqrt, TickMath.getTickAtSqrtRatio(liveSqrt))));
+
+        // Constructor seeds refPrice at $42 while pool spot is $67.
+        assertEq(adapter.refPriceUsdc6PerHype18(), 42e6 * 1e12);
+
+        (uint256 token0Bps, uint256 token1Bps) = adapter.rangeDepositRatioBps();
+        assertEq(token0Bps + token1Bps, ProjectXConstants.BPS);
+        assertGt(token0Bps, 0, "in-range live price must require HYPE side");
+        assertGt(token1Bps, 0, "in-range live price must require USDC side");
+        assertLt(token0Bps, ProjectXConstants.BPS, "must not be 100% one-sided in-range");
+    }
+
+    function test_PositionTokenAmountsReflectsNpmLiquidity() public {
+        usdc.mint(address(vault), 1000e6);
+        whype.mint(address(vault), 10 ether);
+        vm.startPrank(address(vault));
+        usdc.transfer(address(adapter), 1000e6);
+        whype.transfer(address(adapter), 10 ether);
+        adapter.deposit(
+            address(adapter.token0()) == address(usdc) ? 1000e6 : 10 ether,
+            address(adapter.token0()) == address(usdc) ? 10 ether : 1000e6
+        );
+        vm.stopPrank();
+
+        int24 midTick = (adapter.tickLower() + adapter.tickUpper()) / 2;
+        adapter.setPool(address(new MockUniswapV3Pool(TickMath.getSqrtRatioAtTick(midTick), midTick)));
+
+        (uint256 amount0, uint256 amount1) = adapter.positionTokenAmounts();
+        assertGt(amount0 + amount1, 0, "position amounts should be non-zero");
+    }
+
+    function test_RangeDepositRatioBpsSumsToFullRange() public {
+        uint256 price = 42e6 * 1e12;
+        bool usdcIsToken0 = address(adapter.token0()) == address(usdc);
+        uint160 sqrtPrice = ProjectXPrice.sqrtPriceX96FromRefPrice(price, usdcIsToken0);
+        adapter.setPool(address(new MockUniswapV3Pool(sqrtPrice, 0)));
+
+        usdc.mint(address(vault), 1000e6);
+        vm.startPrank(address(vault));
+        usdc.transfer(address(adapter), 1000e6);
+        adapter.deposit(address(adapter.token0()) == address(usdc) ? 1000e6 : 0, 0);
+        vm.stopPrank();
+
+        (uint256 token0Bps, uint256 token1Bps) = adapter.rangeDepositRatioBps();
+        assertEq(token0Bps + token1Bps, ProjectXConstants.BPS);
+        assertGt(token0Bps, 0);
+        assertGt(token1Bps, 0);
     }
 }

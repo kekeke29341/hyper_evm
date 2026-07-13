@@ -250,6 +250,74 @@ contract MerkleAirdropTest is Test {
         airdrop.claim(ALICE_AMOUNT, 0, proof);
     }
 
+    /// @notice #5: a per-call cap bounds the blast radius of distributeRewards.
+    function test_DistributeRevertsOverMaxTotal() public {
+        airdrop.fund(ALICE_AMOUNT + BOB_AMOUNT);
+        airdrop.setMaxDistributionTotal(ALICE_AMOUNT); // cap below the batch total
+
+        address[] memory accounts = new address[](2);
+        accounts[0] = alice;
+        accounts[1] = bob;
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = ALICE_AMOUNT;
+        amounts[1] = BOB_AMOUNT;
+
+        vm.expectRevert("MerkleAirdrop: OVER_MAX");
+        airdrop.distributeRewards(keccak256("daily-1"), accounts, amounts);
+
+        // Nothing was paid: the whole tx reverted.
+        assertEq(token.balanceOf(alice), 0);
+        assertEq(token.balanceOf(bob), 0);
+    }
+
+    /// @notice #5: a batch within the cap still succeeds.
+    function test_DistributeSucceedsWithinMaxTotal() public {
+        airdrop.fund(ALICE_AMOUNT + BOB_AMOUNT);
+        airdrop.setMaxDistributionTotal(ALICE_AMOUNT + BOB_AMOUNT);
+
+        address[] memory accounts = new address[](2);
+        accounts[0] = alice;
+        accounts[1] = bob;
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = ALICE_AMOUNT;
+        amounts[1] = BOB_AMOUNT;
+
+        airdrop.distributeRewards(keccak256("daily-1"), accounts, amounts);
+        assertEq(token.balanceOf(alice), ALICE_AMOUNT);
+        assertEq(token.balanceOf(bob), BOB_AMOUNT);
+    }
+
+    function test_RevertNonOwnerSetsMaxDistributionTotal() public {
+        vm.prank(alice);
+        vm.expectRevert();
+        airdrop.setMaxDistributionTotal(1);
+    }
+
+    /// @notice #5: the cap ignores accounts skipped for already having claimed the active root.
+    function test_DistributeCapCountsOnlyPaidAccounts() public {
+        bytes32 root = _leaf(alice, ALICE_AMOUNT, 0, false);
+        airdrop.setMerkleRoot(root, block.timestamp + 7 days);
+        airdrop.fund(ALICE_AMOUNT + BOB_AMOUNT);
+
+        // Alice claims the active root first.
+        bytes32[] memory proof = new bytes32[](0);
+        vm.prank(alice);
+        airdrop.claim(ALICE_AMOUNT, 0, proof);
+
+        // Cap set to just Bob's amount; Alice is skipped, so the paid total is only BOB_AMOUNT.
+        airdrop.setMaxDistributionTotal(BOB_AMOUNT);
+        address[] memory accounts = new address[](2);
+        accounts[0] = alice;
+        accounts[1] = bob;
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = ALICE_AMOUNT;
+        amounts[1] = BOB_AMOUNT;
+        airdrop.distributeRewards(keccak256("daily-1"), accounts, amounts);
+
+        assertEq(token.balanceOf(bob), BOB_AMOUNT);
+        assertEq(token.balanceOf(alice), ALICE_AMOUNT); // only the earlier claim
+    }
+
     /// @notice distributeRewards skips an account that already pulled the active root via claim.
     function test_DistributeSkipsAlreadyClaimedAccount() public {
         bytes32 root = _leaf(alice, ALICE_AMOUNT, 0, false);

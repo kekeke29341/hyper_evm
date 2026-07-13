@@ -13,6 +13,7 @@ import {HyperCoreOracle} from "../src/core/HyperCoreOracle.sol";
 import {HyperCoreConstants} from "../src/libraries/HyperCoreConstants.sol";
 import {ProjectXConstants} from "../src/libraries/ProjectXConstants.sol";
 import {ProjectXPrice} from "../src/libraries/ProjectXPrice.sol";
+import {TickMath} from "../src/libraries/TickMath.sol";
 
 contract HyperpoolVaultTest is Test {
     MockERC20 whype;
@@ -25,6 +26,7 @@ contract HyperpoolVaultTest is Test {
     address alice = makeAddr("alice");
     address bob = makeAddr("bob");
     address operator = makeAddr("operator");
+    address protocolOwner = makeAddr("protocolOwner");
 
     address dead = address(0xdEaD);
 
@@ -43,7 +45,7 @@ contract HyperpoolVaultTest is Test {
             token1,
             address(usdc),
             address(whype),
-            ProjectXConstants.FEE_TIER_500,
+            ProjectXConstants.FEE_TIER_DEFAULT,
             address(this)
         );
         vault = new HyperpoolVault(
@@ -55,7 +57,8 @@ contract HyperpoolVaultTest is Test {
             address(airdrop),
             address(this),
             address(this),
-            operator
+            operator,
+            protocolOwner
         );
         adapter.setVault(address(vault));
 
@@ -117,7 +120,7 @@ contract HyperpoolVaultTest is Test {
         assertEq(adapter.positionTokenId(), firstId);
     }
 
-    function test_HarvestFeesSplit3367() public {
+    function test_HarvestFeesSplit76033() public {
         usdc.mint(alice, 10_000e6);
         vm.prank(alice);
         usdc.approve(address(vault), type(uint256).max);
@@ -128,11 +131,13 @@ contract HyperpoolVaultTest is Test {
         npm.accrueFees(tokenId, 1000e6, 0);
 
         uint256 opBefore = usdc.balanceOf(operator);
+        uint256 ownerBefore = usdc.balanceOf(protocolOwner);
         uint256 userShare = vault.harvestFees();
 
-        assertEq(userShare, 670e6);
-        assertEq(usdc.balanceOf(operator) - opBefore, 330e6);
-        assertEq(vault.pendingUserRewards(), 670e6);
+        assertEq(userShare, 600e6);
+        assertEq(usdc.balanceOf(operator) - opBefore, 70e6);
+        assertEq(usdc.balanceOf(protocolOwner) - ownerBefore, 330e6);
+        assertEq(vault.pendingUserRewards(), 600e6);
     }
 
     function test_PullPendingRewardsOnlyAirdrop() public {
@@ -148,8 +153,8 @@ contract HyperpoolVaultTest is Test {
         vm.expectRevert("HyperpoolVault: NOT_AIRDROP");
         vault.pullPendingRewards(alice, 100e6);
 
-        vault.pullPendingRewards(address(airdrop), 670e6);
-        assertEq(usdc.balanceOf(address(airdrop)), 670e6);
+        vault.pullPendingRewards(address(airdrop), 600e6);
+        assertEq(usdc.balanceOf(address(airdrop)), 600e6);
     }
 
     function test_RebalanceUpdatesTicks() public {
@@ -168,7 +173,8 @@ contract HyperpoolVaultTest is Test {
         uint256 currentPrice = 67e6 * 1e12;
         bool usdcIsToken0 = address(adapter.token0()) == address(usdc);
         uint160 sqrtPrice = ProjectXPrice.sqrtPriceX96FromRefPrice(currentPrice, usdcIsToken0);
-        adapter.setPool(address(new MockUniswapV3Pool(sqrtPrice, 0)));
+        int24 currentTick = TickMath.getTickAtSqrtRatio(sqrtPrice);
+        adapter.setPool(address(new MockUniswapV3Pool(sqrtPrice, currentTick)));
 
         usdc.mint(alice, 10_000e6);
         vm.startPrank(alice);
@@ -178,7 +184,17 @@ contract HyperpoolVaultTest is Test {
 
         assertApproxEqRel(adapter.refPriceUsdc6PerHype18(), currentPrice, 1e12);
         assertGt(usdc.balanceOf(address(npm)), 0);
-        assertGt(whype.balanceOf(address(npm)), 0);
+
+        int24 midTick = (adapter.tickLower() + adapter.tickUpper()) / 2;
+        adapter.setPool(address(new MockUniswapV3Pool(TickMath.getSqrtRatioAtTick(midTick), midTick)));
+
+        usdc.mint(bob, 10_000e6);
+        vm.startPrank(bob);
+        usdc.approve(address(vault), type(uint256).max);
+        vault.depositUSDC(1000e6, bob);
+        vm.stopPrank();
+
+        assertGt(whype.balanceOf(address(npm)), 0, "in-range USDC deposit should pair into HYPE");
     }
 
     function test_DepositHypeBalancesIntoBothSides() public {
@@ -235,7 +251,7 @@ contract HyperpoolVaultTest is Test {
             address(adapter.token1()),
             address(usdc),
             address(whype),
-            ProjectXConstants.FEE_TIER_500,
+            ProjectXConstants.FEE_TIER_DEFAULT,
             address(this)
         );
         HyperpoolVault vaultWithOracle = new HyperpoolVault(
@@ -247,7 +263,8 @@ contract HyperpoolVaultTest is Test {
             address(airdrop),
             address(this),
             address(this),
-            operator
+            operator,
+            protocolOwner
         );
         oracleAdapter.setVault(address(vaultWithOracle));
 
@@ -279,14 +296,17 @@ contract HyperpoolVaultTest is Test {
         npm.accrueFees(adapter.positionTokenId(), 0, 1e18);
 
         uint256 opUsdcBefore = usdc.balanceOf(operator);
+        uint256 ownerUsdcBefore = usdc.balanceOf(protocolOwner);
         uint256 userUsdc = vault.harvestFees();
 
         uint256 swappedUsdc = 42e6;
-        uint256 expectedOperator = (swappedUsdc * 3300) / 10_000;
-        uint256 expectedUser = swappedUsdc - expectedOperator;
+        uint256 expectedOperator = (swappedUsdc * 700) / 10_000;
+        uint256 expectedOwner = (swappedUsdc * 3300) / 10_000;
+        uint256 expectedUser = swappedUsdc - expectedOperator - expectedOwner;
 
         assertEq(userUsdc, expectedUser);
         assertEq(usdc.balanceOf(operator) - opUsdcBefore, expectedOperator);
+        assertEq(usdc.balanceOf(protocolOwner) - ownerUsdcBefore, expectedOwner);
         assertEq(vault.pendingUserRewards(), expectedUser);
         assertEq(whype.balanceOf(operator), 0);
     }
@@ -301,14 +321,17 @@ contract HyperpoolVaultTest is Test {
         npm.accrueFees(adapter.positionTokenId(), 1000e6, 1e18);
 
         uint256 opUsdcBefore = usdc.balanceOf(operator);
+        uint256 ownerUsdcBefore = usdc.balanceOf(protocolOwner);
         uint256 userUsdc = vault.harvestFees();
 
         uint256 totalUsdc = 1000e6 + 42e6;
-        uint256 expectedOperator = (totalUsdc * 3300) / 10_000;
-        uint256 expectedUser = totalUsdc - expectedOperator;
+        uint256 expectedOperator = (totalUsdc * 700) / 10_000;
+        uint256 expectedOwner = (totalUsdc * 3300) / 10_000;
+        uint256 expectedUser = totalUsdc - expectedOperator - expectedOwner;
 
         assertEq(userUsdc, expectedUser);
         assertEq(usdc.balanceOf(operator) - opUsdcBefore, expectedOperator);
+        assertEq(usdc.balanceOf(protocolOwner) - ownerUsdcBefore, expectedOwner);
         assertEq(vault.pendingUserRewards(), expectedUser);
         assertEq(whype.balanceOf(address(vault)), 0);
         assertEq(whype.balanceOf(operator), 0);
@@ -328,7 +351,8 @@ contract HyperpoolVaultTest is Test {
 
         assertEq(userUsdc, 0);
         assertEq(vault.pendingUserRewards(), 0);
-        assertEq(whype.balanceOf(operator), (1e18 * 3300) / 10_000);
+        assertEq(whype.balanceOf(operator), (1e18 * 700) / 10_000);
+        assertEq(whype.balanceOf(protocolOwner), (1e18 * 3300) / 10_000);
     }
 
     function test_WithdrawReservesPendingUserRewards() public {
@@ -340,13 +364,13 @@ contract HyperpoolVaultTest is Test {
 
         npm.accrueFees(adapter.positionTokenId(), 1000e6, 0);
         vault.harvestFees();
-        assertEq(vault.pendingUserRewards(), 670e6);
+        assertEq(vault.pendingUserRewards(), 600e6);
 
         vm.prank(alice);
         vault.withdraw(shares, alice);
 
-        assertEq(vault.pendingUserRewards(), 670e6);
-        assertGe(usdc.balanceOf(address(vault)), 670e6);
+        assertEq(vault.pendingUserRewards(), 600e6);
+        assertGe(usdc.balanceOf(address(vault)), 600e6);
     }
 
     function test_RevertHarvestFeesFromNonKeeper() public {
@@ -440,7 +464,7 @@ contract HyperpoolVaultTest is Test {
 
         npm.accrueFees(adapter.positionTokenId(), 1000e6, 0);
         uint256 userPool = vault.harvestFees();
-        assertEq(userPool, 670e6);
+        assertEq(userPool, 600e6);
 
         vault.pullPendingRewards(address(airdrop), userPool);
         assertEq(usdc.balanceOf(address(airdrop)), userPool);
@@ -464,7 +488,7 @@ contract HyperpoolVaultTest is Test {
             address(adapter.token1()),
             address(usdc),
             address(whype),
-            ProjectXConstants.FEE_TIER_500,
+            ProjectXConstants.FEE_TIER_DEFAULT,
             address(this)
         );
         HyperpoolVault vaultWithOracle = new HyperpoolVault(
@@ -476,7 +500,8 @@ contract HyperpoolVaultTest is Test {
             address(airdrop),
             address(this),
             address(this),
-            operator
+            operator,
+            protocolOwner
         );
         oracleAdapter.setVault(address(vaultWithOracle));
 
@@ -533,5 +558,56 @@ contract HyperpoolVaultTest is Test {
         uint256 withdrawnValue = receivedUsdc + (receivedHype * price) / 1e30;
         assertGe(withdrawnValue, (navBefore * 99) / 100);
         assertLe(withdrawnValue, navBefore);
+    }
+
+    /// Mainnet 2026-07 regression: the first LP deploy left a ratio-mismatch leftover with a
+    /// dust HYPE side (3053 wei); the retry re-deposited it, the pool minted zero liquidity
+    /// and the whole deployIdle reverted daily, stranding idle funds outside the position.
+    function test_DeployIdleSurvivesDustLeftover() public {
+        usdc.mint(alice, 10_000e6);
+        vm.startPrank(alice);
+        usdc.approve(address(vault), type(uint256).max);
+        vault.depositUSDC(2000e6, alice);
+        vm.stopPrank();
+
+        // Idle USDC sitting in the vault (e.g. forwarded back by a rebalance)
+        usdc.mint(address(vault), 15e6);
+
+        // Real-pool behavior: increase leaves a leftover (3 USDC + 3000 wei HYPE) and
+        // reverts when a nonzero desired side is dust (liquidity == 0)
+        npm.setIncreaseLeftover(3e6, 3000);
+        npm.setZeroLiquidityThresholds(0, 1e12);
+
+        uint256 npmUsdcBefore = usdc.balanceOf(address(npm));
+        vault.deployIdle();
+
+        assertGt(usdc.balanceOf(address(npm)), npmUsdcBefore, "idle USDC should reach the LP");
+        // 3000 wei from the primary deploy (dropped as dust) + 3000 wei the retry's own
+        // increase left over — both stay idle instead of reverting the deploy
+        assertEq(whype.balanceOf(address(vault)), 6000, "dust HYPE stays idle instead of reverting");
+        assertEq(usdc.balanceOf(address(adapter)), 0, "no funds stuck on adapter");
+        assertEq(whype.balanceOf(address(adapter)), 0, "no funds stuck on adapter");
+    }
+
+    function test_DeployIdleRetryFailureDoesNotRevertPrimaryDeploy() public {
+        usdc.mint(alice, 10_000e6);
+        vm.startPrank(alice);
+        usdc.approve(address(vault), type(uint256).max);
+        vault.depositUSDC(2000e6, alice);
+        vm.stopPrank();
+
+        usdc.mint(address(vault), 15e6);
+
+        // Primary deploy succeeds but leaves a USDC leftover; the retry's mint reverts
+        npm.setIncreaseLeftover(3e6, 0);
+        npm.setRevertOnIncreaseCall(2);
+
+        uint256 npmUsdcBefore = usdc.balanceOf(address(npm));
+        vault.deployIdle();
+
+        assertGt(usdc.balanceOf(address(npm)), npmUsdcBefore, "primary deploy must persist");
+        assertGt(usdc.balanceOf(address(vault)), 0, "retry funds reclaimed to vault idle");
+        assertEq(usdc.balanceOf(address(adapter)), 0, "no funds stuck on adapter");
+        assertEq(whype.balanceOf(address(adapter)), 0, "no funds stuck on adapter");
     }
 }

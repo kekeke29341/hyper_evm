@@ -11,32 +11,31 @@ contract ReferralRegistryTest is Test {
     address bob = makeAddr("bob");
     address carol = makeAddr("carol");
 
-    bytes32 constant CODE = keccak256("XM79B4");
-
     function setUp() public {
         registry = new ReferralRegistry();
     }
 
     function test_RegisterAndBind() public {
         vm.prank(alice);
-        registry.registerCode(CODE);
+        registry.registerReferrer();
 
         vm.prank(bob);
-        registry.enterInvitationCode(CODE);
+        registry.bindReferrer(alice);
 
+        assertTrue(registry.isRegisteredReferrer(alice));
         assertEq(registry.getReferrer(bob), alice);
         assertEq(registry.referralCount(alice), 1);
     }
 
     function test_RefereeBoostApplied() public {
         vm.prank(alice);
-        registry.registerCode(CODE);
+        registry.registerReferrer();
         vm.prank(bob);
-        registry.enterInvitationCode(CODE);
+        registry.bindReferrer(alice);
 
         uint256 base = 1000;
         uint256 boosted = registry.applyRefereeBoost(bob, base);
-        assertEq(boosted, base + (base * 1000) / 10_000);
+        assertEq(boosted, base + (base * 500) / 10_000);
     }
 
     function test_NoBoostWithoutReferrer() public view {
@@ -45,63 +44,57 @@ contract ReferralRegistryTest is Test {
 
     function test_RevertSelfReferral() public {
         vm.prank(alice);
-        registry.registerCode(CODE);
+        registry.registerReferrer();
 
         vm.prank(alice);
         vm.expectRevert("ReferralRegistry: SELF_REFERRAL");
-        registry.enterInvitationCode(CODE);
-    }
-
-    function test_RevertDuplicateCode() public {
-        vm.prank(alice);
-        registry.registerCode(CODE);
-
-        vm.prank(bob);
-        vm.expectRevert("ReferralRegistry: CODE_TAKEN");
-        registry.registerCode(CODE);
+        registry.bindReferrer(alice);
     }
 
     function test_RevertDoubleRegistration() public {
-        bytes32 code2 = keccak256("OTHER");
         vm.startPrank(alice);
-        registry.registerCode(CODE);
+        registry.registerReferrer();
         vm.expectRevert("ReferralRegistry: ALREADY_REGISTERED");
-        registry.registerCode(code2);
+        registry.registerReferrer();
         vm.stopPrank();
     }
 
     function test_RevertDoubleBind() public {
-        bytes32 code2 = keccak256("OTHER2");
         vm.prank(alice);
-        registry.registerCode(CODE);
+        registry.registerReferrer();
         vm.prank(carol);
-        registry.registerCode(code2);
+        registry.registerReferrer();
 
         vm.startPrank(bob);
-        registry.enterInvitationCode(CODE);
+        registry.bindReferrer(alice);
         vm.expectRevert("ReferralRegistry: ALREADY_BOUND");
-        registry.enterInvitationCode(code2);
+        registry.bindReferrer(carol);
         vm.stopPrank();
     }
 
-    function test_RevertInvalidCode() public {
+    function test_RevertInvalidReferrer() public {
         vm.prank(bob);
-        vm.expectRevert("ReferralRegistry: INVALID_CODE");
-        registry.enterInvitationCode(CODE);
+        vm.expectRevert("ReferralRegistry: INVALID_REFERRER");
+        registry.bindReferrer(alice);
+    }
+
+    function test_RevertZeroReferrer() public {
+        vm.prank(bob);
+        vm.expectRevert("ReferralRegistry: ZERO_REFERRER");
+        registry.bindReferrer(address(0));
     }
 
     function test_RevertMutualReferral() public {
-        bytes32 codeBob = keccak256("BOB_CODE");
         vm.prank(alice);
-        registry.registerCode(CODE);
+        registry.registerReferrer();
         vm.prank(bob);
-        registry.registerCode(codeBob);
+        registry.registerReferrer();
 
         vm.prank(alice);
-        registry.enterInvitationCode(codeBob);
+        registry.bindReferrer(bob);
 
         vm.prank(bob);
         vm.expectRevert("ReferralRegistry: MUTUAL_REFERRAL");
-        registry.enterInvitationCode(CODE);
+        registry.bindReferrer(alice);
     }
 }

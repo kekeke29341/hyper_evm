@@ -60,8 +60,15 @@ contract DeployHyperpool is Script {
             token1,
             usdc,
             whype,
-            ProjectXConstants.FEE_TIER_500,
+            ProjectXConstants.FEE_TIER_DEFAULT,
             deployer
+        );
+
+        address ownerFeeWallet = vm.envOr(
+            "OWNER_FEE_WALLET",
+            chainId == HyperCoreConstants.CHAIN_ID_MAINNET
+                ? ProjectXConstants.OWNER_FEE_WALLET_MAINNET
+                : deployer
         );
 
         HyperpoolVault vault = new HyperpoolVault(
@@ -73,7 +80,8 @@ contract DeployHyperpool is Script {
             address(airdrop),
             deployer,
             deployer,
-            deployer
+            deployer,
+            ownerFeeWallet
         );
 
         adapter.setVault(address(vault));

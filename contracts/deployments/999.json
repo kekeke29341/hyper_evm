@@ -1,10 +1,10 @@
 {
   "chainId": 999,
   "deployed": true,
-  "hyperpoolVault": "0x2Efa225A0753010BD63A5c8Ee546E2958e7b7C10",
-  "liquidityVault": "0x2Efa225A0753010BD63A5c8Ee546E2958e7b7C10",
+  "hyperpoolVault": "0xce903d884981A1D78fE12c491a2b590240FE30Bf",
+  "liquidityVault": "0xce903d884981A1D78fE12c491a2b590240FE30Bf",
   "oracle": "0xad6b05b0b4c79264c32136842945f321f58ef94c",
-  "projectXAdapter": "0xbb047b03f9c6889108ffB77f303a30Fe74A76f70",
+  "projectXAdapter": "0x26905DF80cDd8E255Ee322eeADe60a69b8B9dBdF",
   "airdrop": "0x67d45f8535ec3f268f1acb0fe69ec87ad7aa7431",
   "referralRegistry": "0x3934abcb5824326b59debdb7c3410a7648b09cd2",
   "projectXNpm": "0xeaD19AE861c29bBb2101E834922B2FEee69B9091",
@@ -12,38 +12,15 @@
   "swapRouter": "0x1EbDFC75FfE3ba3de61E7138a3E8706aC841Af9B",
   "tokenKHYPE": "0x5555555555555555555555555555555555555555",
   "tokenUSDC": "0xb88339CB7199b77E23DB6E890353E22632Ba630f",
-  "previousVault": "0x95dd6fA9f0403823857ba3B8d7ac6B694531f5e5",
-  "previousAdapter": "0xFc938575CB2d022cB1a64C1CF102d1768C271229",
-  "poolMigratedAt": "2026-07-09T04:35:00.000Z",
-  "vaultDeployBlock": "40000000",
+  "previousVault": "0x2Efa225A0753010BD63A5c8Ee546E2958e7b7C10",
+  "previousAdapter": "0xbb047b03f9c6889108ffB77f303a30Fe74A76f70",
+  "poolMigratedAt": "2026-07-13T07:00:00.000Z",
+  "vaultDeployBlock": "40331302",
   "vaultShareHolders": [
     {
       "address": "0xf35208bfadc5f7d38334fd71f42fddc7eeb85b55",
-      "shares": "66714498"
+      "shares": "0"
     }
   ],
-  "airdropEntries": [
-    {
-      "address": "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55",
-      "amount": "702",
-      "minShares": "1"
-    }
-  ],
-  "cashdropWeightCheckpoint": {
-    "blockNumber": "40298545",
-    "timestamp": "1783893660",
-    "balances": {
-      "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55": "66714498"
-    }
-  },
-  "lastCashdropDistribution": {
-    "distributionId": "0x3abefa98dd6a1260e2747735f1a7831e88eac87864b1a1be3a7676022673471a",
-    "txHash": "0x44cac1370b0bd8d5e22002479c04ed015bbe28620822111fcea0358daa69d558",
-    "amount": "702",
-    "entries": 1,
-    "executedAt": "2026-07-13T00:28:03.948Z",
-    "harvestBlock": "40298545",
-    "harvestTimestamp": "1783893660",
-    "timeWeighted": true
-  }
+  "airdropEntries": []
 }
