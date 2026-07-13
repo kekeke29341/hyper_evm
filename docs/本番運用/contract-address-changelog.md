@@ -22,7 +22,7 @@
 | MerkleAirdrop | `0x67d45f8535ec3f268f1acb0fe69ec87ad7aa7431` | `vaultShareToken` → `0xce90…30Bf` |
 | **ReferralRegistry**（アプリ） | `0x3934Abcb5824326B59deBDb7c3410A7648b09CD2` | **アドレス方式**（`registerReferrer` / `bindReferrer`） |
 | HyperCoreOracle | `0xad6b05b0b4c79264c32136842945f321f58ef94c` | 継続利用 |
-| **旧 HyperpoolVault**（第7世代・retire 予定） | `0x2Efa225A0753010BD63A5c8Ee546E2958e7b7C10` | deployIdle が毎日 revert（idle 滞留）。**ホルダー `0xf352…b55`（~66.7 USDC）が引出し・再入金するまで要対応** |
+| **旧 HyperpoolVault**（第7世代・retire） | `0x2Efa225A0753010BD63A5c8Ee546E2958e7b7C10` | **paused** — deployIdle が毎日 revert（idle 滞留）。ホルダー `0xf352…b55` は 2026-07-13 pause 前に全額引出し済み（オンチェーン確認: 残 dead シェアのみ） |
 | **旧 ProjectXAdapter**（第7世代） | `0xbb047b03f9c6889108ffB77f303a30Fe74A76f70` | 非参照 |
 | **旧 HyperpoolVault**（retire） | `0x95dd6fA9f0403823857ba3B8d7ac6B694531f5e5` | **paused** — 入金時 idle 再投入で revert |
 | **旧 ProjectXAdapter**（retire） | `0xFc938575CB2d022cB1a64C1CF102d1768C271229` | 非参照 |
@@ -50,7 +50,8 @@
 | **修正** | `_dropDustSide()` 追加（0.01 USDC 未満の側をゼロ化し単一サイドスワップ経路へ）。リトライの `adapter.deposit` を try/catch ベストエフォート化（失敗分は `forwardIdleToVault` で回収し idle 保持）。回帰テスト2件 + メインネットフォーク検証（`DeployIdleDustFork.t.sol` — 実障害状態に修正版バイトコードを etch し deployIdle 成功、滞留 idle の9割超をLP投入）。 |
 | **検証** | forge 全テストパス。オンチェーンで adapter.vault / pool / fee=3000 / 7/60/33 split / keeper / airdrop.vaultShareToken を確認済み。 |
 | **アプリ反映** | `contracts/deployments/999.json` / `frontend/src/lib/contracts/deployments/999.json` 更新（`vaultDeployBlock=40331302`、checkpoint 類リセット） |
-| **資金移行** | 第7世代ホルダー `0xf352…b55`（~66.7 USDC、うち ~$20.8 は idle）は**運営管理外ウォレット** — 本人による引出し→gen8 再入金が必要。引出し時に第7世代が paused の場合は一時 `unpause()` で対応。 |
+| **Vercel 本番** | デプロイ済み（2026-07-13 — https://hyper-evm-ten.vercel.app / `dpl_4LDoY581SPvZZSjZs8VMTYfqWU61`、本番ビルドに新Vaultアドレス反映を確認済み） |
+| **資金移行** | 第7世代ホルダー `0xf352…b55`（~66.7 USDC、うち ~$20.8 は idle）は pause 前に本人が全額引出し済み（オンチェーン確認）。gen8 への再入金は本人待ち。運営スモーク 0.698655 USDC は gen8 に入金済み（初回LP維持）。 |
 
 | 役割 | 旧 | 新 |
 |------|----|----|
