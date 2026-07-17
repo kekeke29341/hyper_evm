@@ -7,9 +7,10 @@ import { fileURLToPath, pathToFileURL } from "url";
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const viem = await import(pathToFileURL(path.join(root, "frontend/node_modules/viem/_esm/index.js")).href);
 const { getAddress } = viem;
+import { readContractWithRetry } from "./rpc-logs.mjs";
 
 export const REFERRER_BONUS_BPS = 1500n;
-export const REFEREE_BOOST_BPS = 1000n;
+export const REFEREE_BOOST_BPS = 500n;
 
 function addAmount(map, address, delta) {
   if (delta === 0n) return;
@@ -69,7 +70,7 @@ export function buildCashdropEntries({ holders, pending, totalShares, referrers 
   return normalizeCashdropEntries(raw, pending);
 }
 
-export async function fetchReferrerMap(publicClient, registryAddress, holders) {
+export async function fetchReferrerMap(publicClient, registryAddress, holders, clients = []) {
   const map = new Map();
   const zero = "0x0000000000000000000000000000000000000000";
   if (!registryAddress || registryAddress.toLowerCase() === zero) return map;
@@ -85,11 +86,16 @@ export async function fetchReferrerMap(publicClient, registryAddress, holders) {
   ];
 
   for (const holder of holders) {
-    const referrer = await publicClient.readContract({
-      address: registryAddress,
-      abi,
-      functionName: "getReferrer",
-      args: [holder.address],
+    const referrer = await readContractWithRetry({
+      publicClient,
+      clients,
+      label: `getReferrer:${holder.address}`,
+      request: {
+        address: registryAddress,
+        abi,
+        functionName: "getReferrer",
+        args: [holder.address],
+      },
     });
     if (referrer && referrer.toLowerCase() !== zero) {
       map.set(holder.address.toLowerCase(), referrer);

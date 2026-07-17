@@ -1,16 +1,37 @@
 #!/usr/bin/env node
 /**
- * Daily fee harvest: collect Project X fees → 33% operator / 67% auto-paid USDC.
- * Schedule: JST 07:00 (use cron TZ=Asia/Tokyo)
+ * Daily fee harvest: collect Project X fees → 7% ops / 60% user auto payout / 33% owner.
+ * Schedule: JST 07:00 harvest, 08:00 distribute (use cron TZ=Asia/Tokyo)
  *
- * Env: PRIVATE_KEY, RPC_URL (999), OPERATOR_WALLET, DEPLOYMENT_CHAIN=999
+ * Env: PRIVATE_KEY, RPC_URL (999), DEPLOYMENT_CHAIN=999
+ *      DAILY_REWARDS_PHASE=harvest|distribute|all (default all)
  */
 import fs from "fs";
 import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 
 import { buildCashdropEntries, fetchReferrerMap } from "./lib/referral-allocation.mjs";
-import { sumEligibleShares, syncVaultShareHolders } from "./lib/sync-shareholders.mjs";
+import {
+  checkpointFromHolders,
+  clearPendingCashdrop,
+  readPendingCashdrop,
+  writePendingCashdrop,
+} from "./lib/cashdrop-checkpoint.mjs";
+import {
+  assertShareholderSyncComplete,
+  sumEligibleShares,
+  syncVaultShareHolders,
+} from "./lib/sync-shareholders.mjs";
+import {
+  computeTimeWeightedHolders,
+} from "./lib/time-weighted-shares.mjs";
+import {
+  createPublicClientsForChain,
+  getBlockWithRetry,
+  parseExtraAddresses,
+  readContractWithRetry,
+  rpcUrlsForChain,
+} from "./lib/rpc-logs.mjs";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 function loadEnv() {
@@ -33,11 +54,61 @@ function loadEnv() {
 
 loadEnv();
 const CHAIN = Number(process.env.DEPLOYMENT_CHAIN ?? "999");
+if (CHAIN === 999 && process.env.SKIP_LOG_SCAN === undefined) {
+  process.env.SKIP_LOG_SCAN = "1";
+}
 const RPC =
   process.env.RPC_URL ??
+  rpcUrlsForChain(CHAIN)[0] ??
   (CHAIN === 998 ? "https://rpcs.chain.link/hyperevm/testnet" : "https://rpc.hyperliquid.xyz/evm");
-const OPERATOR_FEE_BPS = Number(process.env.OPERATOR_FEE_BPS ?? "3300");
+const OPERATIONS_FEE_BPS = Number(process.env.OPERATIONS_FEE_BPS ?? process.env.OPERATOR_FEE_BPS ?? "700");
+const OWNER_FEE_BPS = Number(process.env.OWNER_FEE_BPS ?? "3300");
+const USER_FEE_BPS = 10_000 - OPERATIONS_FEE_BPS - OWNER_FEE_BPS;
 const ZERO_ROOT = `0x${"0".repeat(64)}`;
+const TIME_WEIGHTED_CASHDROP = process.env.TIME_WEIGHTED_CASHDROP !== "0";
+const DAILY_REWARDS_PHASE = (process.env.DAILY_REWARDS_PHASE ?? "all").toLowerCase();
+
+function vaultDeployBlock(deployment) {
+  if (process.env.DEPLOY_BLOCK) return BigInt(process.env.DEPLOY_BLOCK);
+  if (deployment.vaultDeployBlock) return BigInt(deployment.vaultDeployBlock);
+  if (CHAIN === 999) return 39_115_156n;
+  return 0n;
+}
+
+async function resolveWeightingPeriod(publicClient) {
+  const checkpoint = deployment.cashdropWeightCheckpoint;
+  if (checkpoint?.blockNumber && checkpoint?.timestamp) {
+    return {
+      fromBlock: BigInt(checkpoint.blockNumber) + 1n,
+      periodStartTimestamp: Number(checkpoint.timestamp),
+      initialBalances: checkpoint.balances ?? {},
+    };
+  }
+
+  const last = deployment.lastCashdropDistribution;
+  if (last?.harvestBlock && last?.harvestTimestamp) {
+    return {
+      fromBlock: BigInt(last.harvestBlock) + 1n,
+      periodStartTimestamp: Number(last.harvestTimestamp),
+      initialBalances: checkpoint?.balances ?? {},
+    };
+  }
+  if (last?.executedAt) {
+    return {
+      fromBlock: vaultDeployBlock(deployment),
+      periodStartTimestamp: Math.floor(Date.parse(last.executedAt) / 1000),
+      initialBalances: {},
+    };
+  }
+
+  const fromBlock = vaultDeployBlock(deployment);
+  const startBlock = await getBlock({ blockNumber: fromBlock }, `startBlock:${fromBlock}`);
+  return {
+    fromBlock,
+    periodStartTimestamp: Number(startBlock.timestamp),
+    initialBalances: {},
+  };
+}
 
 if (!process.env.PRIVATE_KEY) {
   throw new Error("Set PRIVATE_KEY or MAIN_PRIVATE_KEY in .env / .env.testnet / .env.mainnet");
@@ -70,6 +141,15 @@ const chain = {
 };
 const publicClient = viem.createPublicClient({ chain, transport: viem.http(RPC) });
 const walletClient = viem.createWalletClient({ account, chain, transport: viem.http(RPC) });
+const rpcClients = await createPublicClientsForChain(chain, rpcUrlsForChain(CHAIN));
+
+function readContract(request, label) {
+  return readContractWithRetry({ publicClient, clients: rpcClients, request, label });
+}
+
+function getBlock(request, label) {
+  return getBlockWithRetry({ publicClient, clients: rpcClients, request, label });
+}
 
 const vault = deployment.hyperpoolVault ?? deployment.liquidityVault;
 if (!vault) throw new Error("hyperpoolVault not in deployment JSON");
@@ -126,16 +206,16 @@ function distributionIdFor(entries, pending, carryover) {
 }
 
 async function collectCarryoverEntries() {
-  const currentRoot = await publicClient.readContract({
+  const currentRoot = await readContract({
     address: deployment.airdrop,
     abi: airdropAbi,
     functionName: "merkleRoot",
-  });
-  const currentDeadline = await publicClient.readContract({
+  }, "airdrop.merkleRoot");
+  const currentDeadline = await readContract({
     address: deployment.airdrop,
     abi: airdropAbi,
     functionName: "claimDeadline",
-  });
+  }, "airdrop.claimDeadline");
 
   const previousEntries = deployment.airdropEntries ?? [];
   if (
@@ -162,12 +242,12 @@ async function collectCarryoverEntries() {
 
   const carryover = [];
   for (const entry of previousEntries) {
-    const claimed = await publicClient.readContract({
+    const claimed = await readContract({
       address: deployment.airdrop,
       abi: airdropAbi,
       functionName: "claimedByRoot",
       args: [currentRoot, entry.address],
-    });
+    }, `claimedByRoot:${entry.address}`);
     if (!claimed) {
       carryover.push({
         address: entry.address,
@@ -179,166 +259,344 @@ async function collectCarryoverEntries() {
   return carryover;
 }
 
-console.log("Syncing vaultShareHolders before harvest...");
-await syncVaultShareHolders({
-  root,
-  chain: CHAIN,
-  deployment,
-  publicClient,
-  vault,
-  vaultAbi,
-  extraAddresses: [account.address],
-});
-console.log(`  ${deployment.vaultShareHolders?.length ?? 0} holder(s) snapshotted`);
-
-console.log("Harvesting fees from vault", vault);
-const harvestHash = await walletClient.writeContract({
-  address: vault,
-  abi: vaultAbi,
-  functionName: "harvestFees",
-});
-const harvestReceipt = await publicClient.waitForTransactionReceipt({ hash: harvestHash });
-console.log("harvestFees tx", harvestReceipt.transactionHash);
-
-const pending = await publicClient.readContract({
-  address: vault,
-  abi: vaultAbi,
-  functionName: "pendingUserRewards",
-});
-console.log("pendingUserRewards (67% pool):", pending.toString());
-
-const carryoverEntries = await collectCarryoverEntries();
-const carryover = carryoverEntries.reduce((sum, entry) => sum + entry.amount, 0n);
-console.log("carryover from previous unclaimed Cashdrop:", carryover.toString());
-
-if (pending === 0n && carryover === 0n) {
-  console.log("No user rewards or carryover to distribute");
-  process.exit(0);
-}
-
-if (pending > 0n && !deployment.vaultShareHolders?.length) {
-  throw new Error(
-    "deployment.vaultShareHolders is required — snapshot vault shareholders before running daily-rewards"
-  );
-}
-
-const holders = deployment.vaultShareHolders;
-const eligibleShares = sumEligibleShares(holders ?? []);
-if (pending > 0n && eligibleShares === 0n) {
-  throw new Error("No eligible vault shareholders with balance > 0");
-}
-
-if (pending > 0n) {
-  const onChainSupply = await publicClient.readContract({
-    address: vault,
-    abi: vaultAbi,
-    functionName: "totalSupply",
-  });
-  if (eligibleShares > onChainSupply) {
-    throw new Error(
-      `Eligible shares (${eligibleShares}) exceed totalSupply (${onChainSupply}) — re-run sync-shareholders`
-    );
+function saveDeploymentJson() {
+  for (const p of [
+    path.join(root, "contracts/deployments", `${CHAIN}.json`),
+    path.join(root, "frontend/src/lib/contracts/deployments", `${CHAIN}.json`),
+  ]) {
+    if (fs.existsSync(path.dirname(p))) fs.writeFileSync(p, JSON.stringify(deployment, null, 2) + "\n");
   }
 }
 
-let referrers = new Map();
-const registry = deployment.referralRegistry;
-const ZERO = "0x0000000000000000000000000000000000000000";
-if (pending > 0n && registry && registry.toLowerCase() !== ZERO) {
-  referrers = await fetchReferrerMap(publicClient, registry, holders);
-  console.log(`Referral registry ${registry} — ${referrers.size} bound referee(s)`);
-} else if (pending > 0n) {
-  console.log("Referral registry not configured — pro-rata Cashdrop only");
-}
+async function runHarvestPhase() {
+  console.log(`==> Daily rewards phase: harvest (chain ${CHAIN})`);
+  console.log("Syncing vaultShareHolders before harvest...");
+  const extraHolders = parseExtraAddresses(account.address, process.env.EXTRA_HOLDERS);
+  const syncOptions = {
+    root,
+    chain: CHAIN,
+    deployment,
+    publicClient,
+    vault,
+    vaultAbi,
+    extraAddresses: extraHolders,
+  };
+  await syncVaultShareHolders(syncOptions);
+  let holders = deployment.vaultShareHolders ?? [];
+  console.log(`  ${holders.length} holder(s) snapshotted`);
+  for (const h of holders) {
+    console.log(`    ${h.address}: ${h.shares} shares`);
+  }
+  try {
+    await assertShareholderSyncComplete({ publicClient, vault, vaultAbi, holders });
+  } catch (err) {
+    // A depositor unknown to the deployment JSON (e.g. a brand-new customer)
+    // is invisible to the balanceOf-only fast path. Fall back to an
+    // incremental Transfer log scan since the last checkpoint to find them.
+    if (process.env.SKIP_LOG_SCAN !== "1") throw err;
+    console.warn(`Shareholder coverage incomplete (${err?.message ?? err})`);
+    console.warn("Falling back to incremental Transfer log scan to discover new holders...");
+    process.env.SKIP_LOG_SCAN = "0";
+    try {
+      await syncVaultShareHolders(syncOptions);
+    } finally {
+      process.env.SKIP_LOG_SCAN = "1";
+    }
+    holders = deployment.vaultShareHolders ?? [];
+    console.log(`  ${holders.length} holder(s) after log scan`);
+    for (const h of holders) {
+      console.log(`    ${h.address}: ${h.shares} shares`);
+    }
+    await assertShareholderSyncComplete({ publicClient, vault, vaultAbi, holders });
+  }
 
-const currentEntries =
-  pending > 0n
-    ? buildCashdropEntries({
-        holders: holders.map((h) => ({ address: h.address, shares: BigInt(h.shares) })),
-        pending,
-        totalShares: eligibleShares,
-        referrers,
-      })
-    : [];
+  try {
+    const deployHash = await walletClient.writeContract({
+      address: vault,
+      abi: vaultAbi,
+      functionName: "deployIdle",
+    });
+    const deployReceipt = await publicClient.waitForTransactionReceipt({ hash: deployHash });
+    console.log("deployIdle before harvest tx", deployReceipt.transactionHash);
+  } catch (err) {
+    const msg = err?.shortMessage ?? err?.message ?? String(err);
+    console.warn("deployIdle before harvest skipped:", msg);
+  }
 
-const entries = mergeCashdropEntries(currentEntries, carryoverEntries);
-
-const allocated = currentEntries.reduce((s, e) => s + e.amount, 0n);
-if (allocated !== pending) {
-  throw new Error(`Merkle entries sum ${allocated} != pending ${pending}`);
-}
-const totalDistribution = pending + carryover;
-const combinedAllocated = entries.reduce((s, e) => s + e.amount, 0n);
-if (combinedAllocated !== totalDistribution) {
-  throw new Error(`Combined Merkle entries sum ${combinedAllocated} != distribution ${totalDistribution}`);
-}
-
-if (pending > 0n) {
-  const pullHash = await walletClient.writeContract({
+  console.log("Harvesting fees from vault", vault);
+  const harvestHash = await walletClient.writeContract({
     address: vault,
     abi: vaultAbi,
-    functionName: "pullPendingRewards",
-    args: [deployment.airdrop, pending],
+    functionName: "harvestFees",
   });
-  await publicClient.waitForTransactionReceipt({ hash: pullHash });
+  const harvestReceipt = await publicClient.waitForTransactionReceipt({ hash: harvestHash });
+  console.log("harvestFees tx", harvestReceipt.transactionHash);
+
+  const pending = await readContract({
+    address: vault,
+    abi: vaultAbi,
+    functionName: "pendingUserRewards",
+  }, "vault.pendingUserRewards");
+  console.log("pendingUserRewards (60% pool):", pending.toString());
+
+  const carryoverEntries = await collectCarryoverEntries();
+  const carryover = carryoverEntries.reduce((sum, entry) => sum + entry.amount, 0n);
+  console.log("carryover from previous unclaimed Cashdrop:", carryover.toString());
+
+  if (pending === 0n && carryover === 0n) {
+    console.log("No user rewards or carryover to distribute");
+    clearPendingCashdrop(root, CHAIN);
+    return null;
+  }
+
+  const harvestBlockData = await getBlock(
+    { blockNumber: harvestReceipt.blockNumber },
+    `harvestBlock:${harvestReceipt.blockNumber}`
+  );
+
+  const pendingState = {
+    vault,
+    harvestTxHash: harvestReceipt.transactionHash,
+    harvestBlock: harvestReceipt.blockNumber.toString(),
+    harvestTimestamp: String(harvestBlockData.timestamp),
+    pending: pending.toString(),
+    holders,
+    createdAt: new Date().toISOString(),
+  };
+  writePendingCashdrop(root, CHAIN, pendingState);
+  console.log("Wrote pending Cashdrop state for distribute phase");
+  return pendingState;
 }
 
-const airdropBal = await publicClient.readContract({
-  address: deployment.tokenUSDC,
-  abi: erc20Abi,
-  functionName: "balanceOf",
-  args: [deployment.airdrop],
-});
-if (airdropBal < totalDistribution) {
-  throw new Error(
-    `MerkleAirdrop balance ${airdropBal} is lower than auto distribution ${totalDistribution}`
+async function runDistributePhase(pendingState) {
+  console.log(`==> Daily rewards phase: distribute (chain ${CHAIN})`);
+
+  let harvestReceipt;
+  let pending;
+  let holders;
+  let harvestTimestamp;
+
+  if (pendingState) {
+    harvestReceipt = {
+      transactionHash: pendingState.harvestTxHash,
+      blockNumber: BigInt(pendingState.harvestBlock),
+    };
+    pending = BigInt(pendingState.pending);
+    holders = pendingState.holders ?? [];
+    harvestTimestamp = Number(pendingState.harvestTimestamp);
+  } else {
+    const saved = readPendingCashdrop(root, CHAIN);
+    if (!saved) {
+      console.log("No pending harvest state — skipping distribute phase");
+      return;
+    }
+    if (saved.vault?.toLowerCase() !== vault.toLowerCase()) {
+      throw new Error(`Pending state vault ${saved.vault} != deployment vault ${vault}`);
+    }
+    harvestReceipt = {
+      transactionHash: saved.harvestTxHash,
+      blockNumber: BigInt(saved.harvestBlock),
+    };
+    pending = BigInt(saved.pending);
+    holders = saved.holders ?? [];
+    harvestTimestamp = Number(saved.harvestTimestamp);
+    console.log(`Loaded pending harvest from ${saved.createdAt} (tx ${saved.harvestTxHash})`);
+  }
+
+  const carryoverEntries = await collectCarryoverEntries();
+  const carryover = carryoverEntries.reduce((sum, entry) => sum + entry.amount, 0n);
+  console.log("carryover from previous unclaimed Cashdrop:", carryover.toString());
+
+  if (pending === 0n && carryover === 0n) {
+    console.log("No user rewards or carryover to distribute");
+    clearPendingCashdrop(root, CHAIN);
+    return;
+  }
+
+  if (pending > 0n && !holders.length) {
+    throw new Error(
+      "deployment.vaultShareHolders is required — snapshot vault shareholders before running daily-rewards"
+    );
+  }
+
+  const eligibleShares = sumEligibleShares(holders ?? []);
+  if (pending > 0n && eligibleShares === 0n) {
+    throw new Error("No eligible vault shareholders with balance > 0");
+  }
+
+  let allocationHolders = holders;
+  let allocationTotal = eligibleShares;
+
+  let useTimeWeighted = TIME_WEIGHTED_CASHDROP;
+  if (pending > 0n && useTimeWeighted && !deployment.cashdropWeightCheckpoint?.blockNumber && holders.length > 0) {
+    console.log(
+      "No cashdropWeightCheckpoint — using harvest shareholder snapshot (skipping full-period log scan)"
+    );
+    useTimeWeighted = false;
+  }
+
+  if (pending > 0n && useTimeWeighted) {
+    const harvestBlock = harvestReceipt.blockNumber;
+    const period = await resolveWeightingPeriod(publicClient);
+    const weighted = await computeTimeWeightedHolders({
+      publicClient,
+      vault,
+      fromBlock: period.fromBlock,
+      toBlock: harvestBlock,
+      periodStartTimestamp: period.periodStartTimestamp,
+      periodEndTimestamp: harvestTimestamp,
+      initialBalances: period.initialBalances,
+    });
+
+    if (weighted.totalWeighted === 0n) {
+      throw new Error(
+        "Time-weighted share-seconds is zero for this period — no eligible vault participation"
+      );
+    }
+
+    allocationHolders = weighted.holders;
+    allocationTotal = weighted.totalWeighted;
+    deployment.cashdropWeightCheckpoint = weighted.checkpoint;
+
+    console.log(`Time-weighted Cashdrop (${weighted.holders.length} participant(s)):`);
+    for (const h of weighted.holders) {
+      const pct = Number((BigInt(h.shares) * 10000n) / weighted.totalWeighted) / 100;
+      console.log(`    ${h.address}: ${h.shares} share-seconds (${pct.toFixed(2)}%)`);
+    }
+  } else if (pending > 0n) {
+    console.log("Using end-of-period snapshot shares (no time-weighted log scan)");
+    deployment.cashdropWeightCheckpoint = checkpointFromHolders(
+      holders,
+      harvestReceipt.blockNumber,
+      harvestTimestamp
+    );
+  }
+
+  if (pending > 0n) {
+    const onChainSupply = await readContract({
+      address: vault,
+      abi: vaultAbi,
+      functionName: "totalSupply",
+    }, "vault.totalSupply");
+    if (eligibleShares > onChainSupply) {
+      throw new Error(
+        `Eligible shares (${eligibleShares}) exceed totalSupply (${onChainSupply}) — re-run sync-shareholders`
+      );
+    }
+  }
+
+  let referrers = new Map();
+  const registry = deployment.referralRegistry;
+  const ZERO = "0x0000000000000000000000000000000000000000";
+  if (pending > 0n && registry && registry.toLowerCase() !== ZERO) {
+    referrers = await fetchReferrerMap(publicClient, registry, allocationHolders, rpcClients);
+    console.log(`Referral registry ${registry} — ${referrers.size} bound referee(s)`);
+  } else if (pending > 0n) {
+    console.log("Referral registry not configured — pro-rata Cashdrop only");
+  }
+
+  const currentEntries =
+    pending > 0n
+      ? buildCashdropEntries({
+          holders: allocationHolders.map((h) => ({ address: h.address, shares: BigInt(h.shares) })),
+          pending,
+          totalShares: allocationTotal,
+          referrers,
+        })
+      : [];
+
+  const entries = mergeCashdropEntries(currentEntries, carryoverEntries);
+
+  const allocated = currentEntries.reduce((s, e) => s + e.amount, 0n);
+  if (allocated !== pending) {
+    throw new Error(`Merkle entries sum ${allocated} != pending ${pending}`);
+  }
+  const totalDistribution = pending + carryover;
+  const combinedAllocated = entries.reduce((s, e) => s + e.amount, 0n);
+  if (combinedAllocated !== totalDistribution) {
+    throw new Error(`Combined Merkle entries sum ${combinedAllocated} != distribution ${totalDistribution}`);
+  }
+
+  if (pending > 0n) {
+    const pullHash = await walletClient.writeContract({
+      address: vault,
+      abi: vaultAbi,
+      functionName: "pullPendingRewards",
+      args: [deployment.airdrop, pending],
+    });
+    await publicClient.waitForTransactionReceipt({ hash: pullHash });
+  }
+
+  const airdropBal = await readContract({
+    address: deployment.tokenUSDC,
+    abi: erc20Abi,
+    functionName: "balanceOf",
+    args: [deployment.airdrop],
+  }, "airdrop.usdcBalance");
+  if (airdropBal < totalDistribution) {
+    throw new Error(
+      `MerkleAirdrop balance ${airdropBal} is lower than auto distribution ${totalDistribution}`
+    );
+  }
+
+  const distributionId = distributionIdFor(entries, pending, carryover);
+  const distributed = await readContract({
+    address: deployment.airdrop,
+    abi: airdropAbi,
+    functionName: "distributionExecuted",
+    args: [distributionId],
+  }, "airdrop.distributionExecuted");
+  if (distributed) {
+    throw new Error(`Distribution ${distributionId} was already executed`);
+  }
+
+  const distributeHash = await walletClient.writeContract({
+    address: deployment.airdrop,
+    abi: airdropAbi,
+    functionName: "distributeRewards",
+    args: [
+      distributionId,
+      entries.map((entry) => entry.address),
+      entries.map((entry) => entry.amount),
+    ],
+  });
+  const distributeReceipt = await publicClient.waitForTransactionReceipt({ hash: distributeHash });
+
+  deployment.airdropEntries = entries.map((e) => ({
+    address: e.address,
+    amount: e.amount.toString(),
+    minShares: e.minShares?.toString(),
+  }));
+  deployment.lastCashdropDistribution = {
+    distributionId,
+    txHash: distributeReceipt.transactionHash,
+    amount: totalDistribution.toString(),
+    entries: entries.length,
+    executedAt: new Date().toISOString(),
+    harvestBlock: harvestReceipt.blockNumber.toString(),
+    harvestTimestamp: String(harvestTimestamp),
+    timeWeighted: useTimeWeighted,
+  };
+  delete deployment.merkleRoot;
+  saveDeploymentJson();
+  clearPendingCashdrop(root, CHAIN);
+
+  console.log(
+    `Auto Cashdrop distributed — ${entries.length} entries, ${totalDistribution} USDC units, tx ${distributeReceipt.transactionHash}`
+  );
+  console.log(
+    `Fee split bps — ops: ${OPERATIONS_FEE_BPS} (7%), user: ${USER_FEE_BPS} (60%), owner: ${OWNER_FEE_BPS} (33%)`
   );
 }
 
-const distributionId = distributionIdFor(entries, pending, carryover);
-const distributed = await publicClient.readContract({
-  address: deployment.airdrop,
-  abi: airdropAbi,
-  functionName: "distributionExecuted",
-  args: [distributionId],
-});
-if (distributed) {
-  throw new Error(`Distribution ${distributionId} was already executed`);
+if (!["all", "harvest", "distribute"].includes(DAILY_REWARDS_PHASE)) {
+  throw new Error(`Invalid DAILY_REWARDS_PHASE=${DAILY_REWARDS_PHASE} (use harvest|distribute|all)`);
 }
 
-const distributeHash = await walletClient.writeContract({
-  address: deployment.airdrop,
-  abi: airdropAbi,
-  functionName: "distributeRewards",
-  args: [
-    distributionId,
-    entries.map((entry) => entry.address),
-    entries.map((entry) => entry.amount),
-  ],
-});
-const distributeReceipt = await publicClient.waitForTransactionReceipt({ hash: distributeHash });
-
-deployment.airdropEntries = entries.map((e) => ({
-  address: e.address,
-  amount: e.amount.toString(),
-  minShares: e.minShares?.toString(),
-}));
-deployment.lastCashdropDistribution = {
-  distributionId,
-  txHash: distributeReceipt.transactionHash,
-  amount: totalDistribution.toString(),
-  entries: entries.length,
-  executedAt: new Date().toISOString(),
-};
-delete deployment.merkleRoot;
-for (const p of [
-  path.join(root, "contracts/deployments", `${CHAIN}.json`),
-  path.join(root, "frontend/src/lib/contracts/deployments", `${CHAIN}.json`),
-]) {
-  if (fs.existsSync(path.dirname(p))) fs.writeFileSync(p, JSON.stringify(deployment, null, 2) + "\n");
+let pendingState = null;
+if (DAILY_REWARDS_PHASE === "harvest" || DAILY_REWARDS_PHASE === "all") {
+  pendingState = await runHarvestPhase();
 }
-
-console.log(
-  `Auto Cashdrop distributed — ${entries.length} entries, ${totalDistribution} USDC units, tx ${distributeReceipt.transactionHash}`
-);
-console.log(`Operator fee bps: ${OPERATOR_FEE_BPS} (33% default)`);
+if (DAILY_REWARDS_PHASE === "distribute" || DAILY_REWARDS_PHASE === "all") {
+  await runDistributePhase(DAILY_REWARDS_PHASE === "all" ? pendingState : null);
+}
