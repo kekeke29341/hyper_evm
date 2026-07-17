@@ -3,6 +3,7 @@ import {
   BRIDGE_CHAINS,
   EVM_BRIDGE_CHAINS,
   getBridgeChain,
+  getBridgeSourceWalletChainId,
   getLifiChainId,
   getSwapTokensForChain,
   pickDefaultSwapToken,
@@ -40,6 +41,12 @@ describe("lifi config", () => {
   it("isEvmBridgeRoute requires both EVM chains", () => {
     expect(isEvmBridgeRoute("hyperevm", "ethereum")).toBe(true);
     expect(isEvmBridgeRoute("hyperevm", "solana")).toBe(false);
+  });
+
+  it("getBridgeSourceWalletChainId resolves bridge source chains", () => {
+    expect(getBridgeSourceWalletChainId("ethereum")).toBe(1);
+    expect(getBridgeSourceWalletChainId("arbitrum")).toBe(42161);
+    expect(getBridgeSourceWalletChainId("hyperevm")).toBeNull();
   });
 
   it("hyperEvmLifiNotice warns on testnet chain 998", () => {

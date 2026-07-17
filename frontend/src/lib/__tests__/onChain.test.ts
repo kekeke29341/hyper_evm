@@ -14,7 +14,9 @@ describe("on-chain earnings scan", () => {
     expect(plan.maxLookback).toBeGreaterThan(3_000n);
 
     const mainnetPlan = logScanPlan(999);
-    expect(mainnetPlan.chunk).toBe(1_000n);
+    expect(mainnetPlan.chunk).toBe(100n);
+    expect(mainnetPlan.fastWindows[0]).toBeLessThanOrEqual(1_000n);
+    expect(mainnetPlan.maxLookback).toBeLessThanOrEqual(5_000n);
   });
 
   it("builds contiguous paginated ranges", () => {

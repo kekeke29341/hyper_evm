@@ -37,11 +37,11 @@ export function positionTokenAmounts(
   };
 }
 
-/** Asymmetric range: +10% upper / −30% lower (keeper target) */
+/** Asymmetric range: +10% upper / −17% lower (keeper target) */
 export function rangeBounds(
   price: number,
   upperPct = 10,
-  lowerPct = 30
+  lowerPct = 17
 ): { lower: number; upper: number; widthPct: number; upperPct: number; lowerPct: number } {
   return {
     lower: Math.round(price * (1 - lowerPct / 100)),
@@ -57,7 +57,7 @@ export function isPriceInRange(price: number, lower: number, upper: number): boo
 }
 
 /** Net user APY estimate = reference APY × user share (67%) */
-export function estimatedNetApy(referenceAprPercent: number, userShareBps = 6700): number {
+export function estimatedNetApy(referenceAprPercent: number, userShareBps = 6000): number {
   return (referenceAprPercent * userShareBps) / 10_000;
 }
 
@@ -80,12 +80,11 @@ export function positionValueUsd(
 
 /** Concentrated LP fee capture estimate; scaled by 67% user share */
 export function estimatedApyFromRange(poolAprPercent: number, rangeWidthPct: number): number {
-  const baselineWidth = PROJECT_X_POOL.upperRangePct + PROJECT_X_POOL.lowerRangePct;
-  const concentration = baselineWidth / Math.max(rangeWidthPct, 1);
+  const concentration = PROJECT_X_POOL.aprBaselineWidthPct / Math.max(rangeWidthPct, 1);
   return estimatedNetApy(poolAprPercent * concentration);
 }
 
-/** Fixed managed range bounds for display (all users share +10% / −30%) */
+/** Fixed managed range bounds for display (all users share +10% / −17%) */
 export function managedRangeBounds(price: number) {
   return rangeBounds(price, PROJECT_X_POOL.upperRangePct, PROJECT_X_POOL.lowerRangePct);
 }

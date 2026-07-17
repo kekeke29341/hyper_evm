@@ -1,7 +1,7 @@
 "use client";
 
 import { formatUnits } from "viem";
-import { VAULT_SHARE_DECIMALS } from "@/lib/constants";
+import { PROJECT_X_POOL, VAULT_SHARE_DECIMALS, MANAGED_LP_RANGE } from "@/lib/constants";
 import { useAdminAnalytics } from "@/lib/hooks/useAdmin";
 import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
 import { getVaultAddress } from "@/lib/contracts";
@@ -16,7 +16,9 @@ export function AnalyticsPanel() {
     vaultAssets,
     pendingUserRewards,
     operatorFeeBps,
+    ownerFeeBps,
     operatorWallet,
+    ownerFeeWallet,
     airdropPaused,
     vaultPaused,
   } = useAdminAnalytics();
@@ -29,8 +31,14 @@ export function AnalyticsPanel() {
     );
   }
 
+  const opsSharePct =
+    operatorFeeBps !== undefined ? (Number(operatorFeeBps) / 100).toFixed(0) : String(PROJECT_X_POOL.operatorShareBps / 100);
+  const ownerSharePct =
+    ownerFeeBps !== undefined ? (Number(ownerFeeBps) / 100).toFixed(0) : String(PROJECT_X_POOL.ownerShareBps / 100);
   const userSharePct =
-    operatorFeeBps !== undefined ? ((10000 - Number(operatorFeeBps)) / 100).toFixed(0) : "70";
+    operatorFeeBps !== undefined && ownerFeeBps !== undefined
+      ? ((10000 - Number(operatorFeeBps) - Number(ownerFeeBps)) / 100).toFixed(0)
+      : String(PROJECT_X_POOL.userShareBps / 100);
 
   return (
     <div className="space-y-4">
@@ -60,9 +68,10 @@ export function AnalyticsPanel() {
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
-          <StatBox label="Operator share" value="33%" sub={String(operatorWallet ?? "—").slice(0, 14) + "…"} />
-          <StatBox label="User auto payout" value="67%" sub="JST 7:00" />
-          <StatBox label="LP range" value="+10% / −30%" sub="Fixed · HYPE/USDC" />
+          <StatBox label="Operations share" value={`${opsSharePct}%`} sub={String(operatorWallet ?? "—").slice(0, 14) + "…"} />
+          <StatBox label="Owner share" value={`${ownerSharePct}%`} sub={String(ownerFeeWallet ?? "—").slice(0, 14) + "…"} />
+          <StatBox label="User auto payout" value={`${userSharePct}%`} sub="JST 7:00" />
+          <StatBox label="LP range" value={MANAGED_LP_RANGE.label} sub="Fixed · HYPE/USDC" />
         </div>
       </AdminCard>
 

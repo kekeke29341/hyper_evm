@@ -56,31 +56,12 @@
   },
   {
     "type": "function",
-    "name": "codeToReferrer",
+    "name": "bindReferrer",
     "inputs": [
       {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
+        "name": "referrer",
         "type": "address",
         "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "enterInvitationCode",
-    "inputs": [
-      {
-        "name": "code",
-        "type": "bytes32",
-        "internalType": "bytes32"
       }
     ],
     "outputs": [],
@@ -101,6 +82,25 @@
         "name": "",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isRegisteredReferrer",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "stateMutability": "view"
@@ -158,33 +158,8 @@
   },
   {
     "type": "function",
-    "name": "referrerCode",
-    "inputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "registerCode",
-    "inputs": [
-      {
-        "name": "code",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
+    "name": "registerReferrer",
+    "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
@@ -207,25 +182,6 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
-  },
-  {
-    "type": "event",
-    "name": "CodeRegistered",
-    "inputs": [
-      {
-        "name": "referrer",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "code",
-        "type": "bytes32",
-        "indexed": false,
-        "internalType": "bytes32"
-      }
-    ],
-    "anonymous": false
   },
   {
     "type": "event",
@@ -261,12 +217,19 @@
         "type": "address",
         "indexed": true,
         "internalType": "address"
-      },
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ReferrerRegistered",
+    "inputs": [
       {
-        "name": "code",
-        "type": "bytes32",
-        "indexed": false,
-        "internalType": "bytes32"
+        "name": "referrer",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
       }
     ],
     "anonymous": false

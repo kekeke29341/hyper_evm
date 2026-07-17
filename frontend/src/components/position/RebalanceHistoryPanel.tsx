@@ -53,10 +53,7 @@ export function RebalanceHistoryPanel({
                 <span className="text-zinc-500">{e.action}</span>
               </div>
               <p className="text-zinc-300 tabular-nums">
-                {t("position.price")}: {e.price.toLocaleString()} · ±{e.rangePct}%
-              </p>
-              <p className="text-zinc-500 tabular-nums">
-                {e.lower.toLocaleString()} – {e.upper.toLocaleString()}
+                {t("position.price")}: {e.price.toLocaleString()}
               </p>
             </div>
           ))}

@@ -2,12 +2,13 @@
 
 import { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { savePendingReferralCode } from "@/lib/referral/codeStorage";
+import { captureReferralFromLocation } from "@/lib/referral/codeStorage";
 import { Header, Footer } from "@/components/layout/Header";
 import { TabHero } from "@/components/layout/TabHero";
 import { OnboardingModal } from "@/components/layout/OnboardingModal";
 import { TestnetGuideBanner } from "@/components/layout/TestnetGuideBanner";
 import { NetworkSwitchBanner } from "@/components/layout/NetworkSwitchBanner";
+import { MainnetFundsBanner } from "@/components/layout/MainnetFundsBanner";
 import { WalletModal } from "@/components/layout/WalletModal";
 import { Toast } from "@/components/ui/shared";
 import { DepositTab } from "@/components/tabs/DepositTab";
@@ -37,8 +38,7 @@ export default function AppShell({ activeTab }: { activeTab: TabId }) {
   }, [activeTab]);
 
   useEffect(() => {
-    const ref = new URLSearchParams(window.location.search).get("ref")?.trim();
-    if (ref) savePendingReferralCode(ref);
+    captureReferralFromLocation();
   }, []);
 
   return (
@@ -46,6 +46,7 @@ export default function AppShell({ activeTab }: { activeTab: TabId }) {
       <Header activeTab={activeTab} />
       <main className="flex-1 px-3 sm:px-4 py-6 sm:py-8 overflow-x-hidden">
         <NetworkSwitchBanner />
+        <MainnetFundsBanner />
         <TestnetGuideBanner />
         <TabHero activeTab={activeTab} />
         <AnimatePresence mode="wait">

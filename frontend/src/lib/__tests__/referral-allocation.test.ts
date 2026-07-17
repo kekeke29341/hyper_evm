@@ -38,9 +38,9 @@ describe("cashdrop referral allocation", () => {
 
     const bob = entries.find((e) => e.address === BOB)!;
     const alice = entries.find((e) => e.address === ALICE)!;
-    // Raw: Bob 11000, Alice 1500 → scaled to 10000
-    expect(bob.amount).toBe(8800n);
-    expect(alice.amount).toBe(1200n);
+    // Raw: Bob 10500, Alice 1500 → scaled to 10000
+    expect(bob.amount).toBe(8750n);
+    expect(alice.amount).toBe(1250n);
   });
 
   it("merges referrer commission when referrer is also a holder", () => {

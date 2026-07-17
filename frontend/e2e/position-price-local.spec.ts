@@ -50,7 +50,7 @@ test.describe("Position price + deposit modal (local GUI)", () => {
     });
   });
 
-  test("shows loading then live price; deposit modal has range bounds", async ({ context, page }) => {
+  test("shows loading then live price; deposit modal opens", async ({ context, page }) => {
     await injectMockWallet(context, MOCK_ACCOUNT);
     await page.goto("/position");
 
@@ -71,17 +71,6 @@ test.describe("Position price + deposit modal (local GUI)", () => {
     await expect(depositModal).toBeVisible();
 
     await expect(depositModal.getByText(/現在価格.*\d{2,}/)).toBeVisible({ timeout: 30_000 });
-
-    const rangeSection = depositModal.locator("section").filter({ hasText: "リバランスレンジ" });
-    const lower = rangeSection.locator("p.tabular-nums").nth(0);
-    const upper = rangeSection.locator("p.tabular-nums").nth(1);
-    await expect(lower).toHaveText(/^\d[\d,]*$/, { timeout: 15_000 });
-    await expect(upper).toHaveText(/^\d[\d,]*$/, { timeout: 15_000 });
-
-    const lowerNum = Number((await lower.textContent())?.replace(/,/g, "") ?? "0");
-    const upperNum = Number((await upper.textContent())?.replace(/,/g, "") ?? "0");
-    expect(lowerNum).toBeGreaterThan(10);
-    expect(upperNum).toBeGreaterThan(lowerNum);
 
     await depositModal.locator('input[inputmode="decimal"]').fill("10");
     await expect(depositModal.getByRole("button", { name: /確認画面へ|確認へ|to confirm/i })).toBeDisabled();

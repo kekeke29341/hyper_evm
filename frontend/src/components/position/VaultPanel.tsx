@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { Loader2, Vault, Wallet } from "lucide-react";
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { AlertTriangle, Loader2, Vault, Wallet } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
+import { tabPath } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 export function VaultPanel({
@@ -13,9 +15,11 @@ export function VaultPanel({
   vaultValueUsd,
   vaultKhype,
   vaultUsdc,
+  isConnected,
   onDeposit,
   onWithdraw,
   withdrawing,
+  defaultMode = "deposit",
 }: {
   khypeBalance: string;
   usdcBalance: string;
@@ -24,14 +28,24 @@ export function VaultPanel({
   vaultValueUsd: number;
   vaultKhype: number;
   vaultUsdc: number;
+  isConnected: boolean;
   onDeposit: () => void;
   onWithdraw: (shares: string) => void;
   withdrawing: boolean;
+  defaultMode?: "deposit" | "withdraw";
 }) {
   const { t } = useI18n();
-  const [mode, setMode] = useState<"deposit" | "withdraw">("deposit");
+  const [mode, setMode] = useState<"deposit" | "withdraw">(defaultMode);
   const [withdrawShares, setWithdrawShares] = useState("");
   const hasUserPosition = parseFloat(vaultShares) > 0;
+  const hasNoWalletDepositBalance =
+    isConnected && hasVault && numericBalance(khypeBalance) <= 0 && numericBalance(usdcBalance) <= 0;
+
+  useEffect(() => {
+    if (defaultMode === "withdraw" && hasUserPosition) {
+      setMode("withdraw");
+    }
+  }, [defaultMode, hasUserPosition]);
 
   return (
     <div className="card-glass rounded-2xl p-4 border border-zinc-800">
@@ -77,6 +91,19 @@ export function VaultPanel({
               .replace("{usdc}", usdcBalOrZero(usdcBalance))}
           </span>
         </div>
+        {hasNoWalletDepositBalance && (
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-amber-100">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-300" />
+              <div className="space-y-1">
+                <p>{t("position.networkBalanceHint")}</p>
+                <Link href={tabPath("deposit")} className="inline-flex text-amber-200 underline underline-offset-2">
+                  {t("position.openBridge")}
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
         {!hasVault ? (
           <p>{t("position.vaultPhase3Hint")}</p>
         ) : hasUserPosition ? (
@@ -151,4 +178,9 @@ export function VaultPanel({
 function usdcBalOrZero(bal: string): string {
   const n = parseFloat(bal);
   return Number.isFinite(n) ? bal : "0";
+}
+
+function numericBalance(bal: string): number {
+  const n = parseFloat(bal);
+  return Number.isFinite(n) ? n : 0;
 }

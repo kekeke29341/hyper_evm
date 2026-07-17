@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Plus, Droplets } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { useI18n } from "@/lib/i18n";
-import { POOLS, PROJECT_X_POOL, MANAGED_LP_RANGE } from "@/lib/constants";
+import { POOLS, PROJECT_X_POOL } from "@/lib/constants";
 import { VaultPanel } from "@/components/position/VaultPanel";
 import { RebalanceHistoryPanel } from "@/components/position/RebalanceHistoryPanel";
 import { ActivePositionPanel } from "@/components/position/ActivePositionPanel";
@@ -23,6 +23,7 @@ import {
   useHarvestFees,
 } from "@/lib/hooks/useDeFi";
 import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
+import { useAlternateChainVaultBalance } from "@/lib/hooks/useAlternateChainVaultBalance";
 
 export function LiquidityTab() {
   const { isConnected, showToast, openWalletModal } = useApp();
@@ -35,8 +36,9 @@ export function LiquidityTab() {
   const { balance: lpBalance, hasPosition, refetch: refetchLp } = useLpBalance();
   const vaultStats = useVaultStats();
   const vaultBalance = useVaultBalance();
+  const { alternate: alternateVault } = useAlternateChainVaultBalance();
   const { withdraw: withdrawVault, isPending: withdrawingVault, isSuccess: withdrawVaultSuccess } = useVaultWithdraw();
-  const { zap, isPending: zapping, isSuccess: zapSuccess } = useZapLiquidity();
+  const { zap, isPending: zapping } = useZapLiquidity();
   const {
     harvestFees,
     canHarvest,
@@ -55,8 +57,6 @@ export function LiquidityTab() {
   const priceReady = !priceLoading && pool.priceUsd > 0;
   const price = priceReady ? pool.priceUsd : 0;
   const managedRange = managedRangeBounds(price);
-  const rangeLower = managedRange.lower;
-  const rangeUpper = managedRange.upper;
   const priceLabel = formatHypeSpotPrice(pool.priceUsd, priceLoading, t("common.loading"));
   const poolApr = PROJECT_X_POOL.referenceAprNum;
   const useLiveVaultMetrics = chainId === 998 || chainId === 999;
@@ -73,17 +73,6 @@ export function LiquidityTab() {
   useEffect(() => {
     setHistory(readRebalanceHistory());
   }, []);
-
-  useEffect(() => {
-    if (zapSuccess) {
-      showToast(t("position.createSuccess"));
-      refetchLp();
-      khypeBal.refetch();
-      usdcBal.refetch();
-      vaultStats.refetch();
-      vaultBalance.refetch();
-    }
-  }, [zapSuccess, showToast, t, refetchLp, khypeBal, usdcBal, vaultStats, vaultBalance]);
 
   useEffect(() => {
     if (withdrawVaultSuccess) {
@@ -128,6 +117,11 @@ export function LiquidityTab() {
         amountUsd: parseFloat(amount),
       });
       setHistory(next);
+      refetchLp();
+      khypeBal.refetch();
+      usdcBal.refetch();
+      vaultStats.refetch();
+      vaultBalance.refetch();
       showToast(t("position.createSuccess"));
     } catch {
       showToast(t("position.createFailed"));
@@ -212,9 +206,7 @@ export function LiquidityTab() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-1">
         <div>
           <h2 className="text-lg font-semibold text-white">{t("position.title")}</h2>
-          <p className="text-xs text-zinc-500 mt-1">
-            {t("position.subtitle")} · {MANAGED_LP_RANGE.label}
-          </p>
+          <p className="text-xs text-zinc-500 mt-1">{t("position.subtitle")}</p>
         </div>
         <button
           type="button"
@@ -235,9 +227,11 @@ export function LiquidityTab() {
             vaultValueUsd={vaultBalance.valueUsd}
             vaultKhype={vaultBalance.khype}
             vaultUsdc={vaultBalance.usdc}
+            isConnected={isConnected}
             onDeposit={() => openCreate("create")}
             onWithdraw={handleVaultWithdraw}
             withdrawing={withdrawingVault}
+            defaultMode={vaultBalance.hasVaultPosition ? "withdraw" : "deposit"}
           />
           <RebalanceHistoryPanel events={history} className="hidden sm:block" />
           <details className="card-glass rounded-2xl border border-zinc-800 sm:hidden open:pb-4">
@@ -254,7 +248,17 @@ export function LiquidityTab() {
             {!hasAnyPosition ? (
               <div className="p-6 rounded-xl border border-dashed border-zinc-700 text-center">
                 <Droplets className="w-8 h-8 mx-auto text-zinc-600 mb-2" />
-                <p className="text-sm text-zinc-500">{t("liquidity.connectToView")}</p>
+                <p className="text-sm text-zinc-500">
+                  {vaultBalance.isLoading
+                    ? t("common.loading")
+                    : !isConnected
+                      ? t("liquidity.connectToView")
+                      : alternateVault
+                        ? t("network.mainnetFundsBody")
+                            .replace("{value}", alternateVault.valueUsd.toFixed(2))
+                            .replace("{chain}", "HyperEVM (999)")
+                        : t("liquidity.noPositionsOnNetwork")}
+                </p>
               </div>
             ) : (
               <ActivePositionPanel
@@ -265,9 +269,11 @@ export function LiquidityTab() {
                 spotPriceUsd={pool.priceUsd}
                 spotPriceLoading={priceLoading}
                 poolApr={poolApr}
-                rangeLower={rangeLower}
-                rangeUpper={rangeUpper}
                 rangeWidthPct={displayRangeWidth}
+                hypePct={pool.hypePct}
+                usdcPct={pool.usdcPct}
+                idleKhype={pool.idleKhype}
+                compositionIsLive={pool.compositionIsLive}
                 onAdd={() => openCreate("add")}
                 onCollectFees={handleCollectFees}
                 onClose={() =>

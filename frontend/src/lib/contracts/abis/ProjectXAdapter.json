@@ -222,11 +222,47 @@
   },
   {
     "type": "function",
+    "name": "positionTokenAmounts",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "amount0",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "amount1",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "positionTokenId",
     "inputs": [],
     "outputs": [
       {
         "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "rangeDepositRatioBps",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "token0Bps",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "token1Bps",
         "type": "uint256",
         "internalType": "uint256"
       }

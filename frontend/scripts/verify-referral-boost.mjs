@@ -6,10 +6,10 @@
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createPublicClient, http, parseAbi, keccak256, toBytes } from "viem";
+import { createPublicClient, http, parseAbi } from "viem";
 
 const REFERRER_BONUS_BPS = 1500n;
-const REFEREE_BOOST_BPS = 1000n;
+const REFEREE_BOOST_BPS = 500n;
 
 function simulateBoost(holders, pending, referrers) {
   const totalShares = holders.reduce((s, h) => s + h.shares, 0n);
@@ -59,9 +59,8 @@ const chain = {
 const client = createPublicClient({ chain, transport: http(RPC) });
 const referralAbi = parseAbi([
   "function getReferrer(address user) view returns (address)",
-  "function referrerCode(address user) view returns (bytes32)",
+  "function isRegisteredReferrer(address user) view returns (bool)",
   "function referralCount(address user) view returns (uint256)",
-  "function codeToReferrer(bytes32 code) view returns (address)",
 ]);
 
 function ok(label, detail) {
@@ -80,10 +79,10 @@ async function main() {
     args: [wallet],
   });
 
-  const ownCode = await client.readContract({
+  const isRegistered = await client.readContract({
     address: registry,
     abi: referralAbi,
-    functionName: "referrerCode",
+    functionName: "isRegisteredReferrer",
     args: [wallet],
   });
 
@@ -95,22 +94,11 @@ async function main() {
   });
 
   const zeroAddr = "0x0000000000000000000000000000000000000000";
-  const zeroHash = "0x0000000000000000000000000000000000000000000000000000000000000000";
   const hasBoost = referrer.toLowerCase() !== zeroAddr;
 
   ok("Referee boost bound", hasBoost ? `referrer ${referrer}` : "none");
-  ok("Own referral code", ownCode === zeroHash ? "not registered" : ownCode);
+  ok("Registered as referrer", isRegistered ? "yes" : "no");
   ok("Referrals made", String(referrals));
-
-  const testCode = "HPTEST01";
-  const codeHash = keccak256(toBytes(testCode));
-  const codeOwner = await client.readContract({
-    address: registry,
-    abi: referralAbi,
-    functionName: "codeToReferrer",
-    args: [codeHash],
-  });
-  ok(`Code "${testCode}" owner`, codeOwner === zeroAddr ? "none" : codeOwner);
 
   if (hasBoost && d.vaultShareHolders?.length) {
     const holders = d.vaultShareHolders.map((h) => ({

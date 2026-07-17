@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   Shield,
-  LayoutDashboard,
   Droplets,
   Gift,
   BarChart3,
@@ -14,19 +13,16 @@ import {
   Home,
   Coins,
   Activity,
+  Eye,
+  List,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useAdminAuth } from "@/lib/hooks/useAdmin";
-import { useApp } from "@/lib/store";
 import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
 import { getChainDeploymentMeta } from "@/lib/contracts";
-import { AdminActionsProvider } from "@/lib/admin/AdminActionsContext";
 import { AdminTabProvider } from "@/lib/admin/AdminTabContext";
-import { WalletModal } from "@/components/layout/WalletModal";
-import { Toast } from "@/components/ui/shared";
 import { AdminNetworkBanner } from "./AdminNetworkBanner";
-import { AdminTxBanner } from "./AdminTxBanner";
 import { OverviewPanel } from "./panels/OverviewPanel";
+import { ActivityPanel } from "./panels/ActivityPanel";
 import { AnalyticsPanel } from "./panels/AnalyticsPanel";
 import { HealthPanel } from "./panels/HealthPanel";
 import { PoolsPanel } from "./panels/PoolsPanel";
@@ -37,6 +33,7 @@ import { SystemPanel } from "./panels/SystemPanel";
 
 const ADMIN_TABS = [
   { id: "overview", label: "Overview", icon: Home },
+  { id: "activity", label: "Activity", icon: List },
   { id: "health", label: "Health", icon: Activity },
   { id: "analytics", label: "Analytics", icon: BarChart3 },
   { id: "pools", label: "Pool", icon: Droplets },
@@ -48,66 +45,17 @@ const ADMIN_TABS = [
 
 export type AdminTabId = (typeof ADMIN_TABS)[number]["id"];
 
-function ReadOnlyBanner({
-  isConnected,
-  canWrite,
-  isKeeper,
-}: {
-  isConnected: boolean;
-  canWrite: boolean;
-  isKeeper: boolean;
-}) {
-  if (canWrite) return null;
-  return (
-    <div
-      className={cn(
-        "mb-4 px-3 py-2.5 rounded-lg border text-xs leading-relaxed",
-        isConnected
-          ? isKeeper
-            ? "bg-cyan-900/20 border-cyan-800/40 text-cyan-200"
-            : "bg-zinc-800/60 border-zinc-700 text-zinc-400"
-          : "bg-zinc-800/40 border-zinc-700 text-zinc-500"
-      )}
-    >
-      {!isConnected ? (
-        <>
-          <strong className="text-zinc-300">Read-only mode.</strong> Connect a vault / airdrop owner wallet to
-          submit transactions. Monitoring works without a wallet.
-        </>
-      ) : isKeeper ? (
-        <>
-          <strong className="text-cyan-300">Keeper wallet.</strong> You can harvest and rebalance on the Vault tab.
-          Owner-only settings remain read-only.
-        </>
-      ) : (
-        <>
-          <strong className="text-zinc-300">Read-only.</strong> This wallet is not vault or airdrop owner. All
-          on-chain metrics are visible; writes are disabled.
-        </>
-      )}
-    </div>
-  );
-}
-
 export function AdminShell() {
   const [tab, setTab] = useState<AdminTabId>("overview");
   const chainId = useEffectiveChainId();
   const chainMeta = getChainDeploymentMeta(chainId);
-  const { isConnected, canWrite, isAirdropOwner, isVaultOwner, isAdapterOwner, isKeeper, address } =
-    useAdminAuth();
-  const { openWalletModal } = useApp();
-
-  const roleBadges = [
-    isVaultOwner ? "Vault Owner" : null,
-    isAirdropOwner ? "Airdrop Owner" : null,
-    isAdapterOwner && !isVaultOwner ? "Adapter Owner" : null,
-    isKeeper && !isVaultOwner ? "Keeper" : null,
-  ].filter((b): b is string => b !== null);
 
   const renderPanel = () => {
     switch (tab) {
       case "overview":
         return <OverviewPanel />;
+      case "activity":
+        return <ActivityPanel />;
       case "health":
         return <HealthPanel />;
       case "analytics":
@@ -171,16 +119,10 @@ export function AdminShell() {
               })}
             </nav>
 
-            <button
-              type="button"
-              onClick={openWalletModal}
-              className={cn(
-                "text-xs px-2.5 sm:px-3 py-1.5 rounded-lg font-semibold shrink-0 ml-auto md:ml-0 min-h-[36px]",
-                isConnected ? "bg-zinc-800 border border-zinc-700 text-zinc-300" : "gradient-btn"
-              )}
-            >
-              {isConnected && address ? `${address.slice(0, 6)}…${address.slice(-4)}` : "Connect"}
-            </button>
+            <span className="ml-auto md:ml-0 flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shrink-0 font-semibold">
+              <Eye className="w-3 h-3" />
+              Read-only
+            </span>
           </div>
 
           <nav
@@ -212,47 +154,13 @@ export function AdminShell() {
 
       <main className="flex-1 max-w-5xl mx-auto w-full px-3 sm:px-4 py-6 overflow-x-hidden">
         <AdminTabProvider tab={tab} setTab={setTab}>
-          <AdminActionsProvider>
-            <AdminNetworkBanner />
-            <AdminTxBanner />
-            <ReadOnlyBanner isConnected={isConnected} canWrite={canWrite} isKeeper={isKeeper} />
-
-            {roleBadges.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-4">
-                {roleBadges.map((b) => (
-                  <span
-                    key={b}
-                    className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                  >
-                    {b}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {renderPanel()}
-
-            {!isConnected && (
-              <div className="mt-6 card-glass rounded-2xl p-4 border border-zinc-800/80 text-center">
-                <LayoutDashboard className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
-                <p className="text-sm text-zinc-400">
-                  Connect vault or airdrop owner wallet to enable write actions.
-                </p>
-                <button
-                  type="button"
-                  onClick={openWalletModal}
-                  className="mt-3 gradient-btn px-5 py-2 rounded-xl text-sm font-semibold"
-                >
-                  Connect Wallet
-                </button>
-              </div>
-            )}
-          </AdminActionsProvider>
+          <AdminNetworkBanner />
+          {renderPanel()}
         </AdminTabProvider>
       </main>
 
       <footer className="py-4 text-center text-xs text-zinc-600 border-t border-zinc-800/50">
-        Hyperpool Admin — read-only monitoring + owner-gated writes ·{" "}
+        Hyperpool Admin — read-only monitoring. No contract writes from this page; operations run via CLI scripts ·{" "}
         <a
           href="https://github.com/kekeke29341/hyper_evm/blob/main/docs/admin-guide.md"
           className="text-zinc-500 hover:text-cyan-400"
@@ -262,9 +170,6 @@ export function AdminShell() {
           Admin guide
         </a>
       </footer>
-
-      <WalletModal />
-      <Toast />
     </div>
   );
 }

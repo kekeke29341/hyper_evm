@@ -33,6 +33,20 @@ vi.mock("@/lib/hooks/useDeFi", () => ({
   useEpochCountdown: () => ({ formatted: "04h 22m 00s", isClaimWindow: false }),
 }));
 
+vi.mock("@/lib/hooks/useAccruingRewards", () => ({
+  useAccruingRewards: () => ({
+    hasPosition: false,
+    hasUnclaimed: false,
+    isAccruing: false,
+    isLoading: false,
+    isError: false,
+    usesExactEstimate: false,
+    amountFormatted: "0.000000",
+    ratePerSecondFormatted: "0.000000",
+    ratePerMinuteFormatted: "0.000000",
+  }),
+}));
+
 describe("CashdropTab", () => {
   it("renders cashdrop section and claim window countdown", () => {
     render(<CashdropTab />);

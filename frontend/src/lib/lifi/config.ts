@@ -114,6 +114,13 @@ export function getBridgeChain(id: string): BridgeChainConfig | undefined {
   return BRIDGE_CHAINS.find((c) => c.id === id);
 }
 
+/** Wagmi chain id for the bridge UI "from" chain (excludes HyperEVM dual 998/999). */
+export function getBridgeSourceWalletChainId(chainUiId: string): number | null {
+  const chain = getBridgeChain(chainUiId);
+  if (!chain || chain.id === "hyperevm") return null;
+  return chain.walletChainIds[0] ?? null;
+}
+
 export function getLifiChainId(chainUiId: string): number | null {
   return getBridgeChain(chainUiId)?.lifiChainId ?? null;
 }

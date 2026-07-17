@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { ArrowDownUp, Loader2, ArrowRightLeft, ExternalLink } from "lucide-react";
 import { motion } from "framer-motion";
@@ -11,10 +11,13 @@ import { useI18n } from "@/lib/i18n";
 import { MainCard, PrimaryButton } from "@/components/ui/shared";
 import { getSlippageBps } from "@/components/layout/SettingsModal";
 import { useLiFiBridge, useLiFiQuote, formatLifiAmount } from "@/lib/hooks/useLiFi";
+import { quoteNeedsErc20Approval } from "@/lib/lifi/bridgeApproval";
+import { useWallet } from "@/lib/hooks/useWallet";
 import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
+import { hyperEvmMainnet, hyperEvmTestnet } from "@/lib/wagmi/config";
 import { tabPath } from "@/lib/routes";
 import {
-  getBridgeChain,
+  getBridgeSourceWalletChainId,
   hyperEvmLifiNotice,
   isEvmBridgeRoute,
 } from "@/lib/lifi/config";
@@ -24,11 +27,22 @@ import {
   type BridgeToken,
 } from "@/lib/lifi/tokens";
 import { TokenSelectDropdown } from "@/components/deposit/TokenSelectDropdown";
+import {
+  formatBridgeError,
+  formatLifiBridgeStatus,
+  extractErrorDetail,
+  type BridgeErrorLabels,
+} from "@/lib/lifi/errors";
+
+function applyParams(text: string, params: Record<string, string>) {
+  return Object.entries(params).reduce((s, [k, v]) => s.replaceAll(`{${k}}`, v), text);
+}
 
 export function DepositTab() {
   const { showToast, openWalletModal, isConnected } = useApp();
   const { t } = useI18n();
   const walletChainId = useChainId();
+  const { switchNetwork, isSwitching } = useWallet();
   const appChainId = useEffectiveChainId();
   const [fromAmount, setFromAmount] = useState("");
   const [fromChain, setFromChain] = useState("ethereum");
@@ -55,8 +69,43 @@ export function DepositTab() {
     enabled: isEvmBridge && !!fromAmount,
   });
 
-  const { execute: executeBridge, isPending: isBridgePending, isSuccess: isBridgeSuccess } =
-    useLiFiBridge();
+  const {
+    execute: executeBridge,
+    isPending: isBridgePending,
+    isSuccess: isBridgeSuccess,
+    status: bridgeStatus,
+    bridgePhase,
+  } = useLiFiBridge(switchNetwork);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const bridgeErrorLabels = useMemo<BridgeErrorLabels>(
+    () => ({
+      userRejected: t("deposit.errorUserRejected"),
+      insufficientFunds: t("deposit.errorInsufficientFunds"),
+      wrongChain: t("deposit.errorWrongChain"),
+      approvalFailed: t("deposit.errorApprovalFailed"),
+      gasFailed: t("deposit.errorGasFailed"),
+      networkFailed: t("deposit.errorNetworkFailed"),
+      rateLimited: t("deposit.errorRateLimited"),
+      bridgeIncomplete: t("deposit.errorBridgeIncomplete"),
+      switchNetworkFailed: t("deposit.switchToFromChainFailed"),
+      unknown: t("deposit.errorUnknown"),
+    }),
+    [t]
+  );
+
+  const reportActionError = useCallback(
+    (message: string, raw?: unknown) => {
+      const detail = raw ? extractErrorDetail(raw) : null;
+      const full =
+        detail && detail !== message && !message.includes(detail)
+          ? `${message}\n${detail}`
+          : message;
+      setActionError(full);
+      showToast(message);
+    },
+    [showToast]
+  );
 
   const bridgeAmountOut = useMemo(() => {
     if (!lifiQuote.data) return "";
@@ -67,17 +116,43 @@ export function DepositTab() {
   }, [lifiQuote.data]);
 
   const testnetNote = hyperEvmLifiNotice(walletChainId);
+  const fromChainLabel = BRIDGE_CHAINS.find((c) => c.id === fromChain)?.label ?? fromChain;
+  const fromWalletChainId = getBridgeSourceWalletChainId(fromChain);
 
   const walletOnFromChain = useMemo(() => {
-    const from = getBridgeChain(fromChain);
-    if (!from) return false;
-    if (from.id === "hyperevm") return walletChainId === 999;
-    return from.walletChainIds.includes(walletChainId);
-  }, [fromChain, walletChainId]);
+    if (!fromWalletChainId) return false;
+    return walletChainId === fromWalletChainId;
+  }, [fromWalletChainId, walletChainId]);
+
+  const needsMainnetSwitch =
+    isConnected && walletChainId === hyperEvmTestnet.id;
+
+  const needsChainSwitch =
+    isConnected &&
+    !needsMainnetSwitch &&
+    !!fromAmount &&
+    !walletOnFromChain &&
+    fromWalletChainId !== null;
 
   useEffect(() => {
-    if (isBridgeSuccess) showToast(t("deposit.bridgeSuccess"));
+    setActionError(null);
+  }, [fromAmount, fromChain, fromToken.address]);
+
+  useEffect(() => {
+    if (isBridgeSuccess) {
+      setActionError(null);
+      showToast(t("deposit.bridgeSuccess"));
+    }
   }, [isBridgeSuccess, showToast, t]);
+
+  useEffect(() => {
+    const statusMessage = formatLifiBridgeStatus(
+      bridgeStatus?.status,
+      bridgeStatus?.substatus,
+      bridgeErrorLabels
+    );
+    if (statusMessage) reportActionError(statusMessage);
+  }, [bridgeStatus, bridgeErrorLabels, reportActionError]);
 
   const handleAction = async () => {
     if (!isConnected) {
@@ -88,25 +163,56 @@ export function DepositTab() {
       showToast(t("deposit.solanaUnsupported"));
       return;
     }
-    if (!walletOnFromChain) {
-      showToast(t("deposit.switchToFromChain"));
+    if (needsMainnetSwitch) {
+      try {
+        await switchNetwork(hyperEvmMainnet.id);
+        setActionError(null);
+        showToast(t("deposit.switchedToMainnet"));
+      } catch (err) {
+        reportActionError(formatBridgeError(err, bridgeErrorLabels), err);
+      }
+      return;
+    }
+    if (needsChainSwitch && fromWalletChainId !== null) {
+      try {
+        await switchNetwork(fromWalletChainId);
+        setActionError(null);
+        showToast(applyParams(t("deposit.switchedToFromChain"), { chain: fromChainLabel }));
+      } catch (err) {
+        reportActionError(formatBridgeError(err, bridgeErrorLabels), err);
+      }
       return;
     }
     if (!lifiQuote.data) return;
     try {
+      setActionError(null);
       await executeBridge(lifiQuote.data);
-    } catch {
-      showToast(t("deposit.bridgeFailed"));
+    } catch (err) {
+      reportActionError(formatBridgeError(err, bridgeErrorLabels), err);
     }
   };
+
+  const quoteErrorMessage = lifiQuote.error
+    ? formatBridgeError(lifiQuote.error, bridgeErrorLabels)
+    : null;
 
   const rate =
     fromAmount && bridgeAmountOut && parseFloat(fromAmount) > 0
       ? (parseFloat(bridgeAmountOut) / parseFloat(fromAmount)).toFixed(4)
       : "—";
-  const actionDisabled = isConnected
-    ? isBridgePending || !fromAmount || !lifiQuote.data || lifiQuote.isFetching
-    : isBridgePending;
+  const actionDisabled =
+    isBridgePending ||
+    isSwitching ||
+    needsMainnetSwitch ||
+    !fromAmount ||
+    (!!fromAmount && (lifiQuote.isFetching || !lifiQuote.data));
+
+  const showApproveHint =
+    isConnected &&
+    !!lifiQuote.data &&
+    !needsMainnetSwitch &&
+    !needsChainSwitch &&
+    quoteNeedsErc20Approval(lifiQuote.data);
 
   const tokenPickerLabels = {
     searchPlaceholder: t("deposit.tokenSearch"),
@@ -135,7 +241,24 @@ export function DepositTab() {
         )}
       </div>
 
-      {appChainId === 998 && (
+      {needsMainnetSwitch && (
+        <div className="mb-4 px-3 py-3 rounded-xl bg-amber-500/10 border border-amber-500/35 text-xs text-amber-100 leading-relaxed space-y-3">
+          <div>
+            <p className="font-medium text-amber-200">{t("deposit.mainnetRequiredTitle")}</p>
+            <p className="mt-1 text-amber-100/80">{t("deposit.mainnetRequiredBody")}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void handleAction()}
+            disabled={isSwitching}
+            className="w-full sm:w-auto px-4 py-2 rounded-lg text-xs font-medium border border-amber-500/50 text-amber-100 bg-amber-500/15 hover:bg-amber-500/25 disabled:opacity-60 transition-colors"
+          >
+            {isSwitching ? t("deposit.switchingChain") : t("deposit.switchToMainnetButton")}
+          </button>
+        </div>
+      )}
+
+      {appChainId === 998 && !needsMainnetSwitch && (
         <div className="mb-3 px-3 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs text-emerald-200 leading-relaxed space-y-2">
           <p>{t("deposit.testnetDirectHint")}</p>
           <Link
@@ -147,7 +270,7 @@ export function DepositTab() {
         </div>
       )}
 
-      {testnetNote && (
+      {testnetNote && !needsMainnetSwitch && (
         <p className="text-[11px] text-amber-400/90 mb-3 px-2">{t("deposit.testnetNote")}</p>
       )}
 
@@ -237,8 +360,11 @@ export function DepositTab() {
           <Loader2 className="w-3 h-3 animate-spin" /> {t("deposit.bridgeQuoteLoading")}
         </p>
       )}
-      {lifiQuote.error && (
-        <p className="text-xs text-red-400/90 mt-2">{(lifiQuote.error as Error).message}</p>
+      {quoteErrorMessage && (
+        <div className="mt-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2">
+          <p className="text-xs font-medium text-red-300">{t("deposit.bridgeErrorTitle")}</p>
+          <p className="text-xs text-red-200/90 mt-1 break-words">{quoteErrorMessage}</p>
+        </div>
       )}
 
       <div className="mt-4 space-y-1 text-xs text-zinc-500">
@@ -262,32 +388,61 @@ export function DepositTab() {
 
       <p className="mt-3 text-[11px] text-zinc-600">{t("deposit.afterBridge")}</p>
 
-      {!isConnected && (
+      {!isConnected && !!fromAmount && (
         <p className="mt-2 text-[11px] text-zinc-500">{t("deposit.connectToBridge")}</p>
       )}
       {isConnected && !fromAmount && (
         <p className="mt-2 text-[11px] text-zinc-500">{t("deposit.enterAmount")}</p>
       )}
-      {isConnected && !!fromAmount && !lifiQuote.data && !lifiQuote.isFetching && (
+      {!!fromAmount && !lifiQuote.data && !lifiQuote.isFetching && (
         <p className="mt-2 text-[11px] text-amber-400/90">{t("deposit.noRoute")}</p>
       )}
-      {isConnected && !!fromAmount && !walletOnFromChain && (
-        <p className="mt-2 text-[11px] text-amber-400/90">{t("deposit.switchToFromChain")}</p>
+      {needsChainSwitch && (
+        <p className="mt-2 text-[11px] text-amber-400/90">
+          {t("deposit.switchToFromChain")} ({fromChainLabel})
+        </p>
+      )}
+
+      {showApproveHint && !isBridgePending && (
+        <p className="mt-2 text-[11px] text-zinc-500">{t("deposit.approveStepHint")}</p>
+      )}
+
+      {isBridgePending && bridgePhase === "approving" && (
+        <p className="mt-2 text-[11px] text-cyan-400/90">{t("deposit.approveStepHint")}</p>
+      )}
+      {isBridgePending && bridgePhase === "bridging" && (
+        <p className="mt-2 text-[11px] text-cyan-400/90">{t("deposit.bridgingStepHint")}</p>
+      )}
+
+      {actionError && (
+        <div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2">
+          <p className="text-xs font-medium text-red-300">{t("deposit.bridgeErrorTitle")}</p>
+          <p className="text-xs text-red-200/90 mt-1 break-words whitespace-pre-wrap">{actionError}</p>
+        </div>
       )}
 
       <div className="mt-4">
         <PrimaryButton
-          onClick={handleAction}
-          disabled={actionDisabled}
+          onClick={() => void handleAction()}
+          disabled={isConnected ? (needsMainnetSwitch ? isSwitching : actionDisabled) : isBridgePending}
         >
-          {isBridgePending ? (
+          {isBridgePending || isSwitching ? (
             <span className="flex items-center justify-center gap-2">
-              <Loader2 className="w-4 h-4 animate-spin" /> {t("deposit.bridging")}
+              <Loader2 className="w-4 h-4 animate-spin" />{" "}
+              {isSwitching
+                ? t("deposit.switchingChain")
+                : bridgePhase === "approving"
+                  ? t("deposit.approving")
+                  : t("deposit.bridging")}
             </span>
-          ) : isConnected ? (
-            `${t("deposit.bridge")} → USDC`
-          ) : (
+          ) : !isConnected ? (
             t("common.connectWallet")
+          ) : needsMainnetSwitch ? (
+            t("deposit.switchToMainnetButton")
+          ) : needsChainSwitch ? (
+            applyParams(t("deposit.switchToFromChainButton"), { chain: fromChainLabel })
+          ) : (
+            `${t("deposit.bridge")} → USDC`
           )}
         </PrimaryButton>
       </div>

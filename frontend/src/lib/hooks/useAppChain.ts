@@ -1,8 +1,8 @@
 "use client";
 
 import { useConnection, useChainId } from "wagmi";
-import { getDeployment } from "@/lib/contracts";
 import { defaultChain, SUPPORTED_CHAINS } from "@/lib/wagmi/config";
+import { hasLiveHyperpoolDeployment } from "@/lib/hyperpoolChains";
 
 export const WRONG_NETWORK_ERROR = "WRONG_NETWORK";
 
@@ -12,16 +12,15 @@ export function getAppTargetChainLabel(chainId: number): string {
   return `Chain ${chainId}`;
 }
 
-/** Wallet must be on the app default chain with a live deployment (e.g. 998 on Vercel). */
+/** Wallet on HyperEVM Testnet (998) or Mainnet (999) with a live Vault deployment. */
 export function useAppChain() {
   const { isConnected } = useConnection();
   const walletChainId = useChainId();
   const targetChainId = defaultChain.id;
   const targetLabel = getAppTargetChainLabel(targetChainId);
-  const targetDeployment = getDeployment(targetChainId);
 
   const isOnAppChain =
-    isConnected && walletChainId === targetChainId && targetDeployment !== null;
+    isConnected && hasLiveHyperpoolDeployment(walletChainId);
 
   return {
     isConnected,
@@ -29,6 +28,6 @@ export function useAppChain() {
     walletChainId,
     targetChainId,
     targetLabel,
-    hasTargetDeployment: targetDeployment !== null,
+    hasTargetDeployment: hasLiveHyperpoolDeployment(targetChainId),
   };
 }

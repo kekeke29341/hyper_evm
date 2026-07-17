@@ -1,13 +1,15 @@
 "use client";
 
-import { BookOpen, Droplets, Gift, Shield, Vault, Coins, Activity } from "lucide-react";
+import { BookOpen, Droplets, Gift, BarChart3, Vault, Activity, List } from "lucide-react";
+import { formatUnits } from "viem";
 import { defaultChain } from "@/lib/wagmi/config";
 import { getChainDeploymentMeta, getVaultAddress } from "@/lib/contracts";
 import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
-import { useAdminAuth, useAdminAnalytics } from "@/lib/hooks/useAdmin";
+import { useAdminAnalytics } from "@/lib/hooks/useAdmin";
 import { useAdminTab } from "@/lib/admin/AdminTabContext";
 import type { AdminTabId } from "@/components/admin/AdminShell";
 import { AdminCard, StatBox, AddressRow } from "../AdminUi";
+import { ActivityFeed } from "./ActivityPanel";
 
 const RUNBOOK = [
   { href: "https://github.com/kekeke29341/hyper_evm/blob/main/docs/admin-guide.md", label: "Admin guide" },
@@ -18,17 +20,17 @@ const RUNBOOK = [
 export function OverviewPanel() {
   const chainId = useEffectiveChainId();
   const meta = getChainDeploymentMeta(chainId);
-  const { isAirdropOwner, isVaultOwner, isKeeper, canRunKeeper, address, deployment } = useAdminAuth();
   const analytics = useAdminAnalytics();
   const { setTab } = useAdminTab();
+  const deployment = analytics.deployment;
 
-  const quickActions: { tab: AdminTabId; label: string; icon: typeof Vault; enabled: boolean }[] = [
-    { tab: "health", label: "Health & monitoring", icon: Activity, enabled: true },
-    { tab: "vault", label: "Vault & harvest", icon: Vault, enabled: isVaultOwner || isKeeper },
-    { tab: "airdrop", label: "Cashdrop pause", icon: Gift, enabled: isAirdropOwner },
-    { tab: "rewards", label: "Fee split (33/67)", icon: Coins, enabled: true },
-    { tab: "pools", label: "Pool", icon: Droplets, enabled: true },
-    { tab: "system", label: "Keeper / operator", icon: Shield, enabled: isVaultOwner },
+  const quickLinks: { tab: AdminTabId; label: string; sub: string; icon: typeof Vault }[] = [
+    { tab: "activity", label: "Fund flows & user activity", sub: "Deposits, withdrawals, payouts", icon: List },
+    { tab: "health", label: "Health & monitoring", sub: "Prices, range, invariants", icon: Activity },
+    { tab: "analytics", label: "Analytics", sub: "TVL, shares, fee split", icon: BarChart3 },
+    { tab: "vault", label: "Vault", sub: "Assets, keeper, operator", icon: Vault },
+    { tab: "airdrop", label: "Cashdrop", sub: "Payout status & balance", icon: Gift },
+    { tab: "pools", label: "Pool", sub: "LP range & adapter", icon: Droplets },
   ];
 
   return (
@@ -41,7 +43,15 @@ export function OverviewPanel() {
             value={defaultChain.name}
             sub={`Build target ${defaultChain.id}`}
           />
-          <StatBox label="Contracts" value={meta.live ? "Live" : "Not deployed"} sub={meta.configured ? "JSON present" : "—"} />
+          <StatBox
+            label="Vault assets"
+            value={
+              analytics.vaultAssets !== undefined
+                ? `${formatUnits(analytics.vaultAssets as bigint, 6)}`
+                : "—"
+            }
+            sub="USDC equivalent"
+          />
           <StatBox
             label="Pending rewards"
             value={
@@ -49,7 +59,7 @@ export function OverviewPanel() {
                 ? `${Number(analytics.pendingUserRewards) / 1e6}`
                 : "—"
             }
-            sub="67% user pool (USDC)"
+            sub="60% user pool (USDC)"
           />
         </div>
         <div className="grid grid-cols-2 gap-3 mt-3">
@@ -66,15 +76,25 @@ export function OverviewPanel() {
         </div>
         {deployment && (
           <div className="mt-4 pt-4 border-t border-zinc-800 space-y-1">
-            {address && <AddressRow label="Your wallet" address={address} />}
             <AddressRow label="Vault" address={getVaultAddress(deployment) ?? "—"} />
           </div>
         )}
       </AdminCard>
 
-      <AdminCard title="Quick actions" subtitle="Jump to common operations">
+      <AdminCard title="Recent activity" subtitle="Latest on-chain fund movements — full history on the Activity tab">
+        <ActivityFeed limit={6} compact />
+        <button
+          type="button"
+          onClick={() => setTab("activity")}
+          className="mt-3 text-xs text-cyan-400 hover:underline"
+        >
+          View all activity →
+        </button>
+      </AdminCard>
+
+      <AdminCard title="Monitoring" subtitle="Jump to a dashboard section">
         <div className="grid sm:grid-cols-2 gap-2">
-          {quickActions.map((a) => {
+          {quickLinks.map((a) => {
             const Icon = a.icon;
             return (
               <button
@@ -86,20 +106,13 @@ export function OverviewPanel() {
                 <Icon className="w-4 h-4 text-cyan-400 shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-white">{a.label}</p>
-                  <p className="text-[10px] text-zinc-500 capitalize">{a.tab} tab</p>
+                  <p className="text-[10px] text-zinc-500">{a.sub}</p>
                 </div>
-                {a.enabled ? (
-                  <span className="text-[10px] text-emerald-400 shrink-0">Ready</span>
-                ) : (
-                  <span className="text-[10px] text-zinc-600 shrink-0">View</span>
-                )}
+                <span className="text-[10px] text-zinc-600 shrink-0">View</span>
               </button>
             );
           })}
         </div>
-        {canRunKeeper && !isVaultOwner && (
-          <p className="text-[10px] text-cyan-500/80 mt-3">Keeper wallet: harvest / rebalance available on Vault tab.</p>
-        )}
       </AdminCard>
 
       <AdminCard title="Runbook" subtitle="Operational documentation">
@@ -119,8 +132,9 @@ export function OverviewPanel() {
           ))}
         </ul>
         <p className="text-[10px] text-zinc-600 mt-4 leading-relaxed">
-          Production: set <code className="text-zinc-400">NEXT_PUBLIC_ADMIN_ENABLED=false</code>. Enable only on
-          Preview or local builds. Writes require vault or airdrop owner (keeper: harvest / rebalance only).
+          This dashboard is <strong className="text-zinc-400">read-only</strong>: it never submits transactions and
+          cannot move funds. Owner / keeper operations (harvest, rebalance, pause, recovery) run via the CLI scripts
+          documented in the admin guide.
         </p>
       </AdminCard>
     </div>

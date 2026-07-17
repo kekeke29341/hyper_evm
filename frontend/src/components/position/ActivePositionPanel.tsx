@@ -1,18 +1,15 @@
 "use client";
 
 import { Loader2, Plus, Coins, X } from "lucide-react";
-import { PROJECT_X_POOL, MANAGED_LP_RANGE } from "@/lib/constants";
+import { PROJECT_X_POOL } from "@/lib/constants";
 import { useI18n } from "@/lib/i18n";
-import { PriceRangeBar } from "@/components/position/PriceRangeBar";
 import {
   estimatedApyFromRange,
   formatUsd,
-  isPriceInRange,
   positionTokenAmounts,
   positionValueUsd,
   poolPriceUsdcPerKhype,
 } from "@/lib/liquidity/metrics";
-import { cn } from "@/lib/utils";
 
 export function ActivePositionPanel({
   lpBalance,
@@ -22,9 +19,11 @@ export function ActivePositionPanel({
   spotPriceUsd,
   spotPriceLoading = false,
   poolApr,
-  rangeLower,
-  rangeUpper,
   rangeWidthPct,
+  hypePct,
+  usdcPct,
+  idleKhype = 0,
+  compositionIsLive = false,
   onAdd,
   onCollectFees,
   onClose,
@@ -40,9 +39,11 @@ export function ActivePositionPanel({
   spotPriceUsd: number;
   spotPriceLoading?: boolean;
   poolApr: number;
-  rangeLower: number;
-  rangeUpper: number;
   rangeWidthPct: number;
+  hypePct?: number;
+  usdcPct?: number;
+  idleKhype?: number;
+  compositionIsLive?: boolean;
   onAdd: () => void;
   onCollectFees: () => void;
   onClose: () => void;
@@ -54,7 +55,6 @@ export function ActivePositionPanel({
   const { t } = useI18n();
   const priceReady = !spotPriceLoading && spotPriceUsd > 0;
   const price = priceReady ? spotPriceUsd : poolPriceUsdcPerKhype(reserveKhype, reserveUsdc);
-  const inRange = priceReady ? isPriceInRange(price, rangeLower, rangeUpper) : false;
   const { hype, usdc } = positionTokenAmounts(lpBalance, totalSupply, reserveKhype, reserveUsdc);
   const valueUsd = positionValueUsd(lpBalance, totalSupply, reserveKhype, reserveUsdc);
   const estApy = estimatedApyFromRange(poolApr, rangeWidthPct);
@@ -68,24 +68,9 @@ export function ActivePositionPanel({
             {PROJECT_X_POOL.feeTier} · {t("position.managedLp")}
           </p>
         </div>
-        <span
-          className={cn(
-            "text-[10px] px-2 py-0.5 rounded-full font-medium",
-            inRange ? "bg-emerald-500/20 text-emerald-400" : "bg-amber-500/20 text-amber-400"
-          )}
-        >
-          {inRange ? t("position.inRange") : t("position.outOfRange")}
-        </span>
       </div>
 
-      <PriceRangeBar
-        lower={rangeLower}
-        upper={rangeUpper}
-        current={priceReady ? Math.round(price) : 0}
-        inRange={inRange}
-      />
-
-      <div className="mt-4 space-y-2 text-xs">
+      <div className="mt-1 space-y-2 text-xs">
         <div className="flex justify-between">
           <span className="text-zinc-500">{t("position.positionValue")}</span>
           <span className="text-white font-semibold tabular-nums">{formatUsd(valueUsd)}</span>
@@ -98,11 +83,20 @@ export function ActivePositionPanel({
           <span>{usdc.toFixed(2)} USDC</span>
           <span className="tabular-nums">{formatUsd(usdc)}</span>
         </div>
+        {compositionIsLive ? (
+          <div className="flex justify-between text-zinc-500">
+            <span>{t("position.allocation")}</span>
+            <span className="tabular-nums text-zinc-300">
+              HYPE {hypePct?.toFixed(1)}% · USDC {usdcPct?.toFixed(1)}%
+            </span>
+          </div>
+        ) : null}
+        {idleKhype > 0.0001 ? (
+          <p className="text-[10px] text-amber-400/90 leading-relaxed">
+            {t("position.idleKhypeNote").replace("{amount}", idleKhype.toFixed(4))}
+          </p>
+        ) : null}
         <div className="flex justify-between pt-2 border-t border-zinc-800">
-          <span className="text-zinc-500">{t("position.rangeWidth")}</span>
-          <span className="text-zinc-300 tabular-nums">{MANAGED_LP_RANGE.label}</span>
-        </div>
-        <div className="flex justify-between">
           <span className="text-zinc-500">{t("position.estimatedApy")}</span>
           <span className="text-emerald-400 font-semibold tabular-nums">{estApy.toFixed(1)}%</span>
         </div>

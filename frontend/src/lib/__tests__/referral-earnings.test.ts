@@ -30,15 +30,15 @@ describe("referral earnings", () => {
       tokenUSDC: ALICE,
       vaultShareHolders: [{ address: BOB, shares: "100" }],
       airdropEntries: [
-        { address: BOB, amount: "8800" },
-        { address: ALICE, amount: "1200" },
+        { address: BOB, amount: "8750" },
+        { address: ALICE, amount: "1250" },
       ],
     };
 
     expect(cashdropPoolFromEntries(deployment.airdropEntries)).toBe(10_000n);
     expect(
       computeReferrerCommission({ address: ALICE, deployment, referrers })
-    ).toBe(1200n);
+    ).toBe(1250n);
     expect(
       computeReferrerCommission({ address: BOB, deployment, referrers })
     ).toBe(0n);

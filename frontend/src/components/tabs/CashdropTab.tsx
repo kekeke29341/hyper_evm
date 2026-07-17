@@ -3,10 +3,13 @@
 import Link from "next/link";
 import { Sparkles, Users } from "lucide-react";
 import { MainCard, PrimaryButton, StatPill } from "@/components/ui/shared";
+import { TxHashLink } from "@/components/ui/TxHashLink";
 import { useApp } from "@/lib/store";
 import { useI18n } from "@/lib/i18n";
 import { tabPath } from "@/lib/routes";
+import { AccruingRewardsCard } from "@/components/cashdrop/AccruingRewardsCard";
 import { useCashdrop, useEpochCountdown } from "@/lib/hooks/useDeFi";
+import { useAccruingRewards } from "@/lib/hooks/useAccruingRewards";
 
 export function CashdropTab() {
   const { isConnected, openWalletModal } = useApp();
@@ -15,11 +18,13 @@ export function CashdropTab() {
     hasRewards,
     availableUsdc,
     lastDistribution,
+    isPending: payoutLoading,
   } = useCashdrop();
+  const accruing = useAccruingRewards();
   const epoch = useEpochCountdown();
-  const displayAvailable = hasRewards ? availableUsdc : "0.00";
-  const displayHasRewards = hasRewards;
-  const statusMessage = displayHasRewards ? t("cashdrop.autoPaidHint") : t("cashdrop.emptyHint");
+  const displayLastPayout = payoutLoading ? "…" : hasRewards ? availableUsdc : "0.00";
+  const displayNextPayout = accruing.usesExactEstimate ? accruing.amountFormatted : "…";
+  const statusMessage = hasRewards ? t("cashdrop.autoPaidHint") : t("cashdrop.emptyHint");
 
   return (
     <MainCard>
@@ -27,27 +32,39 @@ export function CashdropTab() {
       <p className="text-xs text-zinc-500 mb-1">{t("cashdrop.subtitle")}</p>
       <p className="text-[11px] text-cyan-400/90 mb-4">{t("cashdrop.window")}</p>
 
+      {isConnected ? <AccruingRewardsCard className="mb-4" /> : null}
+
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-6">
         <StatPill
-          label={t("cashdrop.available")}
-          value={displayHasRewards ? displayAvailable : "0.00"}
+          label={t("cashdrop.nextPayoutEstimate")}
+          value={isConnected ? displayNextPayout : "—"}
           accent="emerald"
+        />
+        <StatPill
+          label={t("cashdrop.lastPayout")}
+          value={displayLastPayout}
+          accent="cyan"
         />
         <StatPill
           label={t("cashdrop.nextPayout")}
           value={epoch.formatted}
-          accent="cyan"
+          accent="violet"
         />
-        <StatPill label={t("cashdrop.feeShare")} value={t("cashdrop.feeShareValue")} accent="violet" />
       </div>
 
-      {displayHasRewards ? (
+      {hasRewards ? (
         <div className="p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 text-center mb-4">
           <p className="text-sm text-emerald-200/90">
-            {t("cashdrop.autoPaidAmount")} {displayAvailable} USDC
+            {t("cashdrop.autoPaidAmount")} {displayLastPayout} USDC
           </p>
           <p className="text-xs text-zinc-500 mt-1">
-            {lastDistribution?.txHash ? `${t("cashdrop.lastTx")}: ${lastDistribution.txHash.slice(0, 10)}…` : t("cashdrop.autoPaidHint")}
+            {lastDistribution?.txHash ? (
+              <>
+                {t("cashdrop.lastTx")}: <TxHashLink hash={lastDistribution.txHash} className="inline" />
+              </>
+            ) : (
+              t("cashdrop.autoPaidHint")
+            )}
           </p>
         </div>
       ) : (

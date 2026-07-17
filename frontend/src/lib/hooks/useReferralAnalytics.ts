@@ -2,8 +2,8 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useConnection, usePublicClient, useReadContract } from "wagmi";
-import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
 import { abis, getDeployment } from "@/lib/contracts";
+import { defaultChain } from "@/lib/wagmi/config";
 import {
   fetchReferralLeaderboard,
   type ReferralLeaderboardRow,
@@ -11,7 +11,7 @@ import {
 
 export function useReferralStats() {
   const { address } = useConnection();
-  const chainId = useEffectiveChainId();
+  const chainId = defaultChain.id;
   const deployment = getDeployment(chainId);
 
   const registry = deployment?.referralRegistry;
@@ -26,11 +26,11 @@ export function useReferralStats() {
     query: { enabled: readsEnabled, refetchInterval: 15_000 },
   });
 
-  const { data: hasCode } = useReadContract({
+  const { data: isRegistered } = useReadContract({
     chainId,
     address: registry,
     abi: abis.referral,
-    functionName: "referrerCode",
+    functionName: "isRegisteredReferrer",
     args: address ? [address] : undefined,
     query: { enabled: readsEnabled },
   });
@@ -44,28 +44,32 @@ export function useReferralStats() {
     query: { enabled: readsEnabled },
   });
 
-  const zeroHash = "0x0000000000000000000000000000000000000000000000000000000000000000";
   const zeroAddr = "0x0000000000000000000000000000000000000000";
 
-  const registered =
-    hasCode !== undefined && (hasCode as string) !== zeroHash;
+  const registered = isRegistered === true;
 
   const hasRefereeBoost =
     boundReferrer !== undefined &&
     (boundReferrer as string).toLowerCase() !== zeroAddr;
 
+  const boundReferrerAddress =
+    boundReferrer !== undefined &&
+    (boundReferrer as string).toLowerCase() !== zeroAddr
+      ? (boundReferrer as `0x${string}`)
+      : null;
+
   return {
     referralCount: referralCount !== undefined ? Number(referralCount) : 0,
     registered,
-    referrerCodeHash: registered ? (hasCode as string) : null,
     hasRefereeBoost,
+    boundReferrer: boundReferrerAddress,
     hasDeployment: !!deployment,
     hasReferralRegistry: !!registry,
   };
 }
 
 export function useReferralLeaderboard(limit = 5) {
-  const chainId = useEffectiveChainId();
+  const chainId = defaultChain.id;
   const deployment = getDeployment(chainId);
   const publicClient = usePublicClient({ chainId });
 

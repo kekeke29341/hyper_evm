@@ -10,22 +10,25 @@ export const TAB_IDS: TabId[] = ["dashboard", "deposit", "liquidity", "cashdrop"
 
 export { BRIDGE_CHAINS, CHAINS, EVM_BRIDGE_CHAINS } from "@/lib/lifi/config";
 
-/** Project X WHYPE/USDC 0.05% pool — reference metrics (GeckoTerminal, 2026-06) */
+/** Project X WHYPE/USDC 0.3% pool — reference metrics (GeckoTerminal, 2026-06) */
 export const PROJECT_X_POOL = {
-  id: "whype-usdc-005",
+  id: "whype-usdc-030",
   pair: "HYPE/USDC",
-  poolAddress: "0x6c9A33E3b592C0d65B3Ba59355d5Be0d38259285",
-  feeTier: "0.05%",
-  referenceApr: "75%",
-  referenceAprNum: 75,
-  netAprEstimate: "50.25%",
-  netAprNum: 50.25,
-  userShareBps: 6700,
-  operatorShareBps: 3300,
-  tvl: "$14.3M",
-  volume24h: "$151M",
+  poolAddress: "0x422e586C906eb241f784B4F5a633c2C7e59A2F54",
+  feeTier: "0.3%",
+  referenceApr: "64%",
+  referenceAprNum: 64,
+  netAprEstimate: "57%",
+  netAprNum: 57,
+  userShareBps: 6000,
+  operatorShareBps: 700,
+  ownerShareBps: 3300,
+  tvl: "$8.6M",
+  volume24h: "$23M",
   upperRangePct: 10,
-  lowerRangePct: 30,
+  lowerRangePct: 17,
+  /** Legacy +10% / −30% width — used to scale displayed APR when range narrows */
+  aprBaselineWidthPct: 40,
 } as const;
 
 /** Managed LP range — fixed for all users (no per-user selection) */
@@ -44,9 +47,9 @@ export const WALLETS = [
   { name: "Coinbase Wallet", chains: ["Ethereum", "Base"] },
 ];
 
-/** JST claim window for daily USDC cashdrop */
+/** JST payout window for daily USDC cashdrop (ops run ~7:00; users see ~9:00) */
 export const CASHDROP_JST = {
-  startHour: 7,
-  endHour: 9,
+  processingStartHour: 7,
+  payoutHour: 9,
   timezone: "Asia/Tokyo",
 } as const;

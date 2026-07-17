@@ -1,47 +1,43 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Copy, Check, Share2, Loader2 } from "lucide-react";
-import { keccak256, toBytes } from "viem";
-import { useConnection } from "wagmi";
+import { useConnection, usePublicClient } from "wagmi";
 import { useApp } from "@/lib/store";
 import { useI18n } from "@/lib/i18n";
 import { tabPath } from "@/lib/routes";
-import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
-import {
-  useDeployment,
-  useEnterInvitationCode,
-  useRegisterReferralCode,
-} from "@/lib/hooks/useDeFi";
+import { defaultChain } from "@/lib/wagmi/config";
+import { useBindReferrer, useRegisterReferrer } from "@/lib/hooks/useDeFi";
+import { getDeployment } from "@/lib/contracts";
 import { useReferralStats, useReferralLeaderboard } from "@/lib/hooks/useReferralAnalytics";
 import { useReferralEarnings } from "@/lib/hooks/useReferralEarnings";
+import { useReferralPayoutHistory } from "@/lib/hooks/useReferralPayoutHistory";
 import { useAppChain } from "@/lib/hooks/useAppChain";
 import { MainCard } from "@/components/ui/shared";
+import { ReferralPayoutHistory } from "@/components/affiliate/ReferralPayoutHistory";
 import {
   buildReferralUrl,
-  clearPendingReferralCode,
-  isValidReferralCodePlain,
-  loadPendingReferralCode,
-  loadReferralCode,
-  saveReferralCode,
+  captureReferralFromLocation,
+  clearPendingReferrerAddress,
+  loadPendingReferrerAddress,
 } from "@/lib/referral/codeStorage";
+import { resolveReferrer } from "@/lib/referral/resolveReferrer";
 
 export function AffiliateTab() {
   const { showToast, isConnected, openWalletModal } = useApp();
   const { address } = useConnection();
-  const { isOnAppChain } = useAppChain();
-  const chainId = useEffectiveChainId();
+  const { isOnAppChain, targetChainId, walletChainId } = useAppChain();
+  const chainId = defaultChain.id;
+  const referralDeployment = getDeployment(chainId);
   const { t, locale } = useI18n();
-  const deployment = useDeployment();
   const [copied, setCopied] = useState(false);
-  const [inviteCode, setInviteCode] = useState("");
-  const [newCode, setNewCode] = useState("");
-  const [restoreCode, setRestoreCode] = useState("");
-  const [savedPlainCode, setSavedPlainCode] = useState<string | null>(null);
-  const { enterCode, isPending: enterPending } = useEnterInvitationCode();
-  const { registerCode, isPending: registerPending } = useRegisterReferralCode();
-  const { referralCount, registered, referrerCodeHash, hasRefereeBoost, hasDeployment, hasReferralRegistry } =
+  const [inviteAddress, setInviteAddress] = useState("");
+  const [pendingReferrerFromLink, setPendingReferrerFromLink] = useState<string | null>(null);
+  const publicClient = usePublicClient({ chainId });
+  const { bindReferrer, isPending: bindPending } = useBindReferrer();
+  const { registerReferrer, isPending: registerPending } = useRegisterReferrer();
+  const { referralCount, registered, hasRefereeBoost, hasDeployment, hasReferralRegistry } =
     useReferralStats();
   const { data: refLeaderboard, isLoading: refLbLoading } = useReferralLeaderboard(5);
   const {
@@ -50,24 +46,20 @@ export function AffiliateTab() {
     alreadyClaimedThisRound,
     isLoading: earningsLoading,
   } = useReferralEarnings();
+  const payoutHistory = useReferralPayoutHistory();
 
   useEffect(() => {
-    const pending = loadPendingReferralCode();
-    if (pending) setInviteCode(pending);
+    captureReferralFromLocation();
+    const referrer = loadPendingReferrerAddress();
+    if (referrer) {
+      setInviteAddress(referrer);
+      setPendingReferrerFromLink(referrer);
+    }
   }, []);
 
-  useEffect(() => {
-    if (!isConnected || !address) {
-      setSavedPlainCode(null);
-      return;
-    }
-    setSavedPlainCode(loadReferralCode(chainId, address));
-  }, [isConnected, address, chainId, registered]);
-
-  const plainCode = savedPlainCode;
   const refUrl =
-    plainCode && typeof window !== "undefined"
-      ? buildReferralUrl(window.location.origin, plainCode)
+    isConnected && registered && address && typeof window !== "undefined"
+      ? buildReferralUrl(window.location.origin, address)
       : "";
 
   const copy = async () => {
@@ -87,81 +79,60 @@ export function AffiliateTab() {
     window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(refUrl)}`, "_blank");
   };
 
-  const applyCode = async () => {
+  const applyReferrer = async () => {
     if (!isConnected) {
       openWalletModal();
       return;
     }
-    if (!isOnAppChain) {
+    if (!isOnAppChain || walletChainId !== targetChainId) {
       showToast(t("affiliate.switchNetworkToApply"));
       return;
     }
-    if (!deployment?.referralRegistry || !inviteCode.trim()) {
-      if (!deployment?.referralRegistry) showToast(t("affiliate.referralUnavailable"));
+    if (!referralDeployment?.referralRegistry || !publicClient) {
+      if (!referralDeployment?.referralRegistry) showToast(t("affiliate.referralUnavailable"));
       return;
     }
-    if (!isValidReferralCodePlain(inviteCode)) {
-      showToast(t("affiliate.codeInvalid"));
-      return;
-    }
+    if (!inviteAddress.trim() && !pendingReferrerFromLink) return;
+
     try {
-      const code = keccak256(toBytes(inviteCode.trim()));
-      await enterCode(code);
-      clearPendingReferralCode();
+      const resolution = await resolveReferrer(
+        publicClient,
+        referralDeployment.referralRegistry,
+        inviteAddress
+      );
+      if (resolution.kind === "invalid") {
+        showToast(t("affiliate.inviteFailed"));
+        return;
+      }
+      await bindReferrer(resolution.referrer);
+      clearPendingReferrerAddress();
+      setPendingReferrerFromLink(null);
       showToast(t("affiliate.applySuccess"));
     } catch {
       showToast(t("affiliate.inviteFailed"));
     }
   };
 
-  const handleRegisterCode = async () => {
+  const handleRegisterReferrer = async () => {
     if (!isConnected) {
       openWalletModal();
       return;
     }
-    if (!isOnAppChain) {
+    if (!isOnAppChain || walletChainId !== targetChainId) {
       showToast(t("affiliate.switchNetworkToApply"));
       return;
     }
-    if (!deployment?.referralRegistry || !newCode.trim()) {
-      if (!deployment?.referralRegistry) showToast(t("affiliate.referralUnavailable"));
-      return;
-    }
-    if (!isValidReferralCodePlain(newCode)) {
-      showToast(t("affiliate.codeInvalid"));
+    if (!referralDeployment?.referralRegistry) {
+      showToast(t("affiliate.referralUnavailable"));
       return;
     }
     try {
-      const plain = newCode.trim();
-      const hash = keccak256(toBytes(plain));
-      await registerCode(hash);
-      if (address) saveReferralCode(chainId, address, plain);
-      setSavedPlainCode(plain);
-      setNewCode("");
+      await registerReferrer();
       showToast(t("affiliate.registerSuccess"));
     } catch {
       showToast(t("affiliate.registerFailed"));
     }
   };
-
-  const handleRestoreCode = useCallback(() => {
-    if (!referrerCodeHash || !restoreCode.trim()) return;
-    if (!isValidReferralCodePlain(restoreCode)) {
-      showToast(t("affiliate.codeInvalid"));
-      return;
-    }
-    const hash = keccak256(toBytes(restoreCode.trim()));
-    if (hash !== referrerCodeHash) {
-      showToast(t("affiliate.codeMismatch"));
-      return;
-    }
-    if (address) {
-      saveReferralCode(chainId, address, restoreCode.trim());
-      setSavedPlainCode(restoreCode.trim());
-    }
-    setRestoreCode("");
-    showToast(t("affiliate.codeRestored"));
-  }, [referrerCodeHash, restoreCode, address, chainId, showToast, t]);
 
   const referredLabel = hasDeployment
     ? `${referralCount} ${locale === "ja" ? "人" : referralCount === 1 ? "User" : "Users"}`
@@ -183,11 +154,39 @@ export function AffiliateTab() {
 
   const leaderboardRows = refLeaderboard ?? [];
 
-  const showLinkSection = isConnected && registered && plainCode;
+  const showLinkSection = isConnected && registered && !!address;
   const showRegisterSection =
-    isConnected && !registered && hasDeployment && hasReferralRegistry && isOnAppChain;
-  const showRestoreSection = isConnected && registered && !plainCode;
+    isConnected &&
+    !registered &&
+    hasDeployment &&
+    hasReferralRegistry &&
+    isOnAppChain &&
+    walletChainId === targetChainId;
   const showConnectToCreate = !isConnected && hasReferralRegistry;
+  const canApplyInvite = !!inviteAddress.trim() || !!pendingReferrerFromLink;
+
+  const copyField = (
+    value: string,
+    onCopy: () => void,
+    copiedState: boolean,
+    copyLabel: string
+  ) => (
+    <div className="flex flex-col sm:flex-row gap-2">
+      <input
+        readOnly
+        value={value}
+        className="flex-1 min-w-0 px-3 py-2 rounded-xl bg-zinc-900/80 border border-zinc-700 text-zinc-200 text-xs sm:text-sm font-mono truncate"
+      />
+      <button
+        type="button"
+        onClick={onCopy}
+        className="px-3 py-2.5 rounded-xl bg-zinc-700 border border-zinc-600 hover:border-cyan-500/50 flex items-center justify-center gap-1 text-sm text-white shrink-0 min-h-[44px] sm:min-h-0"
+      >
+        {copiedState ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+        <span>{copiedState ? t("common.copied") : copyLabel}</span>
+      </button>
+    </div>
+  );
 
   return (
     <MainCard className="max-w-lg">
@@ -200,9 +199,32 @@ export function AffiliateTab() {
         </p>
       )}
 
+      {showLinkSection && (
+        <div className="mb-6 p-4 rounded-xl bg-gradient-to-br from-emerald-500/10 to-cyan-500/10 border border-emerald-500/25">
+          <p className="text-sm font-medium text-white mb-1">{t("affiliate.yourLink")}</p>
+          <p className="text-xs text-zinc-400 mb-4">{t("affiliate.linkSectionHint")}</p>
+          {copyField(refUrl, copy, copied, t("common.copy"))}
+
+          <button
+            type="button"
+            onClick={shareOnX}
+            className="w-full flex items-center justify-center gap-2 py-2.5 mt-4 rounded-xl border border-zinc-700 text-sm text-zinc-300 hover:border-cyan-500/40 hover:text-white transition-colors"
+          >
+            <Share2 className="w-4 h-4" />
+            {t("affiliate.shareX")}
+          </button>
+        </div>
+      )}
+
+      {pendingReferrerFromLink && !hasRefereeBoost && (
+        <p className="text-xs text-cyan-400/90 mb-4 px-3 py-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20 leading-relaxed">
+          {t("affiliate.pendingReferrerLink")}
+        </p>
+      )}
+
       {showConnectToCreate && (
         <div className="mb-6 p-4 rounded-xl bg-zinc-800/50 border border-zinc-700">
-          <label className="text-sm text-zinc-300 block mb-1">{t("affiliate.createCode")}</label>
+          <label className="text-sm text-zinc-300 block mb-1">{t("affiliate.createReferrer")}</label>
           <p className="text-xs text-zinc-500 mb-3">{t("affiliate.connectToCreateHint")}</p>
           <button
             type="button"
@@ -216,48 +238,16 @@ export function AffiliateTab() {
 
       {showRegisterSection && (
         <div className="mb-6 p-4 rounded-xl bg-zinc-800/50 border border-zinc-700">
-          <label className="text-sm text-zinc-300 block mb-1">{t("affiliate.createCode")}</label>
-          <p className="text-xs text-zinc-500 mb-2">{t("affiliate.createCodeHint")}</p>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <input
-              value={newCode}
-              onChange={(e) => setNewCode(e.target.value.toUpperCase())}
-              placeholder="MYCODE"
-              maxLength={16}
-              className="flex-1 min-w-0 px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-white text-sm font-mono outline-none focus:border-cyan-500/50"
-            />
-            <button
-              type="button"
-              onClick={handleRegisterCode}
-              disabled={registerPending}
-              className="px-4 py-2.5 rounded-xl gradient-btn text-sm font-semibold disabled:opacity-50 shrink-0 min-h-[44px] sm:min-h-0"
-            >
-              {registerPending ? "…" : t("affiliate.registerCode")}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {showRestoreSection && (
-        <div className="mb-6 p-4 rounded-xl bg-zinc-800/50 border border-zinc-700">
-          <label className="text-sm text-zinc-300 block mb-1">{t("affiliate.restoreCode")}</label>
-          <p className="text-xs text-zinc-500 mb-2">{t("affiliate.restoreCodeHint")}</p>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <input
-              value={restoreCode}
-              onChange={(e) => setRestoreCode(e.target.value.toUpperCase())}
-              placeholder="MYCODE"
-              maxLength={16}
-              className="flex-1 min-w-0 px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-white text-sm font-mono outline-none focus:border-cyan-500/50"
-            />
-            <button
-              type="button"
-              onClick={handleRestoreCode}
-              className="px-4 py-2.5 rounded-xl bg-zinc-700 border border-zinc-600 text-sm text-white hover:border-cyan-500/50 shrink-0 min-h-[44px] sm:min-h-0"
-            >
-              {t("affiliate.restoreCode")}
-            </button>
-          </div>
+          <label className="text-sm text-zinc-300 block mb-1">{t("affiliate.createReferrer")}</label>
+          <p className="text-xs text-zinc-500 mb-3">{t("affiliate.createReferrerHint")}</p>
+          <button
+            type="button"
+            onClick={handleRegisterReferrer}
+            disabled={registerPending}
+            className="w-full px-4 py-2.5 rounded-xl gradient-btn text-sm font-semibold disabled:opacity-50 min-h-[44px]"
+          >
+            {registerPending ? "…" : t("affiliate.activateReferrer")}
+          </button>
         </div>
       )}
 
@@ -269,37 +259,6 @@ export function AffiliateTab() {
         <p className="text-xs text-amber-500/90 mb-4 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
           {t("affiliate.referralUnavailable")}
         </p>
-      )}
-
-      {showLinkSection && (
-        <>
-          <p className="text-xs text-zinc-400 mb-2">
-            {t("affiliate.yourLink")}
-          </p>
-          <div className="flex flex-col sm:flex-row gap-2 mb-3">
-            <input
-              readOnly
-              value={refUrl}
-              className="flex-1 min-w-0 px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-zinc-300 text-xs font-mono truncate"
-            />
-            <button
-              onClick={copy}
-              className="px-3 py-2.5 rounded-xl bg-zinc-700 border border-zinc-600 hover:border-cyan-500/50 flex items-center justify-center gap-1 text-sm text-white shrink-0 min-h-[44px] sm:min-h-0"
-            >
-              {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-              <span className="sm:inline">{copied ? t("common.copied") : t("common.copy")}</span>
-            </button>
-          </div>
-
-          <button
-            type="button"
-            onClick={shareOnX}
-            className="w-full flex items-center justify-center gap-2 py-2.5 mb-6 rounded-xl border border-zinc-700 text-sm text-zinc-300 hover:border-cyan-500/40 hover:text-white transition-colors"
-          >
-            <Share2 className="w-4 h-4" />
-            {t("affiliate.shareX")}
-          </button>
-        </>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
@@ -346,24 +305,25 @@ export function AffiliateTab() {
       <p className="text-[10px] text-zinc-600 mb-2 leading-relaxed">{t("affiliate.commissionNote")}</p>
       <p className="text-[10px] text-amber-500/80 mb-6 leading-relaxed">{t("affiliate.normalizeNote")}</p>
 
+      <ReferralPayoutHistory {...payoutHistory} />
+
       <div className="mb-6 pt-4 border-t border-zinc-800">
-        <label className="text-sm text-zinc-300 block mb-1">{t("affiliate.haveCode")}</label>
-        <p className="text-xs text-zinc-500 mb-2">{t("affiliate.codeHint")}</p>
+        <label className="text-sm text-zinc-300 block mb-1">{t("affiliate.haveReferrer")}</label>
+        <p className="text-xs text-zinc-500 mb-2">{t("affiliate.referrerHint")}</p>
         <div className="flex flex-col sm:flex-row gap-2">
           <input
-            value={inviteCode}
-            onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-            placeholder="CODE"
-            maxLength={16}
+            value={inviteAddress}
+            onChange={(e) => setInviteAddress(e.target.value)}
+            placeholder="0x…"
             className="flex-1 min-w-0 px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-white text-sm font-mono outline-none focus:border-cyan-500/50"
           />
           <button
             type="button"
-            onClick={applyCode}
-            disabled={enterPending || (isConnected && !isOnAppChain)}
+            onClick={applyReferrer}
+            disabled={bindPending || (isConnected && (!isOnAppChain || walletChainId !== targetChainId)) || !canApplyInvite}
             className="px-4 py-2.5 rounded-xl gradient-btn text-sm font-semibold disabled:opacity-50 shrink-0 min-h-[44px] sm:min-h-0"
           >
-            {enterPending ? "…" : t("common.apply")}
+            {bindPending ? "…" : t("common.apply")}
           </button>
         </div>
       </div>

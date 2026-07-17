@@ -14,11 +14,11 @@ describe("liquidity metrics", () => {
     expect(poolPriceUsdcPerKhype(100, 2000)).toBe(20);
   });
 
-  it("computes asymmetric range bounds (+10% / −30%)", () => {
-    const b = rangeBounds(2000, 10, 30);
-    expect(b.lower).toBe(1400);
+  it("computes asymmetric range bounds (+10% / −17%)", () => {
+    const b = rangeBounds(2000, 10, 17);
+    expect(b.lower).toBe(1660);
     expect(b.upper).toBe(2200);
-    expect(b.widthPct).toBe(40);
+    expect(b.widthPct).toBe(27);
   });
 
   it("splits zap amount evenly", () => {

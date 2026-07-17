@@ -18,13 +18,21 @@ test.describe("Financial disclosures", () => {
   test("affiliate tab explains referral normalization", async ({ page }) => {
     await page.goto("/affiliate");
     await expect(page.getByText(/fixed USDC pool/i)).toBeVisible();
-    await expect(page.getByText(/10%.*15%/i).first()).toBeVisible();
+    await expect(page.getByText(/5%.*15%/i).first()).toBeVisible();
   });
 
   test("dashboard tab loads earnings section", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("main")).toBeVisible();
     await expect(page.getByText(/application error|a client-side exception/i)).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: /Earnings Trend/i })).toBeVisible();
+  });
+
+  test("dashboard payout history section does not crash when disconnected", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText(/application error|a client-side exception/i)).toHaveCount(0);
+    // Hidden until wallet has history — must not throw
+    await expect(page.getByRole("heading", { name: /Payout history/i })).toHaveCount(0);
   });
 
   test("deposit tab shows vault path", async ({ page }) => {

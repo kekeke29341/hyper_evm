@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { useChainId } from "wagmi";
 import { useWallet } from "@/lib/hooks/useWallet";
-import { defaultChain, SUPPORTED_CHAINS } from "@/lib/wagmi/config";
+import { defaultChain, SUPPORTED_CHAINS, bridgeSourceChains } from "@/lib/wagmi/config";
 import { getChainDeploymentMeta } from "@/lib/contracts";
 import { cn } from "@/lib/utils";
 
@@ -20,7 +20,18 @@ export function NetworkSelector({
   const [open, setOpen] = useState(false);
 
   const displayChainId = isConnected ? chainId : defaultChain.id;
-  const current = SUPPORTED_CHAINS.find((c) => c.id === displayChainId) ?? SUPPORTED_CHAINS[0];
+  const hyperpoolChain = SUPPORTED_CHAINS.find((c) => c.id === displayChainId);
+  const bridgeSourceChain = bridgeSourceChains.find((c) => c.id === displayChainId);
+  const current = hyperpoolChain
+    ? hyperpoolChain
+    : bridgeSourceChain
+      ? {
+          id: bridgeSourceChain.id,
+          label: bridgeSourceChain.name,
+          shortLabel: bridgeSourceChain.name.replace(" ", ""),
+          description: `Chain ${bridgeSourceChain.id}`,
+        }
+      : SUPPORTED_CHAINS[0];
   const meta = getChainDeploymentMeta(displayChainId);
   const displayLabel = compact ? current.shortLabel : current.label;
 

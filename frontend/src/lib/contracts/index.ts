@@ -29,7 +29,16 @@ export type Deployment = {
     amount: string;
     entries: number;
     executedAt: string;
+    harvestBlock?: string;
+    harvestTimestamp?: string;
+    timeWeighted?: boolean;
   };
+  cashdropWeightCheckpoint?: {
+    blockNumber: string;
+    timestamp: string;
+    balances?: Record<string, string>;
+  };
+  vaultDeployBlock?: string | number;
   vaultShareHolders?: { address: Address; shares: string }[];
   merkleRoot?: string;
 };

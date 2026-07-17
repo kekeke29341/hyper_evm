@@ -1,41 +1,47 @@
-const PENDING_REF_KEY = "hyperpool_pending_ref";
-const CODE_PREFIX = "hyperpool_ref_code";
+import { getAddress, type Address } from "viem";
 
-export function referralCodeStorageKey(chainId: number, address: string): string {
-  return `${CODE_PREFIX}_${chainId}_${address.toLowerCase()}`;
-}
+const PENDING_REFERRER_KEY = "hyperpool_pending_referrer";
 
-export function saveReferralCode(chainId: number, address: string, plainCode: string): void {
+export function savePendingReferrerAddress(referrer: Address): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(referralCodeStorageKey(chainId, address), plainCode.trim());
+  localStorage.setItem(PENDING_REFERRER_KEY, getAddress(referrer));
 }
 
-export function loadReferralCode(chainId: number, address: string): string | null {
+export function loadPendingReferrerAddress(): Address | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem(referralCodeStorageKey(chainId, address));
+  const raw = localStorage.getItem(PENDING_REFERRER_KEY);
+  if (!raw) return null;
+  try {
+    return getAddress(raw);
+  } catch {
+    return null;
+  }
 }
 
-export function savePendingReferralCode(plainCode: string): void {
+export function clearPendingReferrerAddress(): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(PENDING_REF_KEY, plainCode.trim());
+  localStorage.removeItem(PENDING_REFERRER_KEY);
 }
 
-export function loadPendingReferralCode(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(PENDING_REF_KEY);
+/** Shareable link — works on any device once the referrer is registered on-chain. */
+export function buildReferralUrl(origin: string, referrerAddress: string): string {
+  return `${origin}/affiliate?referrer=${getAddress(referrerAddress)}`;
 }
 
-export function clearPendingReferralCode(): void {
+/** Parse ?referrer=0x… from an invite URL. */
+export function parseReferralSearchParams(search: string): { referrerAddress: Address | null } {
+  const params = new URLSearchParams(search.startsWith("?") ? search : `?${search}`);
+  const referrerParam = params.get("referrer")?.trim();
+  if (!referrerParam) return { referrerAddress: null };
+  try {
+    return { referrerAddress: getAddress(referrerParam) };
+  } catch {
+    return { referrerAddress: null };
+  }
+}
+
+export function captureReferralFromLocation(): void {
   if (typeof window === "undefined") return;
-  localStorage.removeItem(PENDING_REF_KEY);
-}
-
-/** Alphanumeric invite codes (4–16 chars). */
-export function isValidReferralCodePlain(plain: string): boolean {
-  const t = plain.trim();
-  return t.length >= 4 && t.length <= 16 && /^[A-Za-z0-9]+$/.test(t);
-}
-
-export function buildReferralUrl(origin: string, plainCode: string): string {
-  return `${origin}/?ref=${encodeURIComponent(plainCode.trim())}`;
+  const { referrerAddress } = parseReferralSearchParams(window.location.search);
+  if (referrerAddress) savePendingReferrerAddress(referrerAddress);
 }

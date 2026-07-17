@@ -2,7 +2,7 @@ import { getAddress, type Address } from "viem";
 
 /** Must match ReferralRegistry.sol */
 export const REFERRER_BONUS_BPS = 1500n;
-export const REFEREE_BOOST_BPS = 1000n;
+export const REFEREE_BOOST_BPS = 500n;
 
 export type ShareHolder = { address: Address; shares: bigint };
 
@@ -49,8 +49,9 @@ export function normalizeCashdropEntries(
 }
 
 /**
- * Build Merkle airdrop rows: Vault pro-rata base, +10% referee boost, +15% referrer commission.
- * `totalShares` should be the sum of eligible holder balances (excluding dead shares).
+ * Build Merkle airdrop rows: Vault pro-rata base, +5% referee boost, +15% referrer commission.
+ * `holders[].shares` may be snapshot balances or time-weighted share-seconds.
+ * `totalShares` should be the sum of those weights (excluding dead shares).
  * When boosts exceed the fixed pool, amounts are scaled proportionally to `pending`.
  */
 export function buildCashdropEntries(params: {

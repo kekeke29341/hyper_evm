@@ -26,10 +26,10 @@ export function AdminNetworkBanner() {
       <div className="flex items-start gap-2 flex-1">
         <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
         <div>
-          <p className="text-sm font-medium text-amber-200">Wrong network for admin operations</p>
+          <p className="text-sm font-medium text-amber-200">Wallet on a different network</p>
           <p className="text-xs text-amber-200/70 mt-1">
             Wallet is on chain <span className="font-mono">{chainId}</span>. Switch to{" "}
-            <strong>{targetLabel}</strong> to submit owner transactions.
+            <strong>{targetLabel}</strong> so monitoring reads match the live deployment.
           </p>
         </div>
       </div>

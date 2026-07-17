@@ -42,7 +42,7 @@ const TAB_PAGE_METADATA: Record<TabId, Pick<Metadata, "title" | "description">> 
   },
   cashdrop: {
     title: "Cashdrop | Hyperpool",
-    description: "Receive your daily USDC share of collected trading fees automatically at JST 7:00.",
+    description: "Receive your daily USDC share of collected trading fees automatically around JST 9:00.",
   },
   affiliate: {
     title: "Affiliate | Hyperpool",

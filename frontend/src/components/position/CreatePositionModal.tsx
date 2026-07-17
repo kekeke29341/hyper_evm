@@ -2,17 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Loader2, ChevronRight } from "lucide-react";
-import { PROJECT_X_POOL, MANAGED_LP_RANGE } from "@/lib/constants";
+import { AlertTriangle, X, Loader2, ChevronRight } from "lucide-react";
+import { PROJECT_X_POOL } from "@/lib/constants";
 import { useI18n } from "@/lib/i18n";
 import { useTokenBalance } from "@/lib/hooks/useDeFi";
 import {
   formatUsd,
   formatHypeSpotPrice,
-  formatRangeBound,
   managedRangeBounds,
 } from "@/lib/liquidity/metrics";
+import { tabPath } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 type FundingSource = "wallet-khype" | "wallet-usdc" | "vault";
@@ -58,12 +59,11 @@ export function CreatePositionModal({
   const price = priceReady ? priceUsd : 0;
   const bounds = managedRangeBounds(price);
   const priceLabel = formatHypeSpotPrice(priceUsd, priceLoading, t("common.loading"));
-  const lowerLabel = formatRangeBound(bounds.lower, priceUsd, priceLoading);
-  const upperLabel = formatRangeBound(bounds.upper, priceUsd, priceLoading);
-
   const sourceToken: "kHYPE" | "USDC" = funding === "wallet-khype" ? "kHYPE" : "USDC";
   const balance = funding === "wallet-khype" ? khypeBal.balance : usdcBal.balance;
   const amountNum = parseFloat(amount) || 0;
+  const selectedBalanceNum = parseFloat(balance || "0") || 0;
+  const selectedWalletBalanceEmpty = funding !== "vault" && selectedBalanceNum <= 0;
 
   const canSubmit =
     priceReady && funding !== "vault" && amountNum > 0 && amountNum <= parseFloat(balance || "0");
@@ -160,7 +160,6 @@ export function CreatePositionModal({
                       </div>
                     </div>
                     <p className="mt-2 text-[10px] text-zinc-600">{t("position.feeSplitFootnote")}</p>
-                    <p className="mt-1 text-[10px] text-zinc-600">{t("position.poolFeeTierNote")}</p>
                   </div>
                   <p className="mt-2 text-xs text-zinc-500">
                     HYPE/USDC {t("position.currentPrice")}:{" "}
@@ -218,26 +217,24 @@ export function CreatePositionModal({
                       {t("common.balance")}: {balance} {sourceToken}
                     </p>
                   </div>
-                  <p className="mt-2 text-[11px] text-zinc-500">
-                    {t("position.zapHint")} {t("position.rangeV2Note")}
-                  </p>
-                </section>
-
-                <section>
-                  <p className="text-xs text-zinc-500 mb-2">{t("position.rangeWidth")}</p>
-                  <p className="text-sm text-cyan-400 font-medium">{MANAGED_LP_RANGE.label}</p>
-                  <p className="mt-2 text-[10px] text-zinc-500">{t("position.managedRangeFixed")}</p>
-                  <p className="mt-1 text-[10px] text-zinc-500">{t("position.rangeV2Note")}</p>
-                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                    <div className="p-2 rounded-lg bg-zinc-900/60 border border-zinc-800">
-                      <p className="text-zinc-500">{t("position.lower")}</p>
-                      <p className="text-white tabular-nums">{lowerLabel}</p>
+                  {selectedWalletBalanceEmpty && (
+                    <div className="mt-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-[11px] text-amber-100">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-300" />
+                        <div className="space-y-1">
+                          <p>{t("position.networkBalanceHint")}</p>
+                          <Link
+                            href={tabPath("deposit")}
+                            onClick={handleClose}
+                            className="inline-flex text-amber-200 underline underline-offset-2"
+                          >
+                            {t("position.openBridge")}
+                          </Link>
+                        </div>
+                      </div>
                     </div>
-                    <div className="p-2 rounded-lg bg-zinc-900/60 border border-zinc-800">
-                      <p className="text-zinc-500">{t("position.upper")}</p>
-                      <p className="text-white tabular-nums">{upperLabel}</p>
-                    </div>
-                  </div>
+                  )}
+                  <p className="mt-2 text-[11px] text-zinc-500">{t("position.zapHint")}</p>
                 </section>
 
                 <button
@@ -256,11 +253,7 @@ export function CreatePositionModal({
                   <p className="text-zinc-400">
                     {amount} {sourceToken === "kHYPE" ? "HYPE" : sourceToken} → Vault
                   </p>
-                  <p className="text-zinc-500 text-xs">
-                    {t("position.rangeWidth")}: {MANAGED_LP_RANGE.label} ({lowerLabel} – {upperLabel})
-                  </p>
                   <p className="text-[10px] text-zinc-500">{t("position.feeSplitFootnote")}</p>
-                  <p className="text-[10px] text-zinc-500">{t("position.poolFeeTierNote")}</p>
                 </div>
                 <div className="flex gap-2">
                   <button

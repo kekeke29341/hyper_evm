@@ -2,14 +2,17 @@
 
 import Link from "next/link";
 import { ArrowRight, TrendingUp, Wallet } from "lucide-react";
+import { AccruingRewardsCard } from "@/components/cashdrop/AccruingRewardsCard";
 import { EarningsTrendChart } from "@/components/charts/EarningsTrendChart";
+import { CashdropPayoutHistory } from "@/components/dashboard/CashdropPayoutHistory";
 import { StatPill } from "@/components/ui/shared";
 import { useApp } from "@/lib/store";
 import { useI18n } from "@/lib/i18n";
 import { PROJECT_X_POOL } from "@/lib/constants";
 import { tabPath } from "@/lib/routes";
 import type { EarningsChartMode } from "@/lib/earnings/history";
-import { useCashdrop, useVaultStats } from "@/lib/hooks/useDeFi";
+import { useCashdrop } from "@/lib/hooks/useDeFi";
+import { useAccruingRewards } from "@/lib/hooks/useAccruingRewards";
 import { useEarningsDashboard } from "@/lib/hooks/useEarningsDashboard";
 import { cn } from "@/lib/utils";
 
@@ -18,9 +21,10 @@ function truncateAddress(addr: string): string {
 }
 
 function formatMoney(n: number, decimals = 2): string {
+  const displayDecimals = n > 0 && n < 0.01 ? 6 : n > 0 && n < 1 ? Math.max(decimals, 4) : decimals;
   return n.toLocaleString(undefined, {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
+    minimumFractionDigits: displayDecimals,
+    maximumFractionDigits: displayDecimals,
   });
 }
 
@@ -30,7 +34,7 @@ export function DashboardTab() {
   const { isConnected, openWalletModal } = useApp();
   const { t, locale } = useI18n();
   const { hasRewards, availableUsdc } = useCashdrop();
-  const vaultStats = useVaultStats();
+  const accruing = useAccruingRewards();
   const {
     hasPosition,
     positionValueUsd,
@@ -49,14 +53,17 @@ export function DashboardTab() {
   const showGettingStarted = isConnected && !hasPosition;
   const showClaimable = hasRewards;
   const claimableUsdc = availableUsdc;
-  const pendingRewardsUsdc = vaultStats.pendingRewardsUsdc;
   const showPositionStats = isConnected && hasPosition;
   const aprDisplay =
     metrics.estimatedApr !== null
       ? `${metrics.estimatedApr.toFixed(1)}%`
-      : hasPosition
-        ? PROJECT_X_POOL.netAprEstimate
-        : "—";
+      : accruing.impliedNetAprPercent !== null
+        ? `${accruing.impliedNetAprPercent.toFixed(1)}%`
+        : accruing.isLoading
+          ? "…"
+          : "—";
+  const aprIsRealized = metrics.estimatedApr !== null;
+  const aprIsProjected = !aprIsRealized && accruing.impliedNetAprPercent !== null;
 
   return (
     <div className="max-w-6xl mx-auto w-full space-y-4">
@@ -72,7 +79,7 @@ export function DashboardTab() {
           className="w-full flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-left hover:bg-emerald-500/15 transition-colors"
         >
           <div>
-            <p className="text-sm font-medium text-emerald-300">{t("dashboard.claimableNow")}</p>
+            <p className="text-sm font-medium text-emerald-300">{t("dashboard.lastAutoPayout")}</p>
             <p className="text-xs text-zinc-400 mt-0.5">{t("cashdrop.window")}</p>
           </div>
           <span className="text-emerald-400 font-semibold tabular-nums shrink-0">
@@ -81,11 +88,7 @@ export function DashboardTab() {
         </Link>
       )}
 
-      {pendingRewardsUsdc > 0 && (
-        <p className="text-xs text-emerald-400/90 px-1">
-          {t("dashboard.pendingPool")}: ${formatMoney(pendingRewardsUsdc)} USDC
-        </p>
-      )}
+      {showPositionStats ? <AccruingRewardsCard /> : null}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
         <StatPill
@@ -131,10 +134,10 @@ export function DashboardTab() {
           {t("dashboard.aprConnectHint")} · {t("position.netApy")} {PROJECT_X_POOL.netAprEstimate} (
           {t("position.feeSplitFootnote")})
         </p>
-      ) : metrics.estimatedApr === null ? (
-        <p className="text-[11px] text-zinc-600 px-1 -mt-2">
-          {t("dashboard.aprReferenceHint")} {PROJECT_X_POOL.netAprEstimate}
-        </p>
+      ) : aprIsProjected ? (
+        <p className="text-[11px] text-zinc-600 px-1 -mt-2">{t("dashboard.aprProjectedHint")}</p>
+      ) : accruing.isError ? (
+        <p className="text-[11px] text-zinc-600 px-1 -mt-2">{t("dashboard.aprUnavailableHint")}</p>
       ) : null}
 
       {showGettingStarted && (
@@ -258,6 +261,12 @@ export function DashboardTab() {
                   <p className="text-zinc-300">{PROJECT_X_POOL.netAprEstimate}</p>
                 </div>
               </div>
+              <Link
+                href={tabPath("liquidity")}
+                className="mt-4 inline-flex w-full items-center justify-center rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-400 hover:bg-red-500/20 transition-colors"
+              >
+                {t("network.openWithdraw")}
+              </Link>
             </div>
           ) : (
             <p className="text-sm text-zinc-500 text-center py-8 rounded-xl border border-dashed border-zinc-700">
@@ -266,6 +275,8 @@ export function DashboardTab() {
           )}
         </div>
       </div>
+
+      <CashdropPayoutHistory />
     </div>
   );
 }

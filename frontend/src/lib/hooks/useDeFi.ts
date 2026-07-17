@@ -9,7 +9,7 @@ import {
   useWaitForTransactionReceipt,
 } from "wagmi";
 import { parseUnits, formatUnits, zeroAddress } from "viem";
-import { VAULT_SHARE_DECIMALS } from "@/lib/constants";
+import { CASHDROP_JST, VAULT_SHARE_DECIMALS } from "@/lib/constants";
 import {
   abis,
   getDeployment,
@@ -19,9 +19,13 @@ import {
   type TokenSymbol,
 } from "@/lib/contracts";
 import { ensureExactAllowance } from "@/lib/erc20";
+import { formatUsdcDisplay } from "@/lib/earnings/deploymentPayouts";
+import { useCashdropPayoutClaims } from "@/lib/hooks/useCashdropPayoutClaims";
 import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
+import { defaultChain } from "@/lib/wagmi/config";
 import { useI18n } from "@/lib/i18n";
 import { positionTokenAmounts } from "@/lib/liquidity/metrics";
+import { compositionFromRefPrice, mapAdapterTokenAmounts } from "@/lib/liquidity/composition";
 import { lpReservesFromTvl, refPriceToUsdPerHype } from "@/lib/liquidity/price";
 
 export function useDeployment() {
@@ -94,52 +98,48 @@ export function useRemoveLiquidity() {
   return { removeLiquidity: async () => {}, isPending: false, isSuccess: false, hash: undefined };
 }
 
-export function useEnterInvitationCode() {
-  const deployment = useDeployment();
-  const chainId = useEffectiveChainId();
+export function useBindReferrer() {
+  const chainId = defaultChain.id;
+  const deployment = getDeployment(chainId);
   const { writeContractAsync, data: hash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
-  const enterCode = useCallback(
-    async (code: `0x${string}`) => {
+  const bindReferrer = useCallback(
+    async (referrer: `0x${string}`) => {
       if (!deployment) throw new Error("Contracts not deployed on this network");
       if (!deployment.referralRegistry) throw new Error("Referral registry not deployed");
       await writeContractAsync({
         chainId,
         address: deployment.referralRegistry,
         abi: abis.referral,
-        functionName: "enterInvitationCode",
-        args: [code],
+        functionName: "bindReferrer",
+        args: [referrer],
       });
     },
     [chainId, deployment, writeContractAsync]
   );
 
-  return { enterCode, isPending: isPending || isConfirming, isSuccess, hash };
+  return { bindReferrer, isPending: isPending || isConfirming, isSuccess, hash };
 }
 
-export function useRegisterReferralCode() {
-  const deployment = useDeployment();
-  const chainId = useEffectiveChainId();
+export function useRegisterReferrer() {
+  const chainId = defaultChain.id;
+  const deployment = getDeployment(chainId);
   const { writeContractAsync, data: hash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
-  const registerCode = useCallback(
-    async (code: `0x${string}`) => {
-      if (!deployment) throw new Error("Contracts not deployed on this network");
-      if (!deployment.referralRegistry) throw new Error("Referral registry not deployed");
-      await writeContractAsync({
-        chainId,
-        address: deployment.referralRegistry,
-        abi: abis.referral,
-        functionName: "registerCode",
-        args: [code],
-      });
-    },
-    [chainId, deployment, writeContractAsync]
-  );
+  const registerReferrer = useCallback(async () => {
+    if (!deployment) throw new Error("Contracts not deployed on this network");
+    if (!deployment.referralRegistry) throw new Error("Referral registry not deployed");
+    await writeContractAsync({
+      chainId,
+      address: deployment.referralRegistry,
+      abi: abis.referral,
+      functionName: "registerReferrer",
+    });
+  }, [chainId, deployment, writeContractAsync]);
 
-  return { registerCode, isPending: isPending || isConfirming, isSuccess, hash };
+  return { registerReferrer, isPending: isPending || isConfirming, isSuccess, hash };
 }
 
 export function usePoolReserves() {
@@ -193,8 +193,11 @@ export function useHypePrice() {
 
 export function usePoolStats() {
   const deployment = useDeployment();
-  const { priceUsd, isLoading: isPriceLoading } = useHypePrice();
+  const { priceUsd, refPriceRaw, isLoading: isPriceLoading } = useHypePrice();
   const vaultAddr = deployment ? getVaultAddress(deployment) : undefined;
+  const adapter = deployment?.projectXAdapter;
+  const whype = deployment ? getTokenAddress(deployment, "kHYPE") : undefined;
+  const usdcToken = deployment ? getTokenAddress(deployment, "USDC") : undefined;
 
   const { data: vaultUsdcBal } = useDeploymentReadContract({
     address: vaultAddr,
@@ -210,14 +213,114 @@ export function usePoolStats() {
     query: { enabled: !!vaultAddr, refetchInterval: 10000 },
   });
 
+  const { data: pendingRewards } = useDeploymentReadContract({
+    address: vaultAddr,
+    abi: abis.vault,
+    functionName: "pendingUserRewards",
+    query: { enabled: !!vaultAddr, refetchInterval: 10000 },
+  });
+
+  const { data: positionAmounts } = useDeploymentReadContract({
+    address: adapter,
+    abi: abis.adapter,
+    functionName: "positionTokenAmounts",
+    query: { enabled: !!adapter, refetchInterval: 10000 },
+  });
+
+  const { data: vaultIdleHype } = useDeploymentReadContract({
+    address: whype,
+    abi: abis.erc20,
+    functionName: "balanceOf",
+    args: vaultAddr ? [vaultAddr] : undefined,
+    query: { enabled: !!vaultAddr && !!whype, refetchInterval: 10000 },
+  });
+
+  const { data: vaultUsdcBalRaw } = useDeploymentReadContract({
+    address: usdcToken,
+    abi: abis.erc20,
+    functionName: "balanceOf",
+    args: vaultAddr ? [vaultAddr] : undefined,
+    query: { enabled: !!vaultAddr && !!usdcToken, refetchInterval: 10000 },
+  });
+
+  const { data: adapterToken0 } = useDeploymentReadContract({
+    address: adapter,
+    abi: abis.adapter,
+    functionName: "token0",
+    query: { enabled: !!adapter, refetchInterval: 60000 },
+  });
+
   const supply = totalSupply !== undefined ? formatUnits(totalSupply as bigint, VAULT_SHARE_DECIMALS) : "0";
   const totalAssetsUsdc =
     vaultUsdcBal !== undefined ? parseFloat(formatUnits(vaultUsdcBal as bigint, 6)) : 0;
-  const { reserveHype: reserveKhype, reserveUsdc } = lpReservesFromTvl(totalAssetsUsdc, priceUsd);
+
+  const composition = useMemo(() => {
+    if (
+      !deployment ||
+      !whype ||
+      positionAmounts === undefined ||
+      vaultIdleHype === undefined ||
+      vaultUsdcBalRaw === undefined ||
+      pendingRewards === undefined ||
+      !refPriceRaw ||
+      refPriceRaw <= 0n
+    ) {
+      const fallback = lpReservesFromTvl(totalAssetsUsdc, priceUsd);
+      return {
+        ...fallback,
+        lpHype: 0,
+        lpUsdc: 0,
+        idleHype: 0,
+        idleUsdc: 0,
+        hypePct: totalAssetsUsdc > 0 && priceUsd > 0 ? 50 : 0,
+        usdcPct: totalAssetsUsdc > 0 ? 50 : 0,
+        isLive: false,
+      };
+    }
+
+    const [amount0, amount1] = positionAmounts as readonly [bigint, bigint];
+    const mapped = mapAdapterTokenAmounts(
+      amount0,
+      amount1,
+      adapterToken0 as `0x${string}`,
+      whype
+    );
+    const pending = pendingRewards as bigint;
+    const vaultUsdcTotal = vaultUsdcBalRaw as bigint;
+    const idleUsdc = vaultUsdcTotal > pending ? vaultUsdcTotal - pending : 0n;
+
+    const live = compositionFromRefPrice(
+      mapped.hype,
+      mapped.usdc,
+      vaultIdleHype as bigint,
+      idleUsdc,
+      refPriceRaw
+    );
+
+    return { ...live, isLive: true };
+  }, [
+    adapterToken0,
+    deployment,
+    pendingRewards,
+    positionAmounts,
+    priceUsd,
+    refPriceRaw,
+    totalAssetsUsdc,
+    vaultIdleHype,
+    vaultUsdcBalRaw,
+    whype,
+  ]);
 
   return {
-    reserveKhype,
-    reserveUsdc,
+    reserveKhype: composition.reserveHype,
+    reserveUsdc: composition.reserveUsdc,
+    lpKhype: composition.lpHype,
+    lpUsdc: composition.lpUsdc,
+    idleKhype: composition.idleHype,
+    idleUsdc: composition.idleUsdc,
+    hypePct: composition.hypePct,
+    usdcPct: composition.usdcPct,
+    compositionIsLive: composition.isLive,
     totalAssetsUsdc,
     priceUsd,
     isPriceLoading,
@@ -232,9 +335,11 @@ export function useZapLiquidity() {
   const deployment = useDeployment();
   const chainId = useEffectiveChainId();
   const publicClient = useDeploymentPublicClient();
-  const { writeContractAsync, data: hash, isPending } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContractAsync, isPending } = useWriteContract();
   const [error, setError] = useState<string | null>(null);
+  const [hash, setHash] = useState<`0x${string}` | undefined>();
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
 
   const zap = useCallback(
     async (source: "kHYPE" | "USDC", totalAmount: string) => {
@@ -242,30 +347,41 @@ export function useZapLiquidity() {
       const vaultAddr = getVaultAddress(deployment);
       if (!vaultAddr) throw new Error("Vault unavailable");
       setError(null);
+      setHash(undefined);
+      setIsSuccess(false);
 
       const tokenIn = source === "USDC" ? deployment.tokenUSDC : deployment.tokenKHYPE;
       const decimals = source === "USDC" ? 6 : 18;
       const amountIn = parseUnits(totalAmount, decimals);
       const fn = source === "USDC" ? "depositUSDC" : "depositHYPE";
 
-      await ensureExactAllowance(
-        publicClient,
-        writeContractAsync,
-        tokenIn,
-        abis.erc20,
-        address,
-        vaultAddr,
-        amountIn,
-        chainId
-      );
+      setIsConfirming(true);
+      try {
+        await ensureExactAllowance(
+          publicClient,
+          writeContractAsync,
+          tokenIn,
+          abis.erc20,
+          address,
+          vaultAddr,
+          amountIn,
+          chainId
+        );
 
-      await writeContractAsync({
-        address: vaultAddr,
-        abi: abis.vault,
-        functionName: fn,
-        args: [amountIn, address],
-        chainId,
-      });
+        const depositHash = await writeContractAsync({
+          address: vaultAddr,
+          abi: abis.vault,
+          functionName: fn,
+          args: [amountIn, address],
+          chainId,
+        });
+        setHash(depositHash);
+        await publicClient.waitForTransactionReceipt({ hash: depositHash });
+        setIsSuccess(true);
+        return depositHash;
+      } finally {
+        setIsConfirming(false);
+      }
     },
     [deployment, address, chainId, publicClient, writeContractAsync]
   );
@@ -367,7 +483,7 @@ export function useVaultBalance() {
   const pool = usePoolStats();
   const vaultAddr = deployment ? getVaultAddress(deployment) : undefined;
 
-  const { data, refetch } = useDeploymentReadContract({
+  const { data, refetch, isLoading } = useDeploymentReadContract({
     address: vaultAddr,
     abi: abis.vault,
     functionName: "balanceOf",
@@ -390,6 +506,7 @@ export function useVaultBalance() {
   return {
     shares,
     sharesRaw,
+    isLoading: !!address && stats.hasVault && isLoading,
     hasVaultPosition: sharesRaw !== undefined && sharesRaw > BigInt(0),
     khype: lpTokens.hype,
     usdc: lpTokens.usdc,
@@ -499,18 +616,18 @@ export type EpochCountdown = {
 
 export function computeEpochCountdown(now = Date.now(), claimOpenLabel: string): EpochCountdown {
   const nowJst = new Date(new Date(now).toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
-  const start = new Date(nowJst);
-  start.setHours(7, 0, 0, 0);
-  const end = new Date(nowJst);
-  end.setHours(9, 0, 0, 0);
+  const processingStart = new Date(nowJst);
+  processingStart.setHours(CASHDROP_JST.processingStartHour, 0, 0, 0);
+  const payoutTarget = new Date(nowJst);
+  payoutTarget.setHours(CASHDROP_JST.payoutHour, 0, 0, 0);
 
-  if (nowJst >= start && nowJst < end) {
+  if (nowJst >= processingStart && nowJst < payoutTarget) {
     return { h: 0, m: 0, s: 0, formatted: claimOpenLabel, isClaimWindow: true };
   }
 
-  let target = start;
-  if (nowJst >= end) {
-    target = new Date(start);
+  let target = payoutTarget;
+  if (nowJst >= payoutTarget) {
+    target = new Date(payoutTarget);
     target.setDate(target.getDate() + 1);
   }
 
@@ -543,28 +660,28 @@ export function useEpochCountdown() {
 }
 
 export function useCashdrop() {
-  const { address } = useConnection();
   const deployment = useDeployment();
-  const distribution = useMemo(() => {
-    if (!deployment?.airdropEntries || !address) return null;
-    const entry = deployment.airdropEntries.find((e) => e.address.toLowerCase() === address.toLowerCase());
-    return entry ? BigInt(entry.amount) : null;
-  }, [deployment, address]);
+  const { lastPayout, hasHistory, isLoading: payoutLoading } = useCashdropPayoutClaims();
 
-  const hasRewards = distribution !== null && distribution > 0n;
-  const availableUsdc = hasRewards ? formatUnits(distribution, 6) : "0.00";
+  const lastPayoutUsdc = lastPayout?.usdc ?? 0;
+  const hasRewards = hasHistory && lastPayoutUsdc > 0;
+  const availableUsdc = formatUsdcDisplay(lastPayoutUsdc);
+  const lastPayoutTxHash = lastPayout?.txHash ?? deployment?.lastCashdropDistribution?.txHash;
 
   return {
     hasDeployment: !!deployment,
     hasRewards,
     availableUsdc,
+    lastPayoutAt: lastPayout?.t ?? null,
+    lastPayoutTxHash,
     alreadyClaimed: false,
     expired: false,
     rootSet: !!deployment?.lastCashdropDistribution,
     claimDeadline: 0,
     claim: async () => {},
-    isPending: false,
+    isPending: payoutLoading,
     isSuccess: false,
     lastDistribution: deployment?.lastCashdropDistribution,
+    onChainPayout: !!lastPayout?.txHash,
   };
 }

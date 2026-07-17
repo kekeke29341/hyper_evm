@@ -3,7 +3,7 @@ import { parseAbiItem } from "viem";
 import { shortenAddress } from "@/lib/utils";
 
 export const refereeBoundEvent = parseAbiItem(
-  "event RefereeBound(address indexed referee, address indexed referrer, bytes32 code)"
+  "event RefereeBound(address indexed referee, address indexed referrer)"
 );
 
 async function fetchEventLogs(

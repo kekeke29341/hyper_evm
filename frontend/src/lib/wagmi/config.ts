@@ -1,8 +1,10 @@
 "use client";
 
-import { http, createConfig } from "wagmi";
+import { http, createConfig, type Transport } from "wagmi";
 import { defineChain } from "viem";
+import { arbitrum, base, mainnet, polygon } from "viem/chains";
 import { metaMask, walletConnect, injected } from "wagmi/connectors";
+import { httpTransportForChain } from "@/lib/wagmi/rpc";
 
 export const anvilLocal = defineChain({
   id: 31337,
@@ -45,7 +47,7 @@ export const hyperEvmMainnet = defineChain({
 
 const defaultChainId = Number(
   process.env.NEXT_PUBLIC_DEFAULT_CHAIN_ID ??
-    (process.env.NODE_ENV === "development" ? "31337" : "998")
+    (process.env.NODE_ENV === "development" ? "31337" : "999")
 );
 
 export const defaultChain =
@@ -61,11 +63,18 @@ export const defaultChain =
 export const includeAnvilChain =
   process.env.NODE_ENV === "development" && defaultChainId === anvilLocal.id;
 
-export const appChains = (
+/** Li.FI bridge source chains (Ethereum / L2s). Included in wagmi for approve + bridge txs. */
+export const bridgeSourceChains = [mainnet, arbitrum, base, polygon] as const;
+
+export const hyperpoolChains = (
   includeAnvilChain
     ? [anvilLocal, hyperEvmTestnet, hyperEvmMainnet]
     : [hyperEvmTestnet, hyperEvmMainnet]
-) as [typeof hyperEvmTestnet, typeof hyperEvmMainnet] | [typeof anvilLocal, typeof hyperEvmTestnet, typeof hyperEvmMainnet];
+) as
+  | [typeof hyperEvmTestnet, typeof hyperEvmMainnet]
+  | [typeof anvilLocal, typeof hyperEvmTestnet, typeof hyperEvmMainnet];
+
+export const appChains = [...bridgeSourceChains, ...hyperpoolChains] as const;
 
 const dappUrl = typeof window !== "undefined" ? window.location.origin : "https://www.prjx.com";
 const walletConnectProjectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? "";
@@ -91,9 +100,13 @@ const connectors = [
   injected({ shimDisconnect: true }),
 ];
 
-const transports: Record<number, ReturnType<typeof http>> = {
-  [hyperEvmTestnet.id]: http(),
-  [hyperEvmMainnet.id]: http(),
+const transports: Record<number, Transport> = {
+  [mainnet.id]: httpTransportForChain(mainnet.id),
+  [arbitrum.id]: httpTransportForChain(arbitrum.id),
+  [base.id]: httpTransportForChain(base.id),
+  [polygon.id]: httpTransportForChain(polygon.id),
+  [hyperEvmTestnet.id]: httpTransportForChain(hyperEvmTestnet.id),
+  [hyperEvmMainnet.id]: httpTransportForChain(hyperEvmMainnet.id),
 };
 if (includeAnvilChain) {
   transports[anvilLocal.id] = http();

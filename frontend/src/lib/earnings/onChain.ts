@@ -26,8 +26,15 @@ type LogScanPlan = { chunk: bigint; maxLookback: bigint; fastWindows: bigint[] }
 const LOG_SCAN_BY_CHAIN: Partial<Record<number, LogScanPlan>> = {
   // Chainlink testnet RPC rejects ranges > ~1k blocks — paginate in small chunks.
   998: { chunk: 1_000n, maxLookback: 200_000n, fastWindows: [10_000n, 5_000n, 2_000n] },
-  999: { chunk: 1_000n, maxLookback: 200_000n, fastWindows: [10_000n, 5_000n, 2_000n] },
+  // Mainnet RPC caps eth_getLogs to 1000 blocks per request.
+  999: { chunk: 100n, maxLookback: 5_000n, fastWindows: [1_000n, 500n] },
 };
+
+const CHUNK_DELAY_MS = 350;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 const DEFAULT_LOG_SCAN: LogScanPlan = {
   chunk: 5_000n,
@@ -100,10 +107,20 @@ async function getPayoutLogsInRange(
   fromBlock: bigint,
   toBlock: bigint
 ): Promise<CashdropPayoutLog[]> {
-  const [claimed, distributed] = await Promise.all([
-    getClaimedLogsInRange(publicClient, airdropAddress, account, fromBlock, toBlock).catch(() => []),
-    getDistributedLogsInRange(publicClient, airdropAddress, account, fromBlock, toBlock).catch(() => []),
-  ]);
+  const claimed = await getClaimedLogsInRange(
+    publicClient,
+    airdropAddress,
+    account,
+    fromBlock,
+    toBlock
+  ).catch(() => []);
+  const distributed = await getDistributedLogsInRange(
+    publicClient,
+    airdropAddress,
+    account,
+    fromBlock,
+    toBlock
+  ).catch(() => []);
   return [...claimed, ...distributed];
 }
 
@@ -154,10 +171,14 @@ async function fetchClaimedLogs(
         fromBlock,
         toBlock
       );
-      collected.push(...batch);
+      if (batch.length > 0) {
+        collected.push(...batch);
+        return dedupeLogs(collected);
+      }
     } catch {
       // Skip unreadable ranges; partial history is better than none.
     }
+    await sleep(CHUNK_DELAY_MS);
   }
 
   return dedupeLogs(collected);

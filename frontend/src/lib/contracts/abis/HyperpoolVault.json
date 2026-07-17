@@ -46,6 +46,11 @@
         "name": "_operatorWallet",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "_ownerFeeWallet",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "stateMutability": "nonpayable"
@@ -155,6 +160,13 @@
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "deployIdle",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -362,6 +374,32 @@
   },
   {
     "type": "function",
+    "name": "ownerFeeBps",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "ownerFeeWallet",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "pause",
     "inputs": [],
     "outputs": [],
@@ -488,6 +526,24 @@
   },
   {
     "type": "function",
+    "name": "setFeeSplit",
+    "inputs": [
+      {
+        "name": "operationsBps",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "ownerBps",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "setFeeSwapSlippageBps",
     "inputs": [
       {
@@ -528,6 +584,19 @@
   {
     "type": "function",
     "name": "setOperatorWallet",
+    "inputs": [
+      {
+        "name": "_wallet",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setOwnerFeeWallet",
     "inputs": [
       {
         "name": "_wallet",
@@ -833,6 +902,31 @@
   },
   {
     "type": "event",
+    "name": "FeeSplitUpdated",
+    "inputs": [
+      {
+        "name": "operationsBps",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "ownerBps",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "userBps",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "FeeSwapSlippageBpsUpdated",
     "inputs": [
       {
@@ -873,7 +967,19 @@
         "internalType": "uint256"
       },
       {
+        "name": "ownerUsdc",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
         "name": "operatorHype",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "ownerHype",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -914,6 +1020,25 @@
   },
   {
     "type": "event",
+    "name": "IdleDeployed",
+    "inputs": [
+      {
+        "name": "amountHype",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "amountUsdc",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "KeeperUpdated",
     "inputs": [
       {
@@ -928,6 +1053,19 @@
   {
     "type": "event",
     "name": "OperatorWalletUpdated",
+    "inputs": [
+      {
+        "name": "wallet",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OwnerFeeWalletUpdated",
     "inputs": [
       {
         "name": "wallet",

@@ -30,12 +30,13 @@ export async function ensureExactAllowance(
   })) as bigint;
 
   if (allowance < amount) {
-    await writeContract({
+    const hash = await writeContract({
       address: token,
       abi: erc20Abi,
       functionName: "approve",
       args: [spender, amount],
       ...(chainId !== undefined ? { chainId } : {}),
     });
+    await publicClient.waitForTransactionReceipt({ hash });
   }
 }

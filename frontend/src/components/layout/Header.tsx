@@ -49,7 +49,7 @@ export function Header({ activeTab }: { activeTab: TabId }) {
 
   return (
     <header className="sticky top-0 z-40 border-b border-zinc-800/80 bg-zinc-950/70 backdrop-blur-md safe-top">
-      <div className="max-w-6xl mx-auto px-4 py-2.5 md:py-3">
+      <div className="max-w-7xl mx-auto px-4 py-2.5 md:py-3">
         <div className="flex items-center gap-2 md:gap-3">
           <Link href="/" className="flex items-center gap-2 shrink-0 min-w-0 hover:opacity-90 transition-opacity">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 to-cyan-400 flex items-center justify-center shrink-0">
@@ -63,7 +63,7 @@ export function Header({ activeTab }: { activeTab: TabId }) {
             </div>
           </Link>
 
-          <div className="hidden md:flex items-center gap-1.5 shrink-0">
+          <div className="hidden 2xl:flex items-center gap-1.5 shrink-0">
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
               {t("header.phase2")}
             </span>
@@ -76,10 +76,17 @@ export function Header({ activeTab }: { activeTab: TabId }) {
             {TAB_IDS.map((id) => (
               <TabLink key={id} id={id} activeTab={activeTab} />
             ))}
+            <Link
+              href="/about"
+              prefetch
+              className="px-3 py-1.5 text-sm whitespace-nowrap rounded-md transition-colors shrink-0 text-zinc-400 hover:text-zinc-200"
+            >
+              About
+            </Link>
           </nav>
 
           <div className="flex items-center gap-1 shrink-0 ml-auto md:ml-0">
-            <div className="hidden sm:flex rounded-lg border border-zinc-800 overflow-hidden text-[10px]">
+            <div className="hidden 2xl:flex rounded-lg border border-zinc-800 overflow-hidden text-[10px]">
               <button
                 type="button"
                 onClick={() => setLocale("ja")}
@@ -152,6 +159,13 @@ export function Header({ activeTab }: { activeTab: TabId }) {
           {TAB_IDS.map((id) => (
             <TabLink key={id} id={id} activeTab={activeTab} className="text-xs px-3 py-2.5 min-h-[44px] snap-start" />
           ))}
+          <Link
+            href="/about"
+            prefetch
+            className="text-xs px-3 py-2.5 min-h-[44px] snap-start whitespace-nowrap rounded-md transition-colors shrink-0 text-zinc-400 hover:text-zinc-200"
+          >
+            About
+          </Link>
         </nav>
       </div>
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
