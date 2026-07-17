@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Daily harvest + Merkle Cashdrop — for Linux VPS cron.
-# Updates deployment JSON and pushes to origin when Merkle changes (Vercel redeploy).
+# Distribute phase only — VPS cron (JST 09:00). Pushes deployment JSON on success.
 # See docs/本番運用/vps-cron.md
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -8,11 +7,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/_vps-common.sh"
 cd "$ROOT"
 
-export DEPLOYMENT_CHAIN="${DEPLOYMENT_CHAIN:-998}"
+export DEPLOYMENT_CHAIN="${DEPLOYMENT_CHAIN:-999}"
 CHAIN="$DEPLOYMENT_CHAIN"
 HC_URL="${HEALTHCHECK_DAILY_URL:-}"
 
-export DAILY_REWARDS_PHASE="${DAILY_REWARDS_PHASE:-all}"
+export DAILY_REWARDS_PHASE=distribute
 run_with_healthcheck "$HC_URL" node "$ROOT/scripts/daily-rewards.mjs"
 
 DEPLOY_JSON=(
@@ -32,8 +31,9 @@ if ! git diff --quiet -- "${DEPLOY_JSON[@]}" 2>/dev/null; then
       curl -fsS -X POST "$VERCEL_DEPLOY_HOOK" >/dev/null \
         && echo "WARN: triggered Vercel deploy hook; JSON on main may still be stale until manual push."
     fi
-    exit 1
+    echo "WARN: distribute succeeded but git push failed — trigger Vercel manually if UI is stale." >&2
+    exit 0
   fi
 else
-  echo "No deployment JSON changes (pendingUserRewards may have been 0)."
+  echo "No deployment JSON changes."
 fi

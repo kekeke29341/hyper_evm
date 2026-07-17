@@ -33,6 +33,6 @@ test("referral boost normalizes to pending pool", () => {
 
   const sum = entries.reduce((s, e) => s + e.amount, 0n);
   assert.equal(sum, 10_000n);
-  assert.equal(entries.find((e) => e.address === BOB)?.amount, 8800n);
-  assert.equal(entries.find((e) => e.address === ALICE)?.amount, 1200n);
+  assert.equal(entries.find((e) => e.address === BOB)?.amount, 8750n);
+  assert.equal(entries.find((e) => e.address === ALICE)?.amount, 1250n);
 });

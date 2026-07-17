@@ -14,8 +14,9 @@ const RPC = process.env.TESTNET_RPC ?? "https://rpcs.chain.link/hyperevm/testnet
 const DEPOSIT_USDC = process.env.DEPOSIT_USDC ?? "0.03";
 const DEPOSIT_HYPE = process.env.DEPOSIT_HYPE ?? "0.01";
 const FEE_WHYPE = process.env.FEE_WHYPE ?? "0.001";
-const OPERATOR_FEE_BPS = 3300n;
-const USER_FEE_BPS = 6700n;
+const OPERATIONS_FEE_BPS = 700n;
+const OWNER_FEE_BPS = 3300n;
+const USER_FEE_BPS = 6000n;
 const BPS = 10_000n;
 const USDC_PER_HYPE_6DEC = 42_000_000n; // 42 USDC with 6 decimals
 
@@ -110,11 +111,13 @@ async function main() {
   console.log(`    Vault: ${vault}`);
   console.log(`    Wallet: ${account.address}`);
 
-  const [swapRouter, convertEnabled, operatorBps, operatorWallet] = await Promise.all([
+  const [swapRouter, convertEnabled, operatorBps, ownerBps, operatorWallet, ownerFeeWallet] = await Promise.all([
     publicClient.readContract({ address: vault, abi: vaultAbi, functionName: "swapRouter" }),
     publicClient.readContract({ address: vault, abi: vaultAbi, functionName: "convertHypeFeesToUsdc" }),
     publicClient.readContract({ address: vault, abi: vaultAbi, functionName: "operatorFeeBps" }),
+    publicClient.readContract({ address: vault, abi: vaultAbi, functionName: "ownerFeeBps" }),
     publicClient.readContract({ address: vault, abi: vaultAbi, functionName: "operatorWallet" }),
+    publicClient.readContract({ address: vault, abi: vaultAbi, functionName: "ownerFeeWallet" }),
   ]);
 
   if (swapRouter && swapRouter !== "0x0000000000000000000000000000000000000000") {
@@ -123,9 +126,15 @@ async function main() {
     fail("swapRouter configured", "missing");
   }
   convertEnabled ? ok("convertHypeFeesToUsdc", "true") : fail("convertHypeFeesToUsdc", "false");
-  operatorBps === OPERATOR_FEE_BPS
+  operatorBps === OPERATIONS_FEE_BPS
     ? ok("operatorFeeBps", String(operatorBps))
-    : fail("operatorFeeBps", `expected ${OPERATOR_FEE_BPS}, got ${operatorBps}`);
+    : fail("operatorFeeBps", `expected ${OPERATIONS_FEE_BPS}, got ${operatorBps}`);
+  ownerBps === OWNER_FEE_BPS
+    ? ok("ownerFeeBps", String(ownerBps))
+    : fail("ownerFeeBps", `expected ${OWNER_FEE_BPS}, got ${ownerBps}`);
+  ownerFeeWallet && ownerFeeWallet !== "0x0000000000000000000000000000000000000000"
+    ? ok("ownerFeeWallet", ownerFeeWallet)
+    : fail("ownerFeeWallet", "missing");
 
   let tokenId = await publicClient.readContract({
     address: adapter,
@@ -225,8 +234,9 @@ async function main() {
   ok("Fees accrued", `${FEE_WHYPE} WHYPE`);
 
   const feeUsdcTotal = (feeWhype * USDC_PER_HYPE_6DEC) / 10n ** 18n;
-  const expectedOperator = (feeUsdcTotal * OPERATOR_FEE_BPS) / BPS;
-  const expectedUser = feeUsdcTotal - expectedOperator;
+  const expectedOperator = (feeUsdcTotal * OPERATIONS_FEE_BPS) / BPS;
+  const expectedOwner = (feeUsdcTotal * OWNER_FEE_BPS) / BPS;
+  const expectedUser = feeUsdcTotal - expectedOperator - expectedOwner;
 
   const pendingBefore = await publicClient.readContract({
     address: vault,
@@ -239,6 +249,12 @@ async function main() {
     functionName: "balanceOf",
     args: [operatorWallet],
   });
+  const ownerUsdcBefore = await publicClient.readContract({
+    address: deployment.tokenUSDC,
+    abi: erc20Abi,
+    functionName: "balanceOf",
+    args: [ownerFeeWallet],
+  });
   const vaultWhypeBefore = await publicClient.readContract({
     address: deployment.tokenKHYPE,
     abi: erc20Abi,
@@ -246,7 +262,9 @@ async function main() {
     args: [vault],
   });
 
-  console.log(`\n[2/2] harvestFees (expect ~${formatUnits(expectedUser, 6)} USDC user / ${formatUnits(expectedOperator, 6)} operator)...`);
+  console.log(
+    `\n[2/2] harvestFees (expect ~${formatUnits(expectedUser, 6)} USDC user / ${formatUnits(expectedOperator, 6)} ops / ${formatUnits(expectedOwner, 6)} owner)...`
+  );
   const harvestHash = await walletClient.writeContract({
     address: vault,
     abi: vaultAbi,
@@ -266,6 +284,12 @@ async function main() {
     functionName: "balanceOf",
     args: [operatorWallet],
   });
+  const ownerUsdcAfter = await publicClient.readContract({
+    address: deployment.tokenUSDC,
+    abi: erc20Abi,
+    functionName: "balanceOf",
+    args: [ownerFeeWallet],
+  });
   const vaultWhypeAfter = await publicClient.readContract({
     address: deployment.tokenKHYPE,
     abi: erc20Abi,
@@ -275,6 +299,7 @@ async function main() {
 
   const pendingDelta = pendingAfter - pendingBefore;
   const opDelta = opUsdcAfter - opUsdcBefore;
+  const ownerDelta = ownerUsdcAfter - ownerUsdcBefore;
 
   pendingDelta === expectedUser
     ? ok("pendingUserRewards delta", `${formatUnits(pendingDelta, 6)} USDC`)
@@ -288,6 +313,13 @@ async function main() {
     : fail(
         "operator USDC delta",
         `expected ${formatUnits(expectedOperator, 6)}, got ${formatUnits(opDelta, 6)}`
+      );
+
+  ownerDelta === expectedOwner
+    ? ok("owner USDC delta", `${formatUnits(ownerDelta, 6)} USDC`)
+    : fail(
+        "owner USDC delta",
+        `expected ${formatUnits(expectedOwner, 6)}, got ${formatUnits(ownerDelta, 6)}`
       );
 
   vaultWhypeAfter === vaultWhypeBefore

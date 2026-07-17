@@ -7,12 +7,16 @@
 SHELL=/bin/bash
 PATH=/usr/local/bin:/usr/bin:/bin
 
-# Shareholder snapshot + harvest + Merkle (JST 07:00) — Testnet 998
-0 7 * * * TZ=Asia/Tokyo /path/hyper_evm/scripts/cron/run-daily-rewards-local.sh >> /tmp/hyperpool-daily.log 2>&1
+# Cashdrop harvest (JST 07:00) — Mainnet 999
+0 7 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=999 /path/hyper_evm/scripts/cron/run-daily-harvest-local.sh >> /tmp/hyperpool-daily.log 2>&1
+# Cashdrop distribute (JST 09:00) — share-seconds scan + auto payout
+0 9 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=999 /path/hyper_evm/scripts/cron/run-daily-distribute-local.sh >> /tmp/hyperpool-daily.log 2>&1
+# Retry if harvest overran 09:00 (pending file still present)
+30 9 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=999 /path/hyper_evm/scripts/cron/run-daily-distribute-local.sh >> /tmp/hyperpool-daily.log 2>&1
 
-# Keeper rebalance (every 6 hours; testnet uses SKIP_ORACLE=1 for Mock NPM)
-0 */6 * * * /path/hyper_evm/scripts/cron/run-keeper-local.sh >> /tmp/hyperpool-keeper.log 2>&1
+# Keeper rebalance (every 6 hours; mainnet uses HyperCore oracle)
+0 */6 * * * DEPLOYMENT_CHAIN=999 /path/hyper_evm/scripts/cron/run-keeper-local.sh >> /tmp/hyperpool-keeper.log 2>&1
 
-# Mainnet (999) — uncomment when cron env uses DEPLOYMENT_CHAIN=999 and SKIP_ORACLE unset:
-# 0 7 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=999 /path/hyper_evm/scripts/cron/run-daily-rewards-vps.sh >> /tmp/hyperpool-daily-mainnet.log 2>&1
-# 0 */6 * * * DEPLOYMENT_CHAIN=999 SKIP_ORACLE=0 /path/hyper_evm/scripts/cron/run-keeper-vps.sh >> /tmp/hyperpool-keeper-mainnet.log 2>&1
+# Testnet (998) — override chain when needed:
+# 0 7 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=998 /path/hyper_evm/scripts/cron/run-daily-rewards-local.sh >> /tmp/hyperpool-daily-testnet.log 2>&1
+# 0 */6 * * * DEPLOYMENT_CHAIN=998 /path/hyper_evm/scripts/cron/run-keeper-local.sh >> /tmp/hyperpool-keeper-testnet.log 2>&1

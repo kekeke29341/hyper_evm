@@ -7,11 +7,13 @@ MARKER_BEGIN="# >>> hyperpool cron begin >>>"
 MARKER_END="# <<< hyperpool cron end <<<"
 
 KEEPER="$ROOT/scripts/cron/run-keeper-local.sh"
+HARVEST="$ROOT/scripts/cron/run-daily-harvest-local.sh"
+DISTRIBUTE="$ROOT/scripts/cron/run-daily-distribute-local.sh"
 DAILY="$ROOT/scripts/cron/run-daily-rewards-local.sh"
 LOG_KEEPER="/tmp/hyperpool-keeper.log"
 LOG_DAILY="/tmp/hyperpool-daily.log"
 
-chmod +x "$KEEPER" "$DAILY" "$ROOT/scripts/cron/install-mac-crontab.sh"
+chmod +x "$KEEPER" "$HARVEST" "$DISTRIBUTE" "$DAILY" "$ROOT/scripts/cron/_cron-common.sh" "$ROOT/scripts/cron/install-mac-crontab.sh"
 
 if ! command -v node >/dev/null 2>&1; then
   echo "ERROR: node not found — install Node.js 20+"
@@ -32,10 +34,14 @@ BLOCK=$(cat <<EOF
 $MARKER_BEGIN
 SHELL=/bin/bash
 PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin
-# Daily Cashdrop (JST 07:00)
-0 7 * * * TZ=Asia/Tokyo $DAILY >> $LOG_DAILY 2>&1
-# Keeper rebalance (every 6 hours)
-0 */6 * * * $KEEPER >> $LOG_KEEPER 2>&1
+# Daily Cashdrop harvest — Mainnet 999 (JST 07:00)
+0 7 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=999 $HARVEST >> $LOG_DAILY 2>&1
+# Daily Cashdrop distribute — Mainnet 999 (JST 09:00, after harvest completes)
+0 9 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=999 $DISTRIBUTE >> $LOG_DAILY 2>&1
+# Retry distribute if harvest overran the 09:00 slot (pending file still present)
+30 9 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=999 $DISTRIBUTE >> $LOG_DAILY 2>&1
+# Keeper rebalance — Mainnet 999 (every 6 hours)
+0 */6 * * * DEPLOYMENT_CHAIN=999 $KEEPER >> $LOG_KEEPER 2>&1
 $MARKER_END
 EOF
 )
@@ -60,4 +66,6 @@ echo ""
 echo "Logs: $LOG_KEEPER , $LOG_DAILY"
 echo "Manual test:"
 echo "  $KEEPER"
-echo "  $DAILY"
+echo "  $HARVEST    # harvest only"
+echo "  $DISTRIBUTE # distribute only"
+echo "  $DAILY      # both phases (manual)"

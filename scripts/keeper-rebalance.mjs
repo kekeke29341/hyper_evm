@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 /**
- * Keeper: rebalance Project X LP position (+10% / -30% ticks).
+ * Keeper: rebalance Project X LP position (+10% / -17% ticks), then deploy vault idle to LP.
  * Uses HyperCore oracle when available; falls back to REF_PRICE_USDC6 env.
  *
  * Env: PRIVATE_KEY, RPC_URL, DEPLOYMENT_CHAIN=999|998
  *      REF_PRICE_USDC6 (optional override, 6-dec USDC per 1 HYPE)
  *      HYPE_ORACLE_ASSET_ID (default 159)
  *      SKIP_ORACLE=1 (use REF_PRICE only, for mock NPM testnet)
+ *      SKIP_DEPLOY_IDLE=1 (skip deployIdle after rebalance)
+ *      MIN_IDLE_DEPLOY_USDC (default 50 — skip deployIdle when idle value is below this)
  */
 import fs from "fs";
 import path from "path";
@@ -20,6 +22,18 @@ const RPC =
   (CHAIN === 998 ? "https://rpcs.chain.link/hyperevm/testnet" : "https://rpc.hyperliquid.xyz/evm");
 const HYPE_ORACLE_ASSET_ID = Number(process.env.HYPE_ORACLE_ASSET_ID ?? "159");
 const MAX_DEVIATION_BPS = Number(process.env.MAX_REBALANCE_DEVIATION_BPS ?? "500");
+const MIN_IDLE_DEPLOY_USDC = Number(process.env.MIN_IDLE_DEPLOY_USDC ?? "10");
+const SKIP_DEPLOY_IDLE = process.env.SKIP_DEPLOY_IDLE === "1";
+
+const ERC20_BALANCE_ABI = [
+  {
+    name: "balanceOf",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ type: "address" }],
+    outputs: [{ type: "uint256" }],
+  },
+];
 
 function loadEnv() {
   for (const f of [".env", ".env.local", ".env.testnet", ".env.mainnet"]) {
@@ -75,6 +89,96 @@ const walletClient = viem.createWalletClient({ account, chain, transport: viem.h
 const vault = deployment.hyperpoolVault ?? deployment.liquidityVault;
 const adapter = deployment.projectXAdapter;
 if (!vault) throw new Error("hyperpoolVault not in deployment JSON");
+
+async function readVaultIdleUsdc() {
+  const whype = deployment.tokenKHYPE;
+  const usdc = deployment.tokenUSDC;
+  if (!whype || !usdc) {
+    throw new Error("tokenKHYPE / tokenUSDC missing from deployment JSON");
+  }
+
+  const hypeBal = await publicClient.readContract({
+    address: whype,
+    abi: ERC20_BALANCE_ABI,
+    functionName: "balanceOf",
+    args: [vault],
+  });
+  const usdcBal = await publicClient.readContract({
+    address: usdc,
+    abi: ERC20_BALANCE_ABI,
+    functionName: "balanceOf",
+    args: [vault],
+  });
+  const pendingRewards = await publicClient.readContract({
+    address: vault,
+    abi: vaultAbi,
+    functionName: "pendingUserRewards",
+  });
+
+  let price = 0n;
+  if (adapter) {
+    price = await publicClient.readContract({
+      address: adapter,
+      abi: adapterAbi,
+      functionName: "currentPoolPriceUsdc6PerHype18",
+    });
+  }
+  if (!price || price === 0n) {
+    price = await publicClient.readContract({
+      address: vault,
+      abi: vaultAbi,
+      functionName: "oraclePriceUsdc6PerHype18",
+    });
+  }
+
+  const withdrawableUsdc = usdcBal > pendingRewards ? usdcBal - pendingRewards : 0n;
+  const hypeUsdc = price > 0n ? (hypeBal * price) / 10n ** 30n : 0n;
+  return {
+    hypeBal,
+    withdrawableUsdc,
+    totalUsdc: withdrawableUsdc + hypeUsdc,
+  };
+}
+
+async function maybeDeployIdle() {
+  if (SKIP_DEPLOY_IDLE) {
+    console.log("deployIdle: SKIP_DEPLOY_IDLE=1, skip");
+    return;
+  }
+
+  const idle = await readVaultIdleUsdc();
+  const idleUsdcHuman = Number(idle.totalUsdc) / 1e6;
+  console.log("Vault idle:", {
+    khype: idle.hypeBal.toString(),
+    usdc: idle.withdrawableUsdc.toString(),
+    totalUsdcApprox: idleUsdcHuman.toFixed(6),
+  });
+
+  if (idle.hypeBal === 0n && idle.withdrawableUsdc === 0n) {
+    console.log("deployIdle: no vault idle, skip");
+    return;
+  }
+
+  if (idleUsdcHuman < MIN_IDLE_DEPLOY_USDC) {
+    console.log(
+      `deployIdle: idle ~${idleUsdcHuman.toFixed(2)} USDC < min ${MIN_IDLE_DEPLOY_USDC}, skip`
+    );
+    return;
+  }
+
+  try {
+    const hash = await walletClient.writeContract({
+      address: vault,
+      abi: vaultAbi,
+      functionName: "deployIdle",
+    });
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    console.log("deployIdle tx", receipt.transactionHash);
+  } catch (err) {
+    const msg = err?.shortMessage ?? err?.message ?? String(err);
+    console.warn("deployIdle failed (rebalance already succeeded):", msg);
+  }
+}
 
 let refPrice = null;
 
@@ -147,3 +251,5 @@ if (adapter) {
   });
   console.log("ticks:", { tickLower, tickUpper });
 }
+
+await maybeDeployIdle();

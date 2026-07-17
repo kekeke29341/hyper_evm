@@ -16,7 +16,8 @@ import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 
 import { buildCashdropEntries, fetchReferrerMap } from "./lib/referral-allocation.mjs";
-import { sumEligibleShares, syncVaultShareHolders } from "./lib/sync-shareholders.mjs";
+import { assertShareholderSyncComplete, sumEligibleShares, syncVaultShareHolders } from "./lib/sync-shareholders.mjs";
+import { parseExtraAddresses, rpcUrlsForChain } from "./lib/rpc-logs.mjs";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CHAIN = Number(process.env.DEPLOYMENT_CHAIN ?? "999");
@@ -145,6 +146,7 @@ async function snapshotHoldersDirect() {
 }
 
 console.log(SKIP_SYNC ? "Snapshotting holders (SKIP_SYNC, no log scan)..." : "Syncing vaultShareHolders...");
+const extraHolders = parseExtraAddresses(account.address, process.env.EXTRA_HOLDERS);
 const holders = SKIP_SYNC
   ? await snapshotHoldersDirect()
   : await syncVaultShareHolders({
@@ -154,10 +156,11 @@ const holders = SKIP_SYNC
       publicClient,
       vault,
       vaultAbi,
-      extraAddresses: [account.address],
+      extraAddresses: extraHolders,
     });
 if (!holders.length) throw new Error("No vaultShareHolders — deposit to Vault first");
 holders.forEach((h) => console.log(`    ${h.address}: ${h.shares} shares`));
+await assertShareholderSyncComplete({ publicClient, vault, vaultAbi, holders });
 
 const operatorBefore = await publicClient.readContract({
   address: deployment.tokenUSDC,
@@ -168,7 +171,7 @@ const operatorBefore = await publicClient.readContract({
 
 let pending = 0n;
 if (RUN_HARVEST) {
-  console.log("Running harvestFees (operator 33% sent immediately on non-zero fees)...");
+  console.log("Running harvestFees (7% ops + 33% owner sent immediately on non-zero fees)...");
   const harvestHash = await walletClient.writeContract({
     address: vault,
     abi: vaultAbi,
@@ -192,7 +195,7 @@ const operatorAfterHarvest = await publicClient.readContract({
 });
 const operatorFeeDelta = operatorAfterHarvest - operatorBefore;
 if (operatorFeeDelta > 0n) {
-  console.log(`    operator USDC +${formatUnits(operatorFeeDelta, 6)} (33% fee share)`);
+  console.log(`    operator USDC +${formatUnits(operatorFeeDelta, 6)} (7% ops fee share)`);
 }
 
 let smokeFunded = false;

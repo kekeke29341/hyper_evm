@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Daily harvest + Merkle Cashdrop — for local Mac cron.
-# Updates deployment JSON and pushes to origin when Merkle changes (Vercel redeploy).
+# Daily harvest + Merkle Cashdrop (both phases) — manual / legacy single-shot run.
+# Cron uses run-daily-harvest-local.sh (07:00) + run-daily-distribute-local.sh (08:00).
 # See docs/本番運用/local-mac-cron.md
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -8,30 +8,16 @@ cd "$ROOT"
 
 # shellcheck disable=SC1091
 source "$ROOT/scripts/testnet-env.sh"
+# shellcheck disable=SC1091
+source "$ROOT/scripts/cron/_cron-common.sh"
 
-export DEPLOYMENT_CHAIN="${DEPLOYMENT_CHAIN:-998}"
+export DEPLOYMENT_CHAIN="${DEPLOYMENT_CHAIN:-999}"
 CHAIN="$DEPLOYMENT_CHAIN"
+configure_mainnet_cashdrop_env
 
+trap 'status=$?; [[ $status -ne 0 ]] && cron_failure_notify "daily-rewards" "$status"; exit $status' EXIT
+
+export DAILY_REWARDS_PHASE="${DAILY_REWARDS_PHASE:-all}"
 node "$ROOT/scripts/daily-rewards.mjs"
 
-DEPLOY_JSON=(
-  "$ROOT/contracts/deployments/${CHAIN}.json"
-  "$ROOT/frontend/src/lib/contracts/deployments/${CHAIN}.json"
-)
-
-if ! git diff --quiet -- "${DEPLOY_JSON[@]}" 2>/dev/null; then
-  git add "${DEPLOY_JSON[@]}"
-  git commit -m "chore(cron): update Cashdrop merkle for chain ${CHAIN}"
-  if git push origin HEAD; then
-    echo "Pushed deployment JSON — Vercel will redeploy from main."
-  else
-    echo "ERROR: git push failed — deployment JSON updated locally only." >&2
-    if [[ -n "${VERCEL_DEPLOY_HOOK:-}" ]]; then
-      curl -fsS -X POST "$VERCEL_DEPLOY_HOOK" >/dev/null \
-        && echo "WARN: triggered Vercel deploy hook; JSON on main may still be stale until manual push."
-    fi
-    exit 1
-  fi
-else
-  echo "No deployment JSON changes (pendingUserRewards may have been 0)."
-fi
+push_deployment_json_if_changed "$ROOT" "$CHAIN"

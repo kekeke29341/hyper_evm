@@ -13,11 +13,13 @@ MARKER_BEGIN="# >>> hyperpool vps cron begin >>>"
 MARKER_END="# <<< hyperpool vps cron end <<<"
 
 KEEPER="$ROOT/scripts/cron/run-keeper-vps.sh"
+HARVEST="$ROOT/scripts/cron/run-daily-harvest-vps.sh"
+DISTRIBUTE="$ROOT/scripts/cron/run-daily-distribute-vps.sh"
 DAILY="$ROOT/scripts/cron/run-daily-rewards-vps.sh"
 LOG_KEEPER="$LOG_DIR/keeper.log"
 LOG_DAILY="$LOG_DIR/daily.log"
 
-chmod +x "$KEEPER" "$DAILY" "$ROOT/scripts/cron/_vps-common.sh" "$ROOT/scripts/cron/install-vps-crontab.sh"
+chmod +x "$KEEPER" "$HARVEST" "$DISTRIBUTE" "$DAILY" "$ROOT/scripts/cron/_vps-common.sh" "$ROOT/scripts/cron/install-vps-crontab.sh"
 
 if ! command -v node >/dev/null 2>&1; then
   echo "ERROR: node not found — install Node.js 20+"
@@ -43,8 +45,12 @@ PATH=/usr/local/bin:/usr/bin:/bin
 HYPERPOOL_ROOT=$ROOT
 HYPERPOOL_ENV_FILE=$ENV_FILE
 HYPERPOOL_LOG_DIR=$LOG_DIR
-# Daily Cashdrop (JST 07:00)
-0 7 * * * TZ=Asia/Tokyo $DAILY >> $LOG_DAILY 2>&1
+# Daily Cashdrop harvest (JST 07:00)
+0 7 * * * TZ=Asia/Tokyo $HARVEST >> $LOG_DAILY 2>&1
+# Daily Cashdrop distribute (JST 09:00)
+0 9 * * * TZ=Asia/Tokyo $DISTRIBUTE >> $LOG_DAILY 2>&1
+# Retry distribute if harvest overran 09:00
+30 9 * * * TZ=Asia/Tokyo $DISTRIBUTE >> $LOG_DAILY 2>&1
 # Keeper rebalance (every 6 hours)
 0 */6 * * * $KEEPER >> $LOG_KEEPER 2>&1
 $MARKER_END

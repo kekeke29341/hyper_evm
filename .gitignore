@@ -30,8 +30,16 @@ contracts/.anvil.pid
 frontend/.env.local
 frontend/.env.production
 
+# Pending Cashdrop state between harvest / distribute cron phases
+contracts/deployments/.pending-cashdrop-*.json
+
 # Logs & OS
 *.log
+
+# Sales material binaries (internal deck / third-party samples) — keep out of the repo
+docs/sales_documents/*.pptx
+docs/sales_documents/*.pdf
+
 .DS_Store
 **/.DS_Store
 
@@ -50,5 +58,4 @@ frontend/tsconfig.tsbuildinfo
 
 # Foundry
 contracts/cache/
-.vercel
 .env*
