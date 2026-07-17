@@ -89,6 +89,9 @@ Mainnet のトランザクション・コントラクト・残高確認は **Hyp
 - ユーザーへの **Mainnet 確認リンクは HyperEVMScan** を出す（Purrsec Mainnet を案内しない）
 - アプリ内 explorer URL も Mainnet は `https://hyperevmscan.io`（`frontend/src/lib/explorer.ts`）
 - HyperEVMScan の **Token Holdings** は Vault コントラクト上の **idle トークンのみ**表示。LP 本体は Adapter の NPM ポジション側（`totalAssetsUsdc` が正しい NAV）
+- RPC で Mainnet を確認するときは **rate limit 前提でゆっくり読む**。`Promise.all` で大量 read / 広範囲 `eth_getLogs` を並列実行しない。
+- `eth_getLogs` は原則 `scripts/lib/rpc-logs.mjs` の `scanLogs` を使い、100〜500 block 程度の小分け・800ms 以上の delay・retry / RPC failover を入れる。
+- 単発 read も多数ある場合は 1 件ずつ 500〜1000ms 以上空ける。rate limit が出たら即リトライを連発せず、少なくとも 30〜60 秒待ってから再開する。
 
 ### 旧 Vault 確認用（2026-06 時点・アプリ本番）
 

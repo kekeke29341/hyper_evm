@@ -37,8 +37,31 @@ cd /path/to/hyper_evm
 
 | 時刻 | スクリプト | 処理 |
 |------|-----------|------|
-| 毎日 JST 7:00 | `run-daily-rewards-local.sh` | harvest → 67%ユーザー配分 → distributeRewards 自動送金 → JSON push |
+| 毎日 JST 7:00 | `run-daily-harvest-local.sh` | 株主 sync → harvest（手数料回収） |
+| 毎日 JST 9:00 / 9:30 | `run-daily-distribute-local.sh` | share-seconds 計算 → distributeRewards 自動送金 → JSON push（9:30 は取りこぼし再試行） |
 | 6 時間ごと | `run-keeper-local.sh` | LP リバランス (+10% / −30%) |
+
+7:00 harvest と 9:00 distribute に分け、9:30 に再試行を入れることで、初回フルスキャンや RPC 遅延で harvest が長引いても distribute がスキップされにくくします。
+
+手動で一括実行する場合:
+
+```bash
+./scripts/cron/run-daily-rewards-local.sh   # harvest + distribute 連続
+```
+
+## RPC チューニング（Mainnet 999）
+
+| 環境変数 | 公開 RPC | 専用 RPC（`MAINNET_RPC`） |
+|----------|----------|---------------------------|
+| `LOG_CHUNK_SIZE` | 100 | 500 |
+| `LOG_CHUNK_DELAY_MS` | 800 | 300 |
+| `SKIP_LOG_SCAN` | 1（既知ホルダー） | 1 |
+
+`MAINNET_RPC` を `.env.mainnet` に設定すると自動で大きいチャンクを使います。株主 discovery は checkpoint 以降の増分スキャン + 既知アドレスの `balanceOf` です。
+
+## 失敗通知
+
+Mac では cron 失敗時にデスクトップ通知（`CRON_MACOS_NOTIFY=1`、デフォルト有効）。`/tmp/hyperpool-daily.log` も確認してください。
 
 ログ:
 

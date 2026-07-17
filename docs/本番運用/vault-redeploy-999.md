@@ -2,7 +2,7 @@
 
 2026-06-30 に `MigratePool3000.s.sol` で新 Vault スタックをオンチェーンデプロイ済み。**手数料 7% 運営 / 60% ユーザー / 33% オーナー** が有効。
 
-> **アプリのコントラクトアドレスは未切替**（2026-06-30 時点）。本番 UI は旧 Vault `0xe5f4…` を参照。日時・アドレスの正本は [contract-address-changelog.md](./contract-address-changelog.md)。
+> **アプリ切替済み**（2026-07-02）。本番 UI は新 Vault `0xF749…` を参照。旧 Vault `0xe5f4…` は **paused**。日時・アドレスの正本は [contract-address-changelog.md](./contract-address-changelog.md)。
 
 ## コントラクトアドレス
 
@@ -63,7 +63,7 @@ node scripts/sync-abi.mjs
 4. keeper が `rebalance`（または `scripts/keeper-rebalance.mjs`）
 5. 全員移行後、旧 Vault を `pause()`（`complete-pool-3000-migration.mjs`）
 
-**2026-06-30 時点:** 旧 Vault に約 64.9M シェア（`0xf35208bf…`）が残存。新 Vault の `totalSupply` は 0。
+**2026-07-02 時点:** 大口ホルダー引出し完了。旧 Vault **paused**。新 Vault `totalSupply` は 0（初回 deposit 待ち — 運営 smoke は ≥0.07 USDC 推奨）。
 
 ## 運営手数料の引出し
 
