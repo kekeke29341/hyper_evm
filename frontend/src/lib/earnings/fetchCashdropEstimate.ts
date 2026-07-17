@@ -179,6 +179,12 @@ export async function fetchCashdropEstimate(params: {
   userAddress: Address;
   rpcUrls?: string[];
   scanOptions?: { chunkSize?: bigint; delayMs?: number };
+  /**
+   * "time-weighted" replays every Transfer in the period (needs a full log
+   * scan); "snapshot" weights current balances over the elapsed period —
+   * no eth_getLogs, so it fits serverless time limits on any RPC.
+   */
+  weighting?: "time-weighted" | "snapshot";
   previousUncollectedGrossUsdc6?: bigint;
   previousSyncedAtMs?: number;
 }): Promise<CashdropEstimateSnapshot | null> {
@@ -191,33 +197,60 @@ export async function fetchCashdropEstimate(params: {
   const deployBlockData = await publicClient.getBlock({ blockNumber: deployBlock });
   const period = resolveWeightingPeriod(chainId, deployment, Number(deployBlockData.timestamp));
 
-  const logs = await scanVaultTransferLogs(
-    publicClient,
-    vault,
-    period.fromBlock > latestBlock ? latestBlock : period.fromBlock,
-    latestBlock,
-    { rpcUrls, ...scanOptions }
-  );
-
-  const blockTimestamps = new Map<string, number>();
-  for (const log of logs) {
-    const key = log.blockNumber.toString();
-    if (!blockTimestamps.has(key)) {
-      const block = await publicClient.getBlock({ blockNumber: log.blockNumber });
-      blockTimestamps.set(key, Number(block.timestamp));
-    }
-  }
-
   const latestBlockData = await publicClient.getBlock({ blockNumber: latestBlock });
   const periodEndTimestamp = Number(latestBlockData.timestamp);
 
-  const transfers = transfersFromLogs(logs, blockTimestamps);
-  const { holders: weightedHolders, totalWeight } = weightedHoldersFromTransfers({
-    periodStartTimestamp: period.periodStartTimestamp,
-    periodEndTimestamp,
-    initialBalances: period.initialBalances,
-    transfers,
-  });
+  let weightedHolders: { address: Address; shares: bigint }[];
+  let totalWeight: bigint;
+
+  if (params.weighting === "snapshot") {
+    const elapsedSec = BigInt(Math.max(1, periodEndTimestamp - period.periodStartTimestamp));
+    const candidates = new Set<string>(Object.keys(period.initialBalances).map((a) => a.toLowerCase()));
+    for (const h of deployment.vaultShareHolders ?? []) candidates.add(h.address.toLowerCase());
+    candidates.add(userAddress.toLowerCase());
+    candidates.delete(zeroAddress);
+    candidates.delete(DEAD.toLowerCase());
+
+    weightedHolders = [];
+    totalWeight = 0n;
+    for (const addr of candidates) {
+      const balance = (await publicClient.readContract({
+        address: vault,
+        abi: abis.vault,
+        functionName: "balanceOf",
+        args: [getAddress(addr)],
+      })) as bigint;
+      if (balance === 0n) continue;
+      const weight = balance * elapsedSec;
+      weightedHolders.push({ address: getAddress(addr), shares: weight });
+      totalWeight += weight;
+    }
+  } else {
+    const logs = await scanVaultTransferLogs(
+      publicClient,
+      vault,
+      period.fromBlock > latestBlock ? latestBlock : period.fromBlock,
+      latestBlock,
+      { rpcUrls, ...scanOptions }
+    );
+
+    const blockTimestamps = new Map<string, number>();
+    for (const log of logs) {
+      const key = log.blockNumber.toString();
+      if (!blockTimestamps.has(key)) {
+        const block = await publicClient.getBlock({ blockNumber: log.blockNumber });
+        blockTimestamps.set(key, Number(block.timestamp));
+      }
+    }
+
+    const transfers = transfersFromLogs(logs, blockTimestamps);
+    ({ holders: weightedHolders, totalWeight } = weightedHoldersFromTransfers({
+      periodStartTimestamp: period.periodStartTimestamp,
+      periodEndTimestamp,
+      initialBalances: period.initialBalances,
+      transfers,
+    }));
+  }
 
   if (totalWeight === 0n) return null;
 

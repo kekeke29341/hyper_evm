@@ -4,27 +4,20 @@ import { checkRateLimit, clientIp } from "@/lib/api/rateLimit";
 import { getDeployment } from "@/lib/contracts";
 import { fetchCashdropEstimate } from "@/lib/earnings/fetchCashdropEstimate";
 
-// The weighting-period log scan grows to a full day of blocks before each
-// harvest; the default serverless limit times out mid-scan.
 export const maxDuration = 60;
 
-const OFFICIAL_MAINNET_RPC = "https://rpc.hyperliquid.xyz/evm";
-
-// Base transport for regular calls (blockNumber/getBlock/readContract). Gateways
-// like drpc only expose eth_getLogs on their free tier, so never use the logs
-// RPC here.
+// Full-method base RPC only. The estimate uses snapshot weighting (balanceOf
+// over known holders), so no eth_getLogs and no dedicated logs RPC is needed;
+// public gateways (drpc free tier) reject basic methods and must not be used
+// as the transport.
 const RPC_BY_CHAIN: Record<number, string[]> = {
   998: [
     process.env.TESTNET_RPC ?? "https://rpcs.chain.link/hyperevm/testnet",
     "https://rpc.hyperliquid-testnet.xyz/evm",
   ],
-  999: [OFFICIAL_MAINNET_RPC],
+  999: ["https://rpc.hyperliquid.xyz/evm"],
   31337: [process.env.RPC_URL ?? "http://127.0.0.1:8545"],
 };
-
-// Dedicated eth_getLogs RPC — the official RPC caps ranges/rates too hard for a
-// full weighting-period scan to fit inside maxDuration.
-const MAINNET_LOGS_RPC = process.env.MAINNET_LOGS_RPC ?? process.env.MAINNET_RPC;
 
 export async function GET(req: NextRequest) {
   const ip = clientIp(req);
@@ -70,13 +63,8 @@ export async function GET(req: NextRequest) {
       deployment,
       chainId,
       userAddress: getAddress(addressParam),
-      rpcUrls: chainId === 999 && MAINNET_LOGS_RPC ? [MAINNET_LOGS_RPC] : rpcUrls,
-      // A dedicated logs RPC takes ~1000-block chunks with minimal delay so the
-      // scan fits inside maxDuration; the official RPC needs the slow default.
-      scanOptions:
-        chainId === 999 && MAINNET_LOGS_RPC
-          ? { chunkSize: 1000n, delayMs: 150 }
-          : undefined,
+      rpcUrls,
+      weighting: "snapshot",
     });
 
     if (!snapshot) {
