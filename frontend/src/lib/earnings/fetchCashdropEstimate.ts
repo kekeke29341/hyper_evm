@@ -178,10 +178,11 @@ export async function fetchCashdropEstimate(params: {
   chainId: number;
   userAddress: Address;
   rpcUrls?: string[];
+  scanOptions?: { chunkSize?: bigint; delayMs?: number };
   previousUncollectedGrossUsdc6?: bigint;
   previousSyncedAtMs?: number;
 }): Promise<CashdropEstimateSnapshot | null> {
-  const { publicClient, deployment, chainId, userAddress, rpcUrls } = params;
+  const { publicClient, deployment, chainId, userAddress, rpcUrls, scanOptions } = params;
   const vault = getVaultAddress(deployment);
   if (!vault) return null;
 
@@ -195,7 +196,7 @@ export async function fetchCashdropEstimate(params: {
     vault,
     period.fromBlock > latestBlock ? latestBlock : period.fromBlock,
     latestBlock,
-    { rpcUrls }
+    { rpcUrls, ...scanOptions }
   );
 
   const blockTimestamps = new Map<string, number>();

@@ -4,6 +4,8 @@ import { checkRateLimit, clientIp } from "@/lib/api/rateLimit";
 import { getDeployment } from "@/lib/contracts";
 import { fetchPayoutClaims } from "@/lib/earnings/fetchPayoutClaims";
 
+export const maxDuration = 60;
+
 const RPC_BY_CHAIN: Record<number, string[]> = {
   998: [
     process.env.TESTNET_RPC ?? "https://rpcs.chain.link/hyperevm/testnet",

@@ -4,6 +4,12 @@ import { checkRateLimit, clientIp } from "@/lib/api/rateLimit";
 import { getDeployment } from "@/lib/contracts";
 import { fetchCashdropEstimate } from "@/lib/earnings/fetchCashdropEstimate";
 
+// The weighting-period log scan grows to a full day of blocks before each
+// harvest; the default serverless limit times out mid-scan.
+export const maxDuration = 60;
+
+const OFFICIAL_MAINNET_RPC = "https://rpc.hyperliquid.xyz/evm";
+
 const RPC_BY_CHAIN: Record<number, string[]> = {
   998: [
     process.env.TESTNET_RPC ?? "https://rpcs.chain.link/hyperevm/testnet",
@@ -61,13 +67,21 @@ export async function GET(req: NextRequest) {
       chainId,
       userAddress: getAddress(addressParam),
       rpcUrls,
+      // Official RPC caps eth_getLogs hard; a dedicated RPC takes ~1000-block
+      // chunks with minimal delay so the scan fits inside maxDuration.
+      scanOptions:
+        rpcUrls[0] === OFFICIAL_MAINNET_RPC
+          ? undefined
+          : { chunkSize: 1000n, delayMs: 150 },
     });
 
     if (!snapshot) {
       return NextResponse.json({ error: "No vault position for this period" }, { status: 404 });
     }
 
-    return NextResponse.json(snapshot);
+    return NextResponse.json(snapshot, {
+      headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" },
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Estimate failed";
     return NextResponse.json({ error: message }, { status: 500 });
