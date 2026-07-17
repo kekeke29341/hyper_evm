@@ -11,10 +11,9 @@ const RPC_BY_CHAIN: Record<number, string[]> = {
     process.env.TESTNET_RPC ?? "https://rpcs.chain.link/hyperevm/testnet",
     "https://rpc.hyperliquid-testnet.xyz/evm",
   ],
-  999: [
-    process.env.MAINNET_RPC ?? process.env.RPC_URL ?? "https://rpc.hyperliquid.xyz/evm",
-    "https://hyperliquid.drpc.org",
-  ],
+  // Full-method base RPC only — logs gateways (drpc free tier) reject
+  // eth_getTransactionReceipt, so MAINNET_RPC must not override this.
+  999: ["https://rpc.hyperliquid.xyz/evm"],
   31337: [process.env.RPC_URL ?? "http://127.0.0.1:8545"],
 };
 

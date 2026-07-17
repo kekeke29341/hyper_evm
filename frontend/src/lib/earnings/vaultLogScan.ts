@@ -43,7 +43,6 @@ export async function scanVaultTransferLogs(
 
   let start = fromBlock;
   let chunk = chunkSize;
-  let clientIndex = 0;
 
   const { createPublicClient, http } = await import("viem");
   const clients: PublicClient[] = [publicClient];
@@ -52,6 +51,9 @@ export async function scanVaultTransferLogs(
       clients.push(createPublicClient({ chain: publicClient.chain, transport: http(url) }));
     }
   }
+  // Explicit rpcUrls are dedicated log RPCs — prefer them and keep the base
+  // client as the rotation fallback.
+  let clientIndex = clients.length > 1 ? 1 : 0;
 
   while (start <= toBlock) {
     const end = start + chunk - 1n > toBlock ? toBlock : start + chunk - 1n;

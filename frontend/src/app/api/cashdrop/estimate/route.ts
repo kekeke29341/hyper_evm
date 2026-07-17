@@ -10,17 +10,21 @@ export const maxDuration = 60;
 
 const OFFICIAL_MAINNET_RPC = "https://rpc.hyperliquid.xyz/evm";
 
+// Base transport for regular calls (blockNumber/getBlock/readContract). Gateways
+// like drpc only expose eth_getLogs on their free tier, so never use the logs
+// RPC here.
 const RPC_BY_CHAIN: Record<number, string[]> = {
   998: [
     process.env.TESTNET_RPC ?? "https://rpcs.chain.link/hyperevm/testnet",
     "https://rpc.hyperliquid-testnet.xyz/evm",
   ],
-  999: [
-    process.env.MAINNET_RPC ?? process.env.RPC_URL ?? "https://rpc.hyperliquid.xyz/evm",
-    "https://hyperliquid.drpc.org",
-  ],
+  999: [OFFICIAL_MAINNET_RPC],
   31337: [process.env.RPC_URL ?? "http://127.0.0.1:8545"],
 };
+
+// Dedicated eth_getLogs RPC — the official RPC caps ranges/rates too hard for a
+// full weighting-period scan to fit inside maxDuration.
+const MAINNET_LOGS_RPC = process.env.MAINNET_LOGS_RPC ?? process.env.MAINNET_RPC;
 
 export async function GET(req: NextRequest) {
   const ip = clientIp(req);
@@ -66,13 +70,13 @@ export async function GET(req: NextRequest) {
       deployment,
       chainId,
       userAddress: getAddress(addressParam),
-      rpcUrls,
-      // Official RPC caps eth_getLogs hard; a dedicated RPC takes ~1000-block
-      // chunks with minimal delay so the scan fits inside maxDuration.
+      rpcUrls: chainId === 999 && MAINNET_LOGS_RPC ? [MAINNET_LOGS_RPC] : rpcUrls,
+      // A dedicated logs RPC takes ~1000-block chunks with minimal delay so the
+      // scan fits inside maxDuration; the official RPC needs the slow default.
       scanOptions:
-        rpcUrls[0] === OFFICIAL_MAINNET_RPC
-          ? undefined
-          : { chunkSize: 1000n, delayMs: 150 },
+        chainId === 999 && MAINNET_LOGS_RPC
+          ? { chunkSize: 1000n, delayMs: 150 }
+          : undefined,
     });
 
     if (!snapshot) {
