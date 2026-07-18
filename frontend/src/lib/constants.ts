@@ -10,7 +10,12 @@ export const TAB_IDS: TabId[] = ["dashboard", "deposit", "liquidity", "cashdrop"
 
 export { BRIDGE_CHAINS, CHAINS, EVM_BRIDGE_CHAINS } from "@/lib/lifi/config";
 
-/** Project X WHYPE/USDC 0.3% pool — reference metrics (GeckoTerminal, 2026-06) */
+/**
+ * Project X WHYPE/USDC 0.3% pool.
+ * APR/TVL/volume are shown from the live `/api/pool-apr` route (GeckoTerminal, 10 min cache);
+ * the values here are static fallbacks only (snapshot 2026-06) used when the API is down.
+ * Net APR = pool APR × userShareBps (7/60/33 harvest split) — no concentration multiplier.
+ */
 export const PROJECT_X_POOL = {
   id: "whype-usdc-030",
   pair: "HYPE/USDC",
@@ -18,8 +23,8 @@ export const PROJECT_X_POOL = {
   feeTier: "0.3%",
   referenceApr: "64%",
   referenceAprNum: 64,
-  netAprEstimate: "57%",
-  netAprNum: 57,
+  netAprEstimate: "38%",
+  netAprNum: 38,
   userShareBps: 6000,
   operatorShareBps: 700,
   ownerShareBps: 3300,
@@ -27,8 +32,6 @@ export const PROJECT_X_POOL = {
   volume24h: "$23M",
   upperRangePct: 10,
   lowerRangePct: 17,
-  /** Legacy +10% / −30% width — used to scale displayed APR when range narrows */
-  aprBaselineWidthPct: 40,
 } as const;
 
 /** Managed LP range — fixed for all users (no per-user selection) */

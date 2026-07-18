@@ -513,6 +513,19 @@
   },
   {
     "type": "function",
+    "name": "selfHarvestFees",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "userUsdc",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "setConvertHypeFeesToUsdc",
     "inputs": [
       {

@@ -151,12 +151,15 @@ contract MockProjectXNPM is ERC721, IProjectXNPM {
 
     function collect(CollectParams calldata params) external payable returns (uint256 amount0, uint256 amount1) {
         Position storage p = storedPositions[params.tokenId];
-        amount0 = p.tokensOwed0;
-        amount1 = p.tokensOwed1;
+        // Respect the caller's caps like the real NPM: collecting less than tokensOwed
+        // leaves the remainder on the position (this is how fees were stranded on
+        // abandoned NFTs when rebalance collected only the decreaseLiquidity principal).
+        amount0 = p.tokensOwed0 > params.amount0Max ? params.amount0Max : p.tokensOwed0;
+        amount1 = p.tokensOwed1 > params.amount1Max ? params.amount1Max : p.tokensOwed1;
         if (amount0 > 0) IERC20(p.token0).safeTransfer(params.recipient, amount0);
         if (amount1 > 0) IERC20(p.token1).safeTransfer(params.recipient, amount1);
-        p.tokensOwed0 = 0;
-        p.tokensOwed1 = 0;
+        p.tokensOwed0 -= uint128(amount0);
+        p.tokensOwed1 -= uint128(amount1);
     }
 
     function positions(uint256 tokenId)

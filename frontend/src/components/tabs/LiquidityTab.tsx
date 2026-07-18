@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Plus, Droplets } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { useI18n } from "@/lib/i18n";
-import { POOLS, PROJECT_X_POOL } from "@/lib/constants";
+import { POOLS } from "@/lib/constants";
 import { VaultPanel } from "@/components/position/VaultPanel";
 import { RebalanceHistoryPanel } from "@/components/position/RebalanceHistoryPanel";
 import { ActivePositionPanel } from "@/components/position/ActivePositionPanel";
@@ -24,6 +24,7 @@ import {
 } from "@/lib/hooks/useDeFi";
 import { useEffectiveChainId } from "@/lib/hooks/useEffectiveChainId";
 import { useAlternateChainVaultBalance } from "@/lib/hooks/useAlternateChainVaultBalance";
+import { usePoolApr } from "@/lib/hooks/usePoolApr";
 
 export function LiquidityTab() {
   const { isConnected, showToast, openWalletModal } = useApp();
@@ -56,9 +57,9 @@ export function LiquidityTab() {
   const priceLoading = pool.isPriceLoading;
   const priceReady = !priceLoading && pool.priceUsd > 0;
   const price = priceReady ? pool.priceUsd : 0;
-  const managedRange = managedRangeBounds(price);
   const priceLabel = formatHypeSpotPrice(pool.priceUsd, priceLoading, t("common.loading"));
-  const poolApr = PROJECT_X_POOL.referenceAprNum;
+  const livePoolApr = usePoolApr();
+  const poolApr = livePoolApr.poolAprPercent;
   const useLiveVaultMetrics = chainId === 998 || chainId === 999;
   const displayTvl =
     useLiveVaultMetrics && vaultStats.totalAssetsUsdc > 0
@@ -66,9 +67,9 @@ export function LiquidityTab() {
       : pool.totalAssetsUsdc > 0
         ? `$${Math.round(pool.totalAssetsUsdc).toLocaleString()}`
         : "—";
-  const displayVolume = useLiveVaultMetrics ? "—" : PROJECT_X_POOL.volume24h;
+  const displayVolume = livePoolApr.isLive ? livePoolApr.volume24hLabel : "—";
   const displayReferenceApr =
-    useLiveVaultMetrics && !vaultStats.hasVault ? "—" : PROJECT_X_POOL.referenceApr;
+    useLiveVaultMetrics && !vaultStats.hasVault ? "—" : livePoolApr.poolAprLabel;
 
   useEffect(() => {
     setHistory(readRebalanceHistory());
@@ -164,7 +165,6 @@ export function LiquidityTab() {
   const displayLpBalance = vaultBalance.hasVaultPosition
     ? parseFloat(vaultBalance.shares)
     : parseFloat(lpBalance);
-  const displayRangeWidth = managedRange.widthPct;
 
   const poolOverview = (
     <div className="space-y-2">
@@ -181,7 +181,7 @@ export function LiquidityTab() {
               <p className="text-zinc-500">{t("position.apy")}</p>
               <p className="text-emerald-400 font-semibold">{displayReferenceApr}</p>
               <p className="text-zinc-600">
-                {t("position.netApy")} {poolItem.netAprEstimate}
+                {t("position.netApy")} {livePoolApr.netAprLabel}
               </p>
             </div>
             <div>
@@ -269,7 +269,6 @@ export function LiquidityTab() {
                 spotPriceUsd={pool.priceUsd}
                 spotPriceLoading={priceLoading}
                 poolApr={poolApr}
-                rangeWidthPct={displayRangeWidth}
                 hypePct={pool.hypePct}
                 usdcPct={pool.usdcPct}
                 idleKhype={pool.idleKhype}

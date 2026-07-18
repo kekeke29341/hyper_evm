@@ -8,6 +8,7 @@ import { AlertTriangle, X, Loader2, ChevronRight } from "lucide-react";
 import { PROJECT_X_POOL } from "@/lib/constants";
 import { useI18n } from "@/lib/i18n";
 import { useTokenBalance } from "@/lib/hooks/useDeFi";
+import { usePoolApr } from "@/lib/hooks/usePoolApr";
 import {
   formatUsd,
   formatHypeSpotPrice,
@@ -38,6 +39,7 @@ export function CreatePositionModal({
   const { t } = useI18n();
   const khypeBal = useTokenBalance("kHYPE");
   const usdcBal = useTokenBalance("USDC");
+  const livePoolApr = usePoolApr();
 
   const [mounted, setMounted] = useState(false);
   const [step, setStep] = useState<"form" | "confirm">("form");
@@ -148,15 +150,15 @@ export function CreatePositionModal({
                     <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2 text-[10px]">
                       <div>
                         <p className="text-zinc-500">{t("position.apy")}</p>
-                        <p className="text-emerald-400 font-semibold">{PROJECT_X_POOL.referenceApr}</p>
+                        <p className="text-emerald-400 font-semibold">{livePoolApr.poolAprLabel}</p>
                       </div>
                       <div>
                         <p className="text-zinc-500">{t("position.tvl")}</p>
-                        <p className="text-zinc-300">{PROJECT_X_POOL.tvl}</p>
+                        <p className="text-zinc-300">{livePoolApr.poolTvlLabel}</p>
                       </div>
                       <div>
                         <p className="text-zinc-500">{t("position.volume24h")}</p>
-                        <p className="text-zinc-300">{PROJECT_X_POOL.volume24h}</p>
+                        <p className="text-zinc-300">{livePoolApr.volume24hLabel}</p>
                       </div>
                     </div>
                     <p className="mt-2 text-[10px] text-zinc-600">{t("position.feeSplitFootnote")}</p>

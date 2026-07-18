@@ -237,6 +237,12 @@ contract HyperpoolVault is ERC20, Ownable, Pausable, ReentrancyGuard {
         require(shares > 0 && receiver != address(0), "HyperpoolVault: INVALID");
         require(balanceOf(msg.sender) >= shares, "HyperpoolVault: INSUFFICIENT_SHARES");
 
+        // Harvest accrued fees first so the adapter's full-range collect below only moves
+        // principal: without this, fees accrued since the last harvest would be paid out
+        // entirely to this withdrawer instead of being split 7/60/33. Best-effort — a
+        // failing fee swap must never block user withdrawals.
+        _tryHarvestFees();
+
         uint256 supply = totalSupply();
 
         uint256 idleUsdcBefore = _withdrawableUsdc();
@@ -258,6 +264,25 @@ contract HyperpoolVault is ERC20, Ownable, Pausable, ReentrancyGuard {
 
     /// @notice Keeper/owner: collect Project X fees; optional HYPE→USDC swap; split 7% ops / 60% Merkle / 33% owner (all USDC when swap enabled)
     function harvestFees() external onlyKeeperOrOwner nonReentrant returns (uint256 userUsdc) {
+        return _harvestFees();
+    }
+
+    /// @notice Self-call target so internal callers can harvest best-effort via try/catch.
+    /// @dev try/catch only works on external calls; restricted to the vault itself.
+    function selfHarvestFees() external returns (uint256 userUsdc) {
+        require(msg.sender == address(this), "HyperpoolVault: NOT_SELF");
+        return _harvestFees();
+    }
+
+    /// @dev Best-effort harvest for the withdraw/rebalance paths. A reverting harvest
+    ///      (e.g. fee swap failure or missing position) must never block the caller;
+    ///      with the adapter's full-range collect, un-harvested fees stay in the position
+    ///      value instead of being stranded.
+    function _tryHarvestFees() internal {
+        try this.selfHarvestFees() returns (uint256) {} catch {}
+    }
+
+    function _harvestFees() internal returns (uint256 userUsdc) {
         (uint256 amount0, uint256 amount1) = adapter.collectFees();
         (uint256 usdcFees, uint256 hypeFees) = _mapAdapterAmounts(amount0, amount1);
 
@@ -333,6 +358,9 @@ contract HyperpoolVault is ERC20, Ownable, Pausable, ReentrancyGuard {
         // manipulated ratio.
         _enforceEntryPriceSane();
         _enforceOracleDeviation(refPriceUsdc6PerHype18);
+        // Harvest before re-minting the position so accrued fees are split 7/60/33 into
+        // Cashdrop instead of being compounded back into the new position as principal.
+        _tryHarvestFees();
         adapter.rebalance(refPriceUsdc6PerHype18);
         adapter.forwardIdleToVault();
     }

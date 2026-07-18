@@ -35,11 +35,42 @@
 
 ## オンチェーンのみ存在（アプリ未切替）
 
-（該当なし — 2026-07-08 に第6世代へ切替）
+**2026-07-18 — 第9世代（手数料取り残しバグ修正版）。ホルダー引出し完了後にアプリ切替予定。**
+
+| 役割 | アドレス | 備考 |
+|------|----------|------|
+| **HyperpoolVault**（第9世代） | `0xE2480F471C10036C91951391D9DA072d463B806a` | rebalance/withdraw のハーベスト先行 + 全額 collect。運営スモーク入金済み（~31 USDC） |
+| **ProjectXAdapter**（第9世代） | `0xEa142A470D16c0dC2E88626833AA87aff1992030` | `collectFromToken` 救済関数あり |
+| **HyperpoolVault**（欠陥ビルド・retire） | `0x0fcaAfeF9A09d2d3cbe4Af59f6d2DFab019C6d13` | **paused** — 修正前ソースから誤デプロイ。資金引出し済み（残 dead シェアのみ） |
+| **ProjectXAdapter**（欠陥ビルド・retire） | `0xE2e0feF3507B8247DDE235e5D29b4C65C8e6fbf9` | 非参照 |
 
 ---
 
 ## 変更履歴
+
+### 2026-07-18 — 手数料取り残しバグ（Cashdrop が APR の数%しか出ない）修正・第9世代デプロイ
+
+| 項目 | 内容 |
+|------|------|
+| **実施日** | 2026-07-18 |
+| **理由** | `ProjectXAdapter.rebalance()` / `withdrawProRata()` が `decreaseLiquidity` の戻り値（元本）だけを `collect` し、蓄積手数料を旧 NFT の `tokensOwed` に残したまま新 NFT に乗り換えていた。keeper は 6 時間ごとにリバランス、`harvestFees` は 1 日 1 回（JST 7:00）のみのため、**1 日の手数料のうち約 1 時間分しか回収されず**、ユーザー配布は本来の 2〜4% に縮小（顧客クレーム「ProjectX の APR と全然違う」の直接原因）。 |
+| **オンチェーン実測** | gen8 Adapter `0x2690…dBdF` 保有の旧 NFT 20 個（tokenId 514348〜517355）に **計 約 0.0855 WHYPE + 4.37 USDC ≈ 9.4 USDC** の未回収手数料が滞留。現行 Adapter に任意 tokenId の collect 関数がなく **回収不能（損失確定）**。日次配布実績: 30584 micro-USDC（7/18）に対し本来 ~1.9 USDC/日相当。 |
+| **運用修正（即日適用済み）** | `scripts/keeper-rebalance.mjs` が rebalance 送信前に `vault.harvestFees()` を実行（gen8 でも取り残しがほぼゼロに）。適用直後の初回 harvest で 96374 micro-USDC（≈0.096 USDC、通常日の3倍超）を回収（tx `0x32ee682a…`）。 |
+| **コントラクト修正（第9世代）** | ① Vault: `rebalance()` / `withdraw()` がハーベスト（7/60/33 分配）を先行実行（`_tryHarvestFees` ベストエフォート）② Adapter: `rebalance` / `withdrawProRata` の collect を `type(uint128).max` に変更（取り残しゼロ）③ Adapter: `collectFromToken(tokenId)` 救済関数（onlyOwner、資金は Vault 宛のみ）④ MockNPM の collect が上限額を尊重するよう修正（本バグをテストで再現可能に）+ 回帰テスト3件。 |
+| **スモーク検証（オンチェーン）** | deposit 22.65 USDC + 0.20 WHYPE → rebalance（ハーベスト先行）→ harvestFees → 10% withdraw 全て成功。rebalance 後の旧 NFT `517652` は `tokensOwed0=0 / tokensOwed1=0`（取り残しゼロを実機確認）。 |
+| **注意（誤デプロイ）** | 初回デプロイ `0x0fca…6d13` / `0xE2e0…fbf9` は修正前ソースからのビルドだったため retire（資金引出し・pause 済み）。正しい第9世代は `0xE248…806a` / `0xEa14…2030`。 |
+| **アプリ反映** | **未実施** — gen8 に一般ホルダー 2 名（`0x7638…f112` ≈ $1,386、`0xf352…b55` ≈ $39.5）が残存。両者が gen8 から withdraw → gen9 へ deposit 後に `999.json` 切替 + `airdrop.setVaultShareToken` + gen8 pause を実施する。それまで cron / アプリは gen8 のまま（運用修正で取り残しは解消済み）。 |
+| **Vercel 本番** | デプロイ済み（2026-07-18 — https://hyper-evm-ten.vercel.app ）。アドレス切替なし。**APR 表示を GeckoTerminal ライブ値に変更**（`/api/pool-apr`、10分キャッシュ、ネット表示 = プール APR × 60%。ハードコード 64%/57% を廃止） |
+
+| 役割 | 旧（gen8・現アプリ） | 新（gen9・切替待ち） |
+|------|----|----|
+| HyperpoolVault | `0xce903d884981A1D78fE12c491a2b590240FE30Bf` | `0xE2480F471C10036C91951391D9DA072d463B806a` |
+| ProjectXAdapter | `0x26905DF80cDd8E255Ee322eeADe60a69b8B9dBdF` | `0xEa142A470D16c0dC2E88626833AA87aff1992030` |
+| Project X pool | `0x422e586C906eb241f784B4F5a633c2C7e59A2F54` (0.3%) | 同左（変更なし） |
+
+**備考:** gen8 旧 NFT の滞留 9.4 USDC は回収不能。gen9 では `collectFromToken` により同種の滞留が発生しても回収可能。
+
+---
 
 ### 2026-07-13 — deployIdle ダストrevert修正で Vault/Adapter 再デプロイ（第8世代）
 

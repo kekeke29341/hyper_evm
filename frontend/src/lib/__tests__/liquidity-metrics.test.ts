@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  estimatedApyFromRange,
+  estimatedNetApy,
   formatHypeSpotPrice,
   formatRangeBound,
   poolPriceUsdcPerKhype,
@@ -25,10 +25,9 @@ describe("liquidity metrics", () => {
     expect(splitZapAmount(2000)).toEqual({ swap: 1000, keep: 1000 });
   });
 
-  it("estimates higher APY for narrower range band", () => {
-    const wide = estimatedApyFromRange(100, 40);
-    const narrow = estimatedApyFromRange(100, 12);
-    expect(narrow).toBeGreaterThan(wide);
+  it("net APY is pool APY scaled by the 60% user share", () => {
+    expect(estimatedNetApy(100)).toBe(60);
+    expect(estimatedNetApy(75, 6000)).toBe(45);
   });
 
   it("values LP position from reserves", () => {

@@ -229,6 +229,36 @@ if (onChainOracle > 0n) {
 
 console.log("Rebalance ref price (usdc6PerHype18):", refPrice.toString());
 
+// Harvest fees BEFORE rebalance: adapter.rebalance() collects only the principal
+// returned by decreaseLiquidity, so any uncollected fees would be stranded on the
+// abandoned NFT when the position is re-minted. harvestFees() collects the full
+// tokensOwed (uint128.max) on the current position and books the 60% user share
+// into pendingUserRewards, so nothing is left behind.
+try {
+  const pendingBefore = await publicClient.readContract({
+    address: vault,
+    abi: vaultAbi,
+    functionName: "pendingUserRewards",
+  });
+  const harvestHash = await walletClient.writeContract({
+    address: vault,
+    abi: vaultAbi,
+    functionName: "harvestFees",
+  });
+  await publicClient.waitForTransactionReceipt({ hash: harvestHash });
+  const pendingAfter = await publicClient.readContract({
+    address: vault,
+    abi: vaultAbi,
+    functionName: "pendingUserRewards",
+  });
+  console.log(
+    `harvestFees before rebalance tx ${harvestHash} — pendingUserRewards ${pendingBefore} -> ${pendingAfter}`
+  );
+} catch (err) {
+  const msg = err?.shortMessage ?? err?.message ?? String(err);
+  console.warn("harvestFees before rebalance failed (continuing with rebalance):", msg);
+}
+
 const hash = await walletClient.writeContract({
   address: vault,
   abi: vaultAbi,

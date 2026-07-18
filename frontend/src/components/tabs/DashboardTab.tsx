@@ -14,6 +14,7 @@ import type { EarningsChartMode } from "@/lib/earnings/history";
 import { useCashdrop } from "@/lib/hooks/useDeFi";
 import { useAccruingRewards } from "@/lib/hooks/useAccruingRewards";
 import { useEarningsDashboard } from "@/lib/hooks/useEarningsDashboard";
+import { usePoolApr } from "@/lib/hooks/usePoolApr";
 import { cn } from "@/lib/utils";
 
 function truncateAddress(addr: string): string {
@@ -35,6 +36,7 @@ export function DashboardTab() {
   const { t, locale } = useI18n();
   const { hasRewards, availableUsdc } = useCashdrop();
   const accruing = useAccruingRewards();
+  const livePoolApr = usePoolApr();
   const {
     hasPosition,
     positionValueUsd,
@@ -131,7 +133,7 @@ export function DashboardTab() {
 
       {!showPositionStats ? (
         <p className="text-[11px] text-zinc-600 px-1 -mt-2">
-          {t("dashboard.aprConnectHint")} · {t("position.netApy")} {PROJECT_X_POOL.netAprEstimate} (
+          {t("dashboard.aprConnectHint")} · {t("position.netApy")} {livePoolApr.netAprLabel} (
           {t("position.feeSplitFootnote")})
         </p>
       ) : aprIsProjected ? (
@@ -254,11 +256,11 @@ export function DashboardTab() {
                 </div>
                 <div>
                   <p className="text-zinc-500">{t("position.apy")}</p>
-                  <p className="text-emerald-400">{PROJECT_X_POOL.referenceApr}</p>
+                  <p className="text-emerald-400">{livePoolApr.poolAprLabel}</p>
                 </div>
                 <div>
                   <p className="text-zinc-500">{t("position.netApy")}</p>
-                  <p className="text-zinc-300">{PROJECT_X_POOL.netAprEstimate}</p>
+                  <p className="text-zinc-300">{livePoolApr.netAprLabel}</p>
                 </div>
               </div>
               <Link

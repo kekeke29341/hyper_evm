@@ -272,7 +272,7 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
         uint256 bal1Before = token1.balanceOf(address(this));
 
         (uint256 min0, uint256 min1) = _decreaseMins(liquidityToRemove);
-        (uint256 owed0, uint256 owed1) = npm.decreaseLiquidity(
+        npm.decreaseLiquidity(
             IProjectXNPM.DecreaseLiquidityParams({
                 tokenId: positionTokenId,
                 liquidity: liquidityToRemove,
@@ -282,12 +282,17 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
             })
         );
 
+        // Collect the full tokensOwed (principal + any fees accrued since the last harvest),
+        // not just the principal returned by decreaseLiquidity — capping at the principal
+        // stranded accrued fees on the position (mainnet 2026-07: ~9.4 USDC left unclaimable
+        // across 20 abandoned NFTs). The vault harvests fees before withdrawing, so the fee
+        // remainder here is normally same-block dust.
         (uint256 collected0, uint256 collected1) = npm.collect(
             IProjectXNPM.CollectParams({
                 tokenId: positionTokenId,
                 recipient: vault,
-                amount0Max: _toUint128(owed0),
-                amount1Max: _toUint128(owed1)
+                amount0Max: type(uint128).max,
+                amount1Max: type(uint128).max
             })
         );
 
@@ -312,7 +317,7 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
         (,,,,,,, uint128 liq,,,,) = npm.positions(positionTokenId);
         if (liq > 0) {
             (uint256 min0, uint256 min1) = _decreaseMins(liq);
-            (uint256 owed0, uint256 owed1) = npm.decreaseLiquidity(
+            npm.decreaseLiquidity(
                 IProjectXNPM.DecreaseLiquidityParams({
                     tokenId: positionTokenId,
                     liquidity: liq,
@@ -321,12 +326,19 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
                     deadline: block.timestamp + 1 hours
                 })
             );
+            // Collect the full tokensOwed (principal + accrued fees), not just the principal
+            // returned by decreaseLiquidity. Capping at the principal abandoned all fees
+            // accrued since the previous harvest on the old NFT when the position was
+            // re-minted (mainnet 2026-07: ~9.4 USDC stranded across 20 rebalances while
+            // users received ~2-4% of actual fee yield). The vault harvests fees before
+            // calling rebalance, so any remainder collected here is same-block dust that
+            // simply re-enters the new position as principal.
             npm.collect(
                 IProjectXNPM.CollectParams({
                     tokenId: positionTokenId,
                     recipient: address(this),
-                    amount0Max: _toUint128(owed0),
-                    amount1Max: _toUint128(owed1)
+                    amount0Max: type(uint128).max,
+                    amount1Max: type(uint128).max
                 })
             );
         }
@@ -375,6 +387,22 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
         );
         token.safeTransfer(to, amount);
         emit TokenRecovered(address(token), to, amount);
+    }
+
+    /// @notice Rescue: collect tokensOwed stranded on an abandoned position NFT to the vault.
+    /// @dev Old NFTs from past rebalances may still hold uncollected fees. Funds always go to
+    ///      the vault (never the owner), where they back shareholder NAV and the next harvest.
+    function collectFromToken(uint256 tokenId) external onlyOwner returns (uint256 amount0, uint256 amount1) {
+        require(tokenId != positionTokenId, "ProjectXAdapter: ACTIVE_POSITION");
+        (amount0, amount1) = npm.collect(
+            IProjectXNPM.CollectParams({
+                tokenId: tokenId,
+                recipient: vault,
+                amount0Max: type(uint128).max,
+                amount1Max: type(uint128).max
+            })
+        );
+        emit FeesCollected(amount0, amount1);
     }
 
     /// @notice Collect accrued fees to vault

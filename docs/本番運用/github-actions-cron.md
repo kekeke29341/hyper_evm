@@ -67,7 +67,7 @@ Mainnet 公開後は `999` に変更。
     → harvestFees
     → HYPE fees を USDC に換金
     → 33% を operatorWallet へ送金
-    → 67% を Vault share 比率 + 紹介条件で配分
+    → 60% を Vault share 比率 + 紹介条件で配分
     → MerkleAirdrop.distributeRewards でユーザーへUSDC自動送金
     → 998.json / 999.json を commit & push
     → Vercel が main ブランチを再デプロイ

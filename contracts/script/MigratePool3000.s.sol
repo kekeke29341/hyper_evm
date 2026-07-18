@@ -11,6 +11,8 @@ import {ProjectXConstants} from "../src/libraries/ProjectXConstants.sol";
 /// @title MigratePool3000 — deploy new adapter (fee=3000) + vault for 0.3% pool migration
 /// @dev Vault.adapter and Adapter.fee are immutable — existing vault cannot switch fee tiers in-place.
 ///      Env: PRIVATE_KEY, OLD_VAULT (or read from deployments/999.json via broadcast)
+///           SWITCH_AIRDROP (default true) — set false to leave MerkleAirdrop.vaultShareToken on the
+///           old vault when the app keeps running on it until holders migrate.
 ///      Post-run: pause OLD_VAULT, users withdraw, redeposit to new vault; update deployment JSON.
 contract MigratePool3000 is Script {
     function run() external {
@@ -64,7 +66,9 @@ contract MigratePool3000 is Script {
         newVault.setFeeSwapSlippageBps(oldV.feeSwapSlippageBps());
         newVault.setMaxRebalanceDeviationBps(oldV.maxRebalanceDeviationBps());
 
-        MerkleAirdrop(oldV.merkleAirdrop()).setVaultShareToken(address(newVault));
+        if (vm.envOr("SWITCH_AIRDROP", true)) {
+            MerkleAirdrop(oldV.merkleAirdrop()).setVaultShareToken(address(newVault));
+        }
 
         vm.stopBroadcast();
 

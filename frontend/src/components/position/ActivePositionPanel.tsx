@@ -4,7 +4,7 @@ import { Loader2, Plus, Coins, X } from "lucide-react";
 import { PROJECT_X_POOL } from "@/lib/constants";
 import { useI18n } from "@/lib/i18n";
 import {
-  estimatedApyFromRange,
+  estimatedNetApy,
   formatUsd,
   positionTokenAmounts,
   positionValueUsd,
@@ -19,7 +19,6 @@ export function ActivePositionPanel({
   spotPriceUsd,
   spotPriceLoading = false,
   poolApr,
-  rangeWidthPct,
   hypePct,
   usdcPct,
   idleKhype = 0,
@@ -39,7 +38,6 @@ export function ActivePositionPanel({
   spotPriceUsd: number;
   spotPriceLoading?: boolean;
   poolApr: number;
-  rangeWidthPct: number;
   hypePct?: number;
   usdcPct?: number;
   idleKhype?: number;
@@ -57,7 +55,9 @@ export function ActivePositionPanel({
   const price = priceReady ? spotPriceUsd : poolPriceUsdcPerKhype(reserveKhype, reserveUsdc);
   const { hype, usdc } = positionTokenAmounts(lpBalance, totalSupply, reserveKhype, reserveUsdc);
   const valueUsd = positionValueUsd(lpBalance, totalSupply, reserveKhype, reserveUsdc);
-  const estApy = estimatedApyFromRange(poolApr, rangeWidthPct);
+  // Net user estimate = live pool APR × 60% user share. No concentration multiplier —
+  // it double-counted range narrowing on top of an already-concentrated pool APR.
+  const estApy = estimatedNetApy(poolApr);
 
   return (
     <div className="card-glass rounded-2xl p-4 border border-cyan-500/20 bg-cyan-500/5">

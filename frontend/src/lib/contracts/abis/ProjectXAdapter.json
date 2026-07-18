@@ -60,6 +60,30 @@
   },
   {
     "type": "function",
+    "name": "collectFromToken",
+    "inputs": [
+      {
+        "name": "tokenId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "amount0",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "amount1",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "currentPoolPriceUsdc6PerHype18",
     "inputs": [],
     "outputs": [

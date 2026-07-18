@@ -56,7 +56,7 @@ export function isPriceInRange(price: number, lower: number, upper: number): boo
   return price >= lower && price <= upper;
 }
 
-/** Net user APY estimate = reference APY × user share (67%) */
+/** Net user APY estimate = pool APY × user share (60% after 7/60/33 harvest split) */
 export function estimatedNetApy(referenceAprPercent: number, userShareBps = 6000): number {
   return (referenceAprPercent * userShareBps) / 10_000;
 }
@@ -76,12 +76,6 @@ export function positionValueUsd(
   const { hype, usdc } = positionTokenAmounts(vaultShares, totalShares, reserveHype, reserveUsdc);
   const price = poolPriceUsdcPerHype(reserveHype, reserveUsdc);
   return hype * price + usdc;
-}
-
-/** Concentrated LP fee capture estimate; scaled by 67% user share */
-export function estimatedApyFromRange(poolAprPercent: number, rangeWidthPct: number): number {
-  const concentration = PROJECT_X_POOL.aprBaselineWidthPct / Math.max(rangeWidthPct, 1);
-  return estimatedNetApy(poolAprPercent * concentration);
 }
 
 /** Fixed managed range bounds for display (all users share +10% / −17%) */

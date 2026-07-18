@@ -589,6 +589,65 @@ contract HyperpoolVaultTest is Test {
         assertEq(whype.balanceOf(address(adapter)), 0, "no funds stuck on adapter");
     }
 
+    /// Mainnet 2026-07 regression: rebalance collected only the decreaseLiquidity principal,
+    /// stranding all fees accrued since the last harvest on the abandoned NFT (~9.4 USDC
+    /// across 20 rebalances). Rebalance must harvest first and leave nothing on the old NFT.
+    function test_RebalanceHarvestsAccruedFeesAndStrandsNothing() public {
+        npm.setCreditWithdrawals(true);
+
+        usdc.mint(alice, 10_000e6);
+        vm.startPrank(alice);
+        usdc.approve(address(vault), type(uint256).max);
+        vault.depositUSDC(2000e6, alice);
+        vm.stopPrank();
+
+        uint256 oldId = adapter.positionTokenId();
+        npm.accrueFees(oldId, 1000e6, 0);
+
+        uint256 opBefore = usdc.balanceOf(operator);
+        uint256 ownerBefore = usdc.balanceOf(protocolOwner);
+
+        vault.rebalance(50e6 * 1e12);
+
+        // Fees were harvested and split 7/60/33 before the position was re-minted
+        assertEq(usdc.balanceOf(operator) - opBefore, 70e6, "operator fee cut");
+        assertEq(usdc.balanceOf(protocolOwner) - ownerBefore, 330e6, "owner fee cut");
+        assertEq(vault.pendingUserRewards(), 600e6, "user Cashdrop pool");
+
+        // Nothing left claimable on the abandoned NFT
+        uint256 newId = adapter.positionTokenId();
+        assertGt(newId, oldId, "position re-minted");
+        (,,,,,,, uint128 oldLiq,, , uint128 owed0, uint128 owed1) = npm.positions(oldId);
+        assertEq(oldLiq, 0, "old position emptied");
+        assertEq(owed0, 0, "no stranded tokensOwed0");
+        assertEq(owed1, 0, "no stranded tokensOwed1");
+    }
+
+    /// Withdraw must harvest accrued fees first so they are split 7/60/33 instead of the
+    /// full-range collect paying them out entirely to the withdrawing user.
+    function test_WithdrawHarvestsAccruedFeesFirst() public {
+        npm.setCreditWithdrawals(true);
+
+        usdc.mint(alice, 10_000e6);
+        vm.startPrank(alice);
+        usdc.approve(address(vault), type(uint256).max);
+        uint256 shares = vault.depositUSDC(2000e6, alice);
+        vm.stopPrank();
+
+        npm.accrueFees(adapter.positionTokenId(), 1000e6, 0);
+
+        uint256 opBefore = usdc.balanceOf(operator);
+        uint256 ownerBefore = usdc.balanceOf(protocolOwner);
+
+        vm.prank(alice);
+        vault.withdraw(shares, alice);
+
+        assertEq(usdc.balanceOf(operator) - opBefore, 70e6, "operator fee cut on withdraw");
+        assertEq(usdc.balanceOf(protocolOwner) - ownerBefore, 330e6, "owner fee cut on withdraw");
+        assertEq(vault.pendingUserRewards(), 600e6, "user Cashdrop pool reserved");
+        assertGe(usdc.balanceOf(address(vault)), 600e6, "Cashdrop pool stays funded");
+    }
+
     function test_DeployIdleRetryFailureDoesNotRevertPrimaryDeploy() public {
         usdc.mint(alice, 10_000e6);
         vm.startPrank(alice);

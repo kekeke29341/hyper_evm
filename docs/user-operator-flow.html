@@ -304,11 +304,11 @@
         打ち合わせでは「ユーザーに何を案内するか」「運営が毎日何を確認するか」「本番前に何を決めるか」をこの順で確認してください。
       </p>
       <div class="meta">
-        <span class="pill">ユーザー還元 67%</span>
-        <span class="pill">運営取り分 33%</span>
+        <span class="pill">ユーザー還元 60%</span>
+        <span class="pill">運営 7% / オーナー 33%</span>
         <span class="pill">Cashdrop JST 7:00 自動送金</span>
-        <span class="pill">LP レンジ +10% / −30%</span>
-        <span class="pill">対象: WHYPE/USDC 0.05%</span>
+        <span class="pill">LP レンジ +10% / −17%</span>
+        <span class="pill">対象: WHYPE/USDC 0.3%</span>
       </div>
     </header>
 
@@ -319,24 +319,24 @@
       </div>
       <div class="grid">
         <div class="metric">
-          <strong>67%</strong>
+          <strong>60%</strong>
           <span>Project X LP 手数料からユーザーへ日次 USDC 還元する比率</span>
         </div>
         <div class="metric">
-          <strong>33%</strong>
-          <span>運営ウォレットへ送る比率。公開後に変えにくい前提値</span>
+          <strong>7% / 33%</strong>
+          <span>運営 / オーナーウォレットへ送る比率。公開後に変えにくい前提値</span>
         </div>
         <div class="metric">
           <strong>7:00</strong>
           <span>毎朝 JST の運営処理で対象ユーザーへUSDCを自動送金</span>
         </div>
         <div class="metric">
-          <strong>+10 / −30%</strong>
+          <strong>+10 / −17%</strong>
           <span>keeper が維持する固定レンジ。ユーザーごとの選択はなし</span>
         </div>
       </div>
       <div class="callout">
-        <strong>説明上の注意:</strong> APR は保証値ではなく参考値です。ユーザーには「Project X 参考 APY × 67% が還元目安」と説明し、価格変動・impermanent loss・スマートコントラクトリスクを別途明記します。
+        <strong>説明上の注意:</strong> APR は保証値ではなく参考値です。ユーザーには「Project X プール APR × 60% が還元目安」と説明し、価格変動・impermanent loss・スマートコントラクトリスクを別途明記します。
       </div>
     </section>
 
@@ -422,7 +422,7 @@
               <tr>
                 <td>紹介リンクを共有</td>
                 <td>「紹介報酬は別枠か」</td>
-                <td>紹介者 15%・被紹介者 +10% は 67% プール内での再配分。総額が増える保証ではない。</td>
+                <td>紹介者 15%・被紹介者 +10% は 60% プール内での再配分。総額が増える保証ではない。</td>
               </tr>
               <tr>
                 <td>APR を見る</td>
@@ -459,12 +459,12 @@
         <div class="time">6時間ごと</div>
         <div class="cell"><strong>基本操作なし</strong>ユーザーは待つだけ。レンジ外なら手数料が減る可能性あり。</div>
         <div class="cell"><strong>keeper 実行確認</strong><code>keeper-rebalance.mjs</code> の成功、価格乖離、ガス残高を確認。</div>
-        <div class="cell"><strong>rebalance</strong>現在価格を中心に +10% / −30% で組み直し。</div>
+        <div class="cell"><strong>rebalance</strong>現在価格を中心に +10% / −17% で組み直し。</div>
 
         <div class="time">JST 7:00</div>
         <div class="cell"><strong>Cashdrop 自動受取</strong>対象者のウォレットへUSDCが送金される。</div>
         <div class="cell"><strong>daily rewards</strong>harvest、HYPE 手数料の USDC 換金、対象者リスト作成、自動送金Txを確認。</div>
-        <div class="cell"><strong>harvest / distribute</strong>33% は運営ウォレット、67% はAirdrop経由でユーザーへ送金。</div>
+        <div class="cell"><strong>harvest / distribute</strong>7% は運営、33% はオーナーウォレット、60% はAirdrop経由でユーザーへ送金。</div>
 
         <div class="time">7:00 後</div>
         <div class="cell"><strong>USDC入金確認</strong>ウォレット残高・Dashboard履歴で送金を確認。</div>
@@ -496,7 +496,7 @@
               <div class="num">A</div>
               <div>
                 <div class="step-title">数値と説明文の合意</div>
-                <div class="step-desc">33% / 67%、Cashdrop 時刻、紹介 15% / +10%、+10% / −30% レンジ、ブリッジ手数料 0% を決定。</div>
+                <div class="step-desc">7% / 60% / 33%、Cashdrop 時刻、紹介 15% / +10%、+10% / −17% レンジ、ブリッジ手数料 0% を決定。</div>
               </div>
             </div>
             <div class="step">
@@ -631,7 +631,7 @@
       <div class="two-col">
         <div class="card">
           <h3>ビジネス・ユーザー説明</h3>
-          <p><span class="tag warning">要決定</span> 33% / 67% の最終合意</p>
+          <p><span class="tag ok">決定済み</span> 7% / 60% / 33% で合意</p>
           <p><span class="tag good">決定</span> Claimボタンは廃止し、毎朝7時に対象者へUSDCを自動送金</p>
           <p><span class="tag warning">要決定</span> 紹介報酬の説明文と不正対策</p>
           <p><span class="tag warning">要決定</span> 保証 APR ではないこと、DeFi リスク、利用規約・プライバシーポリシー</p>

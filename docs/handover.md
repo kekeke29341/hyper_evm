@@ -17,7 +17,7 @@
 
 - Deposit（Li.FI bridge → USDC）/ Position（Vault LP）
 - Keeper rebalance（+10% / −30%）
-- 日次 USDC Cashdrop（手数料 67% · JST 7:00 自動送金）
+- 日次 USDC Cashdrop（手数料 60% · JST 7:00 自動送金）
 - ダッシュボード（自動送金履歴の可視化）
 - Admin パネル（`/admin` · Preview/ローカルのみ推奨）
 

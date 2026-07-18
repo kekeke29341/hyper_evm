@@ -15,7 +15,7 @@ Hyperpool は **Project X 上の WHYPE/USDC プールへ代理 LP** し、**+10%
 | **Dashboard** | Vault シェア価値と Cashdrop 自動送金履歴の確認 |
 | **Bridge** | Li.FI 経由で任意チェーンから HyperEVM USDC へブリッジ |
 | **Position** | USDC / HYPE を Vault に預ける（運営が Project X へ代理 LP） |
-| **Cashdrop** | 毎朝 JST 7:00、collect 手数料の **67%** を USDC で対象ユーザーへ自動送金 |
+| **Cashdrop** | 毎朝 JST 7:00、collect 手数料の **60%** を USDC で対象ユーザーへ自動送金 |
 | **Affiliate** | 紹介コード — Cashdrop 分配時に +10% / +15% 反映 |
 | **Admin** (`/admin`) | Vault harvest・自動送金運用 |
 
@@ -23,8 +23,8 @@ Hyperpool は **Project X 上の WHYPE/USDC プールへ代理 LP** し、**+10%
 
 - **LP を自前で作らない** — 預け先は [Project X](https://www.prjx.com/) WHYPE/USDC（0.05% プール）
 - **コア価値 = リバランス + 代理運用**（+10% 上限 / −30% 下限・**全員固定**）
-- **収益分配**: collect した LP 手数料の **33% 運営 / 67% ユーザー**（日次 USDC）
-- APR 表示: Project X 参考 APY（グロス）+ 脚注「実質還元 ≒ 参考 APY × 67%」
+- **収益分配**: collect した LP 手数料の **7% 運営 / 60% ユーザー / 33% オーナー**（日次 USDC）
+- APR 表示: GeckoTerminal のプール実績から自動計算（10分キャッシュ）+ 脚注「実質還元 ≒ プール APR × 60%」
 
 ### 対象ユーザー
 
@@ -40,8 +40,8 @@ Hyperpool は **Project X 上の WHYPE/USDC プールへ代理 LP** し、**+10%
 | 項目 | 内容 |
 |------|------|
 | 収益源 | Project X WHYPE/USDC プールの **取引手数料**（0.05% tier） |
-| 運営取り分 | collect 手数料の **33%** |
-| ユーザー還元 | collect 手数料の **67%**（Vault シェア比例、JST 7:00 USDC 自動送金） |
+| 運営取り分 | collect 手数料の **7%**（別途オーナー **33%**） |
+| ユーザー還元 | collect 手数料の **60%**（Vault シェア比例、JST 7:00 USDC 自動送金） |
 | リバランス | keeper が +10% / −30% 非対称レンジを維持（**全員同一・選択不可**） |
 
 ### 2.2 クロスチェーンブリッジ（Li.FI）
@@ -65,8 +65,8 @@ Hyperpool は **Project X 上の WHYPE/USDC プールへ代理 LP** し、**+10%
 
 1. **JST 7:00** — keeper / cron が Project X ポジションから `collect`
 2. **HYPE 手数料は Project X Swap Router で USDC に換金**（`convertHypeFeesToUsdc`、デフォルト ON）
-3. **33%** → 運営ウォレット（USDC）
-4. **67%** → Vault シェア比例で対象者リストを作成
+3. **7%** → 運営ウォレット、**33%** → オーナーウォレット（USDC）
+4. **60%** → Vault シェア比例で対象者リストを作成
 5. **JST 7:00** — `MerkleAirdrop.distributeRewards` で対象ユーザーへUSDCを自動送金
 6. ユーザーの署名・claim操作・期限管理は不要
 

@@ -193,6 +193,39 @@ contract ProjectXAdapterTest is Test {
         assertGt(amount0 + amount1, 0, "position amounts should be non-zero");
     }
 
+    /// Rescue path for fees stranded on abandoned NFTs from past rebalances: the owner can
+    /// collect them to the vault (never to the owner wallet).
+    function test_CollectFromTokenRescuesStrandedFeesToVault() public {
+        usdc.mint(address(vault), 1000e6);
+        vm.startPrank(address(vault));
+        usdc.transfer(address(adapter), 1000e6);
+        adapter.deposit(
+            address(adapter.token0()) == address(usdc) ? 1000e6 : 0,
+            address(adapter.token0()) == address(usdc) ? 0 : 1000e6
+        );
+        uint256 oldId = adapter.positionTokenId();
+        adapter.rebalance(50e6 * 1e12);
+        vm.stopPrank();
+
+        assertGt(adapter.positionTokenId(), oldId);
+
+        // Simulate fees that were stranded on the abandoned NFT
+        npm.accrueFees(oldId, 5e6, 0);
+
+        uint256 vaultUsdcBefore = usdc.balanceOf(address(vault));
+        adapter.collectFromToken(oldId);
+        assertEq(usdc.balanceOf(address(vault)) - vaultUsdcBefore, 5e6, "stranded fees rescued to vault");
+
+        // Cannot target the active position and only the owner can call it
+        uint256 activeId = adapter.positionTokenId();
+        vm.expectRevert("ProjectXAdapter: ACTIVE_POSITION");
+        adapter.collectFromToken(activeId);
+
+        vm.prank(user);
+        vm.expectRevert();
+        adapter.collectFromToken(oldId);
+    }
+
     function test_RangeDepositRatioBpsSumsToFullRange() public {
         uint256 price = 42e6 * 1e12;
         bool usdcIsToken0 = address(adapter.token0()) == address(usdc);

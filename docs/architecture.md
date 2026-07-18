@@ -14,7 +14,7 @@ Hyperpool は **Project X 代理 LP + リバランス keeper** と、それを�
 ┌──────────────────────────▼──────────────────────────────────┐
 │                   HyperEVM (998 / 999)                       │
 │  HyperpoolVault ──► ProjectXAdapter ──► Project X NPM       │
-│  MerkleAirdrop (67% user USDC) │ Keeper rebalance +10/-30%   │
+│  MerkleAirdrop (60% user USDC) │ Keeper rebalance +10/-17%   │
 │  HyperCoreOracle (L1Read precompiles)                        │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -48,8 +48,8 @@ Hyperpool は **Project X 代理 LP + リバランス keeper** と、それを�
 
 ```
 collect 手数料 F (USDC)
-  運営: F × 33%
-  ユーザー自動送金: F × 67%（Vault シェア比例）
+  運営: F × 7% / オーナー: F × 33%
+  ユーザー自動送金: F × 60%（Vault シェア比例）
 ```
 
 ## Project X LP ポジションと NFT（技術者向け）
@@ -180,7 +180,7 @@ keeper CLI: `scripts/keeper-rebalance.mjs`（6h 推奨）
 |--------|-------------|------|
 | `scripts/keeper-rebalance.mjs` | 6h 推奨 | Vault `rebalance()` (+10/-30%) |
 | `scripts/testnet-sync-shareholders.mjs` | daily-rewards 直前 | shares → `998.json` |
-| `scripts/daily-rewards.mjs` | JST 7:00 | `harvestFees` → 33% ops / 67% user auto payout |
+| `scripts/daily-rewards.mjs` | JST 7:00 | `harvestFees` → 7% ops / 60% user / 33% owner payout |
 | `scripts/testnet-run-all.sh` | 手動 | Testnet E2E 一括 |
 
 ### Testnet (998) 制約

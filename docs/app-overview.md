@@ -11,7 +11,7 @@
 
 - ユーザーは **Vault に USDC / HYPE を預ける**だけ（運営が Project X 上で LP + リバランス）
 - keeper が **+10% / −30%** レンジを維持
-- 取引手数料の **67%** を USDC Cashdrop、**33%** を運営
+- 取引手数料の **60%** を USDC Cashdrop、**7%** を運営、**33%** をオーナー
 - フロントは **Next.js**、取引ロジックは **スマートコントラクト（Solidity）**
 
 自前 DEX（HyperpoolPair / Router）は **提供しません**。
@@ -67,7 +67,7 @@
 │  HyperpoolVault               │
 │    └─ ProjectXAdapter         │
 │         └─ Project X NPM      │
-│  MerkleAirdrop (67% USDC)     │
+│  MerkleAirdrop (60% USDC)     │
 │  HyperCoreOracle              │
 └───────────────────────────────┘
 ```
@@ -126,8 +126,8 @@ hyper_evm/
 | 種別 | 内容 |
 |------|------|
 | Project X LP 手数料 | WHYPE/USDC 0.05% tier |
-| ユーザー還元 | USDC 手数料の **67%**（Vault シェア比例 · Cashdrop） |
-| 運営 | USDC 手数料の **33%** |
+| ユーザー還元 | USDC 手数料の **60%**（Vault シェア比例 · Cashdrop） |
+| 運営 | USDC 手数料の **7%**（オーナー **33%**） |
 | Li.FI ブリッジ | Hyperpool 手数料 0%（ルート手数料は別） |
 
 → 詳細: [product-overview.md](./product-overview.md)
