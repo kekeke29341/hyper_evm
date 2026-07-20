@@ -12,22 +12,22 @@
 
 ## 現在アクティブ（アプリ本番）
 
-**最終更新: 2026-07-13** — 第8世代 Vault。deployIdle ダストrevert修正（配当縮小の原因）。
+**最終更新: 2026-07-21** — 第9世代 Vault。手数料取り残しバグ修正（rebalance/withdraw ハーベスト先行 + 全額 collect）。
 
 | 役割 | アドレス | 備考 |
 |------|----------|------|
-| **HyperpoolVault**（アプリ） | `0xce903d884981A1D78fE12c491a2b590240FE30Bf` | 第8世代 — deployIdle ダストrevert修正（`_dropDustSide` + リトライ best-effort 化） |
-| **ProjectXAdapter**（アプリ） | `0x26905DF80cDd8E255Ee322eeADe60a69b8B9dBdF` | 同上 |
+| **HyperpoolVault**（アプリ） | `0xE2480F471C10036C91951391D9DA072d463B806a` | 第9世代 — fee-stranding 修正。運営スモーク ~31 USDC 入金済み |
+| **ProjectXAdapter**（アプリ） | `0xEa142A470D16c0dC2E88626833AA87aff1992030` | `collectFromToken` 救済関数あり |
 | **Project X pool**（アプリ） | `0x422e586C906eb241f784B4F5a633c2C7e59A2F54` | 0.3% |
-| MerkleAirdrop | `0x67d45f8535ec3f268f1acb0fe69ec87ad7aa7431` | `vaultShareToken` → `0xce90…30Bf` |
+| MerkleAirdrop | `0x67d45f8535ec3f268f1acb0fe69ec87ad7aa7431` | `vaultShareToken` → `0xE248…806a` |
 | **ReferralRegistry**（アプリ） | `0x3934Abcb5824326B59deBDb7c3410A7648b09CD2` | **アドレス方式**（`registerReferrer` / `bindReferrer`） |
 | HyperCoreOracle | `0xad6b05b0b4c79264c32136842945f321f58ef94c` | 継続利用 |
-| **旧 HyperpoolVault**（第7世代・retire） | `0x2Efa225A0753010BD63A5c8Ee546E2958e7b7C10` | **paused** — deployIdle が毎日 revert（idle 滞留）。ホルダー `0xf352…b55` は 2026-07-13 pause 前に全額引出し済み（オンチェーン確認: 残 dead シェアのみ） |
+| **旧 HyperpoolVault**（第8世代・retire） | `0xce903d884981A1D78fE12c491a2b590240FE30Bf` | **paused** — 手数料取り残し。ホルダー全引出済み（残 dead シェアのみ） |
+| **旧 ProjectXAdapter**（第8世代） | `0x26905DF80cDd8E255Ee322eeADe60a69b8B9dBdF` | 非参照 |
+| **旧 HyperpoolVault**（第7世代・retire） | `0x2Efa225A0753010BD63A5c8Ee546E2958e7b7C10` | **paused** |
 | **旧 ProjectXAdapter**（第7世代） | `0xbb047b03f9c6889108ffB77f303a30Fe74A76f70` | 非参照 |
-| **旧 HyperpoolVault**（retire） | `0x95dd6fA9f0403823857ba3B8d7ac6B694531f5e5` | **paused** — 入金時 idle 再投入で revert |
-| **旧 ProjectXAdapter**（retire） | `0xFc938575CB2d022cB1a64C1CF102d1768C271229` | 非参照 |
-| **旧 HyperpoolVault**（retire） | `0xA3f52f8288ae7caDF1C794D03e8245B4BF5499a8` | **paused** — レンジ比率バグで USDC 入金 revert |
-| **旧 ProjectXAdapter**（retire） | `0xb62965C1A4dC5F2386FBC0E5719D41AB85DaaA87` | 非参照 |
+| **HyperpoolVault**（欠陥ビルド・retire） | `0x0fcaAfeF9A09d2d3cbe4Af59f6d2DFab019C6d13` | **paused** — 修正前ソースから誤デプロイ |
+| **ProjectXAdapter**（欠陥ビルド・retire） | `0xE2e0feF3507B8247DDE235e5D29b4C65C8e6fbf9` | 非参照 |
 
 本番 UI: https://hyper-evm-ten.vercel.app
 
@@ -35,18 +35,30 @@
 
 ## オンチェーンのみ存在（アプリ未切替）
 
-**2026-07-18 — 第9世代（手数料取り残しバグ修正版）。ホルダー引出し完了後にアプリ切替予定。**
-
-| 役割 | アドレス | 備考 |
-|------|----------|------|
-| **HyperpoolVault**（第9世代） | `0xE2480F471C10036C91951391D9DA072d463B806a` | rebalance/withdraw のハーベスト先行 + 全額 collect。運営スモーク入金済み（~31 USDC） |
-| **ProjectXAdapter**（第9世代） | `0xEa142A470D16c0dC2E88626833AA87aff1992030` | `collectFromToken` 救済関数あり |
-| **HyperpoolVault**（欠陥ビルド・retire） | `0x0fcaAfeF9A09d2d3cbe4Af59f6d2DFab019C6d13` | **paused** — 修正前ソースから誤デプロイ。資金引出し済み（残 dead シェアのみ） |
-| **ProjectXAdapter**（欠陥ビルド・retire） | `0xE2e0feF3507B8247DDE235e5D29b4C65C8e6fbf9` | 非参照 |
+（該当なし — 2026-07-21 に第9世代へ切替）
 
 ---
 
 ## 変更履歴
+
+### 2026-07-21 — アプリを第9世代へ切替（gen8 pause）
+
+| 項目 | 内容 |
+|------|------|
+| **実施日** | 2026-07-21 |
+| **理由** | gen8 ホルダー全引出確認後、手数料取り残し修正済み gen9 へ本番切替 |
+| **事前確認** | gen8 `totalSupply=1000`（dead のみ）、`0x7638…` / `0xf352…` / 運営 いずれも balanceOf=0。`totalAssetsUsdc` ≈ 964 micro-USDC（ダスト） |
+| **切替前 Cashdrop** | gen8 `pendingUserRewards` 2,391,317 micro-USDC を最終チェックポイント比率で配布 [0x44b8f448…](https://hyperevmscan.io/tx/0x44b8f448a8af312aeda3e298e84e481b88e31629dd2bb571b6dc43572f255e07)（主に `0x7638…` へ ~2.32 USDC） |
+| **オンチェーン** | airdrop.setVaultShareToken(gen9) [0x190a423e…](https://hyperevmscan.io/tx/0x190a423eddfcb86bf2fa54282635e427235ace1d54a48497aa60c768830215fe)、gen8.pause [0x15aaa25a…](https://hyperevmscan.io/tx/0x15aaa25a586bb2424435d711354ca3b2befe0325180f9da9322f349b5cc7de5c) |
+| **アプリ反映** | `999.json` を gen9 に更新（`vaultDeployBlock=40755252`、cashdrop checkpoint リセット） |
+| **Vercel 本番** | デプロイ済み（2026-07-21 — https://hyper-evm-ten.vercel.app / `dpl_6FmDWbqLzWASWjp8pTDLxWGQU2cj`） |
+
+| 役割 | 旧（gen8） | 新（gen9） |
+|------|----|----|
+| HyperpoolVault | `0xce903d884981A1D78fE12c491a2b590240FE30Bf` | `0xE2480F471C10036C91951391D9DA072d463B806a` |
+| ProjectXAdapter | `0x26905DF80cDd8E255Ee322eeADe60a69b8B9dBdF` | `0xEa142A470D16c0dC2E88626833AA87aff1992030` |
+
+---
 
 ### 2026-07-18 — 手数料取り残しバグ（Cashdrop が APR の数%しか出ない）修正・第9世代デプロイ
 
@@ -59,7 +71,7 @@
 | **コントラクト修正（第9世代）** | ① Vault: `rebalance()` / `withdraw()` がハーベスト（7/60/33 分配）を先行実行（`_tryHarvestFees` ベストエフォート）② Adapter: `rebalance` / `withdrawProRata` の collect を `type(uint128).max` に変更（取り残しゼロ）③ Adapter: `collectFromToken(tokenId)` 救済関数（onlyOwner、資金は Vault 宛のみ）④ MockNPM の collect が上限額を尊重するよう修正（本バグをテストで再現可能に）+ 回帰テスト3件。 |
 | **スモーク検証（オンチェーン）** | deposit 22.65 USDC + 0.20 WHYPE → rebalance（ハーベスト先行）→ harvestFees → 10% withdraw 全て成功。rebalance 後の旧 NFT `517652` は `tokensOwed0=0 / tokensOwed1=0`（取り残しゼロを実機確認）。 |
 | **注意（誤デプロイ）** | 初回デプロイ `0x0fca…6d13` / `0xE2e0…fbf9` は修正前ソースからのビルドだったため retire（資金引出し・pause 済み）。正しい第9世代は `0xE248…806a` / `0xEa14…2030`。 |
-| **アプリ反映** | **未実施** — gen8 に一般ホルダー 2 名（`0x7638…f112` ≈ $1,386、`0xf352…b55` ≈ $39.5）が残存。両者が gen8 から withdraw → gen9 へ deposit 後に `999.json` 切替 + `airdrop.setVaultShareToken` + gen8 pause を実施する。それまで cron / アプリは gen8 のまま（運用修正で取り残しは解消済み）。 |
+| **アプリ反映** | **実施済み（2026-07-21）** — ホルダー全引出後に `999.json` 切替。詳細は上記「2026-07-21」エントリ |
 | **Vercel 本番** | デプロイ済み（2026-07-18 — https://hyper-evm-ten.vercel.app ）。アドレス切替なし。**APR 表示を GeckoTerminal ライブ値に変更**（`/api/pool-apr`、10分キャッシュ、ネット表示 = プール APR × 60%。ハードコード 64%/57% を廃止） |
 
 | 役割 | 旧（gen8・現アプリ） | 新（gen9・切替待ち） |
