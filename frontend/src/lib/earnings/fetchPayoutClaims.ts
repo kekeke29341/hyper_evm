@@ -58,19 +58,27 @@ export async function fetchPayoutClaims(params: {
   const fromDeployment = deploymentPayoutClaims(deployment, userAddress);
 
   const txHash = deployment.lastCashdropDistribution?.txHash as `0x${string}` | undefined;
+  // Receipt verification is best-effort — a rate-limited RPC must not blank out
+  // the history already recorded in the deployment JSON.
   const fromReceipt =
     txHash != null
-      ? await fetchClaimsFromTxReceipt(publicClient, deployment.airdrop, userAddress, txHash)
+      ? await fetchClaimsFromTxReceipt(publicClient, deployment.airdrop, userAddress, txHash).catch(
+          () => []
+        )
       : [];
 
   const known = mergeEarningsClaims(fromReceipt, fromDeployment);
   if (known.length > 0) return known;
 
-  const onChain = await fetchOnChainEarningsClaims(
-    publicClient,
-    deployment.airdrop,
-    userAddress,
-    chainId
-  );
-  return mergeEarningsClaims(onChain, fromDeployment);
+  try {
+    const onChain = await fetchOnChainEarningsClaims(
+      publicClient,
+      deployment.airdrop,
+      userAddress,
+      chainId
+    );
+    return mergeEarningsClaims(onChain, fromDeployment);
+  } catch {
+    return fromDeployment;
+  }
 }

@@ -33,6 +33,12 @@ export type Deployment = {
     harvestTimestamp?: string;
     timeWeighted?: boolean;
   };
+  cashdropDistributionHistory?: {
+    distributionId: string;
+    txHash: string;
+    executedAt: string;
+    entries: { address: Address; amount: string }[];
+  }[];
   cashdropWeightCheckpoint?: {
     blockNumber: string;
     timestamp: string;

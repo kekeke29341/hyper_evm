@@ -42,6 +42,66 @@ describe("deploymentPayoutClaims", () => {
       deploymentPayoutClaims({ ...deployment, airdropEntries: [] }, "0xf35208bfadc5f7d38334fd71f42fddc7eeb85b55")
     ).toEqual([]);
   });
+
+  it("accumulates every day from cashdropDistributionHistory", () => {
+    const withHistory = {
+      ...deployment,
+      cashdropDistributionHistory: [
+        {
+          distributionId: "0x01",
+          txHash: "0xaaa1",
+          executedAt: "2026-07-24T00:30:00.000Z",
+          entries: [
+            { address: "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55", amount: "30000" },
+          ],
+        },
+        {
+          distributionId: "0x02",
+          txHash: "0xaaa2",
+          executedAt: "2026-07-25T00:28:00.000Z",
+          entries: [
+            { address: "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55", amount: "70000" },
+            { address: "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC", amount: "25000" },
+          ],
+        },
+      ],
+    } as Deployment;
+
+    const claims = deploymentPayoutClaims(
+      withHistory,
+      "0xf35208bfadc5f7d38334fd71f42fddc7eeb85b55"
+    );
+    expect(claims).toHaveLength(3);
+    expect(claims.map((c) => c.txHash)).toEqual([
+      "0xa5763a151600373fd51a8cade572c1095e6718ef24f023a47a0b63cf7f4c796f",
+      "0xaaa1",
+      "0xaaa2",
+    ]);
+    expect(claims[1].usdc).toBeCloseTo(0.03, 6);
+    expect(claims[2].usdc).toBeCloseTo(0.07, 6);
+  });
+
+  it("does not duplicate lastCashdropDistribution already present in history", () => {
+    const withHistory = {
+      ...deployment,
+      cashdropDistributionHistory: [
+        {
+          distributionId: deployment.lastCashdropDistribution!.distributionId,
+          txHash: deployment.lastCashdropDistribution!.txHash,
+          executedAt: deployment.lastCashdropDistribution!.executedAt,
+          entries: [
+            { address: "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55", amount: "7088" },
+          ],
+        },
+      ],
+    } as Deployment;
+
+    const claims = deploymentPayoutClaims(
+      withHistory,
+      "0xf35208bfadc5f7d38334fd71f42fddc7eeb85b55"
+    );
+    expect(claims).toHaveLength(1);
+  });
 });
 
 describe("formatUsdcDisplay", () => {

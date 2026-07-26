@@ -334,6 +334,22 @@ deployment.lastCashdropDistribution = {
   smokeFunded,
 };
 delete deployment.merkleRoot;
+{
+  const history = Array.isArray(deployment.cashdropDistributionHistory)
+    ? deployment.cashdropDistributionHistory
+    : [];
+  deployment.cashdropDistributionHistory = [
+    ...history.filter((h) => h.distributionId !== distributionId),
+    {
+      distributionId,
+      txHash: distributeReceipt.transactionHash,
+      executedAt: deployment.lastCashdropDistribution.executedAt,
+      entries: entries.map((e) => ({ address: e.address, amount: e.amount.toString() })),
+    },
+  ]
+    .sort((a, b) => Date.parse(a.executedAt) - Date.parse(b.executedAt))
+    .slice(-120);
+}
 
 for (const p of [
   path.join(root, "contracts/deployments", `${CHAIN}.json`),

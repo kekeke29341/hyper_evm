@@ -259,6 +259,17 @@ async function collectCarryoverEntries() {
   return carryover;
 }
 
+const DISTRIBUTION_HISTORY_MAX = 120;
+
+/** Keep an append-only per-day payout log so the dashboard can show more than the latest distribution. */
+function appendDistributionHistory(dep, record) {
+  const history = Array.isArray(dep.cashdropDistributionHistory) ? dep.cashdropDistributionHistory : [];
+  const next = history.filter((h) => h.distributionId !== record.distributionId);
+  next.push(record);
+  next.sort((a, b) => Date.parse(a.executedAt) - Date.parse(b.executedAt));
+  dep.cashdropDistributionHistory = next.slice(-DISTRIBUTION_HISTORY_MAX);
+}
+
 function saveDeploymentJson() {
   for (const p of [
     path.join(root, "contracts/deployments", `${CHAIN}.json`),
@@ -577,6 +588,12 @@ async function runDistributePhase(pendingState) {
     harvestTimestamp: String(harvestTimestamp),
     timeWeighted: useTimeWeighted,
   };
+  appendDistributionHistory(deployment, {
+    distributionId,
+    txHash: distributeReceipt.transactionHash,
+    executedAt: deployment.lastCashdropDistribution.executedAt,
+    entries: entries.map((e) => ({ address: e.address, amount: e.amount.toString() })),
+  });
   delete deployment.merkleRoot;
   saveDeploymentJson();
   clearPendingCashdrop(root, CHAIN);

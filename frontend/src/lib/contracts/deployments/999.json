@@ -55,5 +55,225 @@
     "harvestBlock": "41358696",
     "harvestTimestamp": "1784936520",
     "timeWeighted": true
-  }
+  },
+  "cashdropDistributionHistory": [
+    {
+      "distributionId": "0xe3431594f6402591c3e61fd5eff930f946bf530ee23746a9a8aeeed1e3f63d44",
+      "txHash": "0x373c58c626f2344a6850b1d1870f318e2465817462fd14710becad2938109d39",
+      "executedAt": "2026-06-26T00:32:04.011Z",
+      "entries": [
+        {
+          "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
+          "amount": "34"
+        }
+      ]
+    },
+    {
+      "distributionId": "0x2b21a2e514ae56a72f934a2f1fccfd6c4e53fd53827bc7207209ad6dd2e5efae",
+      "txHash": "0x4204689b37c0a5a1f0c836e3835a729bb73d92eca78c4289f7073bbbbeee76ad",
+      "executedAt": "2026-07-04T23:11:02.911Z",
+      "entries": [
+        {
+          "address": "0x5E450488017Dda204999213F672853039E01eBD5",
+          "amount": "54994"
+        },
+        {
+          "address": "0xe9861Abc02092be10E77279C034cf7384D086591",
+          "amount": "59168"
+        }
+      ]
+    },
+    {
+      "distributionId": "0xafe6b0576140ac1c12b6708dc5c209fd7d63b7ff919a6349b9e0f6049393ec18",
+      "txHash": "0xa27b2cae597e48202d6d1483a60a7d38f276df188dc6e33b6d39f27dff7b4f64",
+      "executedAt": "2026-07-05T23:23:03.836Z",
+      "entries": [
+        {
+          "address": "0x5E450488017Dda204999213F672853039E01eBD5",
+          "amount": "163903"
+        },
+        {
+          "address": "0xc8d30fDCAb0081545c2159303AaB957d129C603a",
+          "amount": "188676"
+        },
+        {
+          "address": "0xe9861Abc02092be10E77279C034cf7384D086591",
+          "amount": "187547"
+        },
+        {
+          "address": "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55",
+          "amount": "862"
+        }
+      ]
+    },
+    {
+      "distributionId": "0x595cb5156d3336148d2a782527f401565bb8581306396fd22c09e0e72a96b913",
+      "txHash": "0xa5763a151600373fd51a8cade572c1095e6718ef24f023a47a0b63cf7f4c796f",
+      "executedAt": "2026-07-07T01:17:02.996Z",
+      "entries": [
+        {
+          "address": "0x5E450488017Dda204999213F672853039E01eBD5",
+          "amount": "348502"
+        },
+        {
+          "address": "0xc8d30fDCAb0081545c2159303AaB957d129C603a",
+          "amount": "723832"
+        },
+        {
+          "address": "0xe9861Abc02092be10E77279C034cf7384D086591",
+          "amount": "664005"
+        },
+        {
+          "address": "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55",
+          "amount": "7088"
+        }
+      ]
+    },
+    {
+      "distributionId": "0x03b1413506753726a0d520d90c9962e51bcab49e6ba5a56b2001b3cb7c87687b",
+      "txHash": "0xb8dfcf615ab61087058ff049d716826f9d00895c8285d167d821dcaae60cc70f",
+      "executedAt": "2026-07-11T00:27:03.130Z",
+      "entries": [
+        {
+          "address": "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55",
+          "amount": "1639"
+        }
+      ]
+    },
+    {
+      "distributionId": "0x507dcfe9fae0c80b7522d0c158389be4f436e83565fc48e395a3a8222bc1c033",
+      "txHash": "0x070874bfefe08581888c5576ac13408b5b231f7dd30fe2e73bb0ded2f5c7a53d",
+      "executedAt": "2026-07-12T00:28:05.866Z",
+      "entries": [
+        {
+          "address": "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55",
+          "amount": "1398"
+        }
+      ]
+    },
+    {
+      "distributionId": "0x3abefa98dd6a1260e2747735f1a7831e88eac87864b1a1be3a7676022673471a",
+      "txHash": "0x44cac1370b0bd8d5e22002479c04ed015bbe28620822111fcea0358daa69d558",
+      "executedAt": "2026-07-13T00:28:03.948Z",
+      "entries": [
+        {
+          "address": "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55",
+          "amount": "702"
+        }
+      ]
+    },
+    {
+      "distributionId": "0x9d8ac5cdcc70d04b3acd28094479d209631922a130e1a1c302fccf9fae80973f",
+      "txHash": "0xc283365415f87259550eeeb3b8f9b0790c71d1439c1c71b301310201975e80bf",
+      "executedAt": "2026-07-14T00:02:01.357Z",
+      "entries": [
+        {
+          "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
+          "amount": "33"
+        },
+        {
+          "address": "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55",
+          "amount": "1897"
+        }
+      ]
+    },
+    {
+      "distributionId": "0x803fdaa2a7c89e35bcc8da41e6313b1bf637494801ec09567de7c6ebead8e302",
+      "txHash": "0xcf3e12d36b96984a75a1b0d471738d74121665ec4b7382bc335499883392d255",
+      "executedAt": "2026-07-16T05:41:04.549Z",
+      "entries": [
+        {
+          "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
+          "amount": "28"
+        },
+        {
+          "address": "0x7638891d1E3962Fa170D6Daa4DB40a7d6079f112",
+          "amount": "37414"
+        },
+        {
+          "address": "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55",
+          "amount": "1594"
+        }
+      ]
+    },
+    {
+      "distributionId": "0x64121c87d839fae08cfa16930eb00073b6d623e7bb06b7d3a5fb727b5e3cf82b",
+      "txHash": "0x8f44195f0cca17d60dd830d11494d486016a65e4069056acad570f2a28292740",
+      "executedAt": "2026-07-17T00:21:03.022Z",
+      "entries": [
+        {
+          "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
+          "amount": "5"
+        },
+        {
+          "address": "0x7638891d1E3962Fa170D6Daa4DB40a7d6079f112",
+          "amount": "10234"
+        },
+        {
+          "address": "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55",
+          "amount": "291"
+        }
+      ]
+    },
+    {
+      "distributionId": "0xf873ffadb1cd8075e9e7863f061155d255c4bedb80a0123954029f51b00d03bc",
+      "txHash": "0xdd2181e2d375a67a8f578fff9e5ec478376c37f8c3290769efa1f157f5d6c431",
+      "executedAt": "2026-07-18T00:29:03.325Z",
+      "entries": [
+        {
+          "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
+          "amount": "14"
+        },
+        {
+          "address": "0x7638891d1E3962Fa170D6Daa4DB40a7d6079f112",
+          "amount": "29723"
+        },
+        {
+          "address": "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55",
+          "amount": "847"
+        }
+      ]
+    },
+    {
+      "distributionId": "0xfef13f756779fc881d04f23ff3d9e45fa6d590df99dbc48903173b16f06b2343",
+      "txHash": "0xfb4b031bdbdbb362f4b0859effaa7d203733cc15b1a1200d28da6dd71d0886e8",
+      "executedAt": "2026-07-22T00:02:06.699Z",
+      "entries": [
+        {
+          "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
+          "amount": "83236"
+        }
+      ]
+    },
+    {
+      "distributionId": "0xee82d34397a8ff7e059f0edc57646b78b6ecfc1682cbd9f0560fbf6247c1b4f9",
+      "txHash": "0x22a0d610c0eb4d423b0eace46c687f131cbd1f088db8c6fc78e040d6eb730c0d",
+      "executedAt": "2026-07-24T00:56:01.517Z",
+      "entries": [
+        {
+          "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
+          "amount": "64411"
+        },
+        {
+          "address": "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55",
+          "amount": "72509"
+        }
+      ]
+    },
+    {
+      "distributionId": "0xcd9b4318399dec33b4d92dcba994d873bb75cd5cd79c5ef392ed038bbcb0c4af",
+      "txHash": "0x6b46e6713416aff0863dce973261faa5527889087ba604a94b1ab4ffa8a9075d",
+      "executedAt": "2026-07-25T00:28:05.559Z",
+      "entries": [
+        {
+          "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
+          "amount": "25004"
+        },
+        {
+          "address": "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55",
+          "amount": "30281"
+        }
+      ]
+    }
+  ]
 }
