@@ -29,31 +29,31 @@
   "airdropEntries": [
     {
       "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
-      "amount": "25004",
+      "amount": "22870",
       "minShares": "1"
     },
     {
       "address": "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55",
-      "amount": "30281",
+      "amount": "27696",
       "minShares": "1"
     }
   ],
   "cashdropWeightCheckpoint": {
-    "blockNumber": "41358696",
-    "timestamp": "1784936520",
+    "blockNumber": "41528813",
+    "timestamp": "1785103920",
     "balances": {
       "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC": "31361221",
       "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55": "37978224"
     }
   },
   "lastCashdropDistribution": {
-    "distributionId": "0xcd9b4318399dec33b4d92dcba994d873bb75cd5cd79c5ef392ed038bbcb0c4af",
-    "txHash": "0x6b46e6713416aff0863dce973261faa5527889087ba604a94b1ab4ffa8a9075d",
-    "amount": "55285",
+    "distributionId": "0xfc40ccccb1e9ddf258c27c38d0b42d03b95319d78c1a800f05cd696ebd06770b",
+    "txHash": "0x1ce9d57658ffd5cb6cf89fb55934c90c011394218554fa898fdf92f21c74086f",
+    "amount": "50566",
     "entries": 2,
-    "executedAt": "2026-07-25T00:28:05.559Z",
-    "harvestBlock": "41358696",
-    "harvestTimestamp": "1784936520",
+    "executedAt": "2026-07-26T23:07:05.541Z",
+    "harvestBlock": "41528813",
+    "harvestTimestamp": "1785103920",
     "timeWeighted": true
   },
   "cashdropDistributionHistory": [
@@ -272,6 +272,21 @@
         {
           "address": "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55",
           "amount": "30281"
+        }
+      ]
+    },
+    {
+      "distributionId": "0xfc40ccccb1e9ddf258c27c38d0b42d03b95319d78c1a800f05cd696ebd06770b",
+      "txHash": "0x1ce9d57658ffd5cb6cf89fb55934c90c011394218554fa898fdf92f21c74086f",
+      "executedAt": "2026-07-26T23:07:05.541Z",
+      "entries": [
+        {
+          "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
+          "amount": "22870"
+        },
+        {
+          "address": "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55",
+          "amount": "27696"
         }
       ]
     }
