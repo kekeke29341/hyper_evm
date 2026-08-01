@@ -29,31 +29,31 @@
   "airdropEntries": [
     {
       "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
-      "amount": "17799",
+      "amount": "1520",
       "minShares": "1"
     },
     {
       "address": "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55",
-      "amount": "21556",
+      "amount": "1841",
       "minShares": "1"
     }
   ],
   "cashdropWeightCheckpoint": {
-    "blockNumber": "41879558",
-    "timestamp": "1785448920",
+    "blockNumber": "42023620",
+    "timestamp": "1785590686",
     "balances": {
       "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC": "31361221",
       "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55": "37978224"
     }
   },
   "lastCashdropDistribution": {
-    "distributionId": "0x179168c2b9f230473487e00b579ff641cd88fef3c987b1513cc519fc0473789b",
-    "txHash": "0xb0c925350bcbd77a226378531ea72e7bf5232c18b40636374973b2f190a4f9c4",
-    "amount": "39355",
+    "distributionId": "0x2e7eb0f0f54140656c1caaa8f7fed80ef93113a584f2b8fa1f5b2a07fd9d7ef3",
+    "txHash": "0xa5ebf970c90fe913c21b4a9a9f9ae6dee2fe0a7031b539a715a9db067c5b2943",
+    "amount": "3361",
     "entries": 2,
-    "executedAt": "2026-07-31T00:21:03.453Z",
-    "harvestBlock": "41879558",
-    "harvestTimestamp": "1785448920",
+    "executedAt": "2026-08-01T13:27:06.148Z",
+    "harvestBlock": "42023620",
+    "harvestTimestamp": "1785590686",
     "timeWeighted": true
   },
   "cashdropDistributionHistory": [
@@ -347,6 +347,21 @@
         {
           "address": "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55",
           "amount": "21556"
+        }
+      ]
+    },
+    {
+      "distributionId": "0x2e7eb0f0f54140656c1caaa8f7fed80ef93113a584f2b8fa1f5b2a07fd9d7ef3",
+      "txHash": "0xa5ebf970c90fe913c21b4a9a9f9ae6dee2fe0a7031b539a715a9db067c5b2943",
+      "executedAt": "2026-08-01T13:27:06.148Z",
+      "entries": [
+        {
+          "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
+          "amount": "1520"
+        },
+        {
+          "address": "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55",
+          "amount": "1841"
         }
       ]
     }
