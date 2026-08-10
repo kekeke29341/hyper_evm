@@ -3,9 +3,6 @@
 name: Hyperpool Keeper
 
 on:
-  schedule:
-    # Every 6 hours (UTC). Adjust in repo Settings → Variables if needed.
-    - cron: "0 */6 * * *"
   workflow_dispatch:
     inputs:
       chain:
