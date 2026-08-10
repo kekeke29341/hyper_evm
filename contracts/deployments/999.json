@@ -33,23 +33,23 @@
   "airdropEntries": [
     {
       "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
-      "amount": "6092",
+      "amount": "6327",
       "minShares": "1"
     },
     {
       "address": "0x163E1E73ae3aE62634E11C6A5540618CB32C74b0",
-      "amount": "5725022",
+      "amount": "5946088",
       "minShares": "1"
     },
     {
       "address": "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55",
-      "amount": "7377",
+      "amount": "7662",
       "minShares": "1"
     }
   ],
   "cashdropWeightCheckpoint": {
-    "blockNumber": "42669987",
-    "timestamp": "1786226520",
+    "blockNumber": "42757827",
+    "timestamp": "1786312920",
     "balances": {
       "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC": "31361221",
       "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55": "37978224",
@@ -57,13 +57,13 @@
     }
   },
   "lastCashdropDistribution": {
-    "distributionId": "0x4968beb2a8d239ab5055c94fbf0f84ddd94b8e650ca0aac27a91b10597e694d6",
-    "txHash": "0x5bf0a2cdfece1d9f5bd83ee538ff6e91057578682e17ed0517c04446dec09d9f",
-    "amount": "5738491",
+    "distributionId": "0x8358e081c1a9de1527f9ea2af1740c720cd7129eb0660503b6aa04e940533917",
+    "txHash": "0x72638e57331d5d2f7a66735b625b86d50e24da3efc7e3a0b0324024d6e9628cd",
+    "amount": "5960077",
     "entries": 3,
-    "executedAt": "2026-08-09T00:04:04.762Z",
-    "harvestBlock": "42669987",
-    "harvestTimestamp": "1786226520",
+    "executedAt": "2026-08-10T00:05:04.468Z",
+    "harvestBlock": "42757827",
+    "harvestTimestamp": "1786312920",
     "timeWeighted": true
   },
   "cashdropDistributionHistory": [
@@ -504,6 +504,25 @@
         {
           "address": "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55",
           "amount": "7377"
+        }
+      ]
+    },
+    {
+      "distributionId": "0x8358e081c1a9de1527f9ea2af1740c720cd7129eb0660503b6aa04e940533917",
+      "txHash": "0x72638e57331d5d2f7a66735b625b86d50e24da3efc7e3a0b0324024d6e9628cd",
+      "executedAt": "2026-08-10T00:05:04.468Z",
+      "entries": [
+        {
+          "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
+          "amount": "6327"
+        },
+        {
+          "address": "0x163E1E73ae3aE62634E11C6A5540618CB32C74b0",
+          "amount": "5946088"
+        },
+        {
+          "address": "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55",
+          "amount": "7662"
         }
       ]
     }
