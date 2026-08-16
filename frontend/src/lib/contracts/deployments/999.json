@@ -37,28 +37,28 @@
   "airdropEntries": [
     {
       "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
-      "amount": "47551",
+      "amount": "6772",
       "minShares": "1"
     },
     {
       "address": "0x163E1E73ae3aE62634E11C6A5540618CB32C74b0",
-      "amount": "44684014",
+      "amount": "6364451",
       "minShares": "1"
     },
     {
       "address": "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55",
-      "amount": "57584",
+      "amount": "8201",
       "minShares": "1"
     },
     {
       "address": "0xf4a2CE37a4C89281Bf89d4C475B169d935510835",
-      "amount": "41197195",
+      "amount": "5867814",
       "minShares": "1"
     }
   ],
   "cashdropWeightCheckpoint": {
-    "blockNumber": "43216486",
-    "timestamp": "1786764060",
+    "blockNumber": "43284805",
+    "timestamp": "1786831320",
     "balances": {
       "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC": "31361221",
       "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55": "37978224",
@@ -67,13 +67,13 @@
     }
   },
   "lastCashdropDistribution": {
-    "distributionId": "0x032cb5bb89b7c2d9244987e37310b9b1ae8108533bbcdbafa6cf19ff276eb0d8",
-    "txHash": "0x96fbdfcb4319b317f5fb09701086c4203284ae5da8644d4af4175eee3ba912e0",
-    "amount": "85986344",
+    "distributionId": "0xf883009f6adb51d36b03f77856b113634c7ef80843873e164b73eb65f17009ee",
+    "txHash": "0x6f6ba7152fcfde00a5533b343e02cbe04fef3a1f5fb82b25ed33052bf2615c28",
+    "amount": "12247238",
     "entries": 4,
-    "executedAt": "2026-08-15T03:26:05.650Z",
-    "harvestBlock": "43216486",
-    "harvestTimestamp": "1786764060",
+    "executedAt": "2026-08-16T00:03:05.799Z",
+    "harvestBlock": "43284805",
+    "harvestTimestamp": "1786831320",
     "timeWeighted": true
   },
   "cashdropDistributionHistory": [
@@ -598,6 +598,29 @@
         {
           "address": "0xf4a2CE37a4C89281Bf89d4C475B169d935510835",
           "amount": "41197195"
+        }
+      ]
+    },
+    {
+      "distributionId": "0xf883009f6adb51d36b03f77856b113634c7ef80843873e164b73eb65f17009ee",
+      "txHash": "0x6f6ba7152fcfde00a5533b343e02cbe04fef3a1f5fb82b25ed33052bf2615c28",
+      "executedAt": "2026-08-16T00:03:05.799Z",
+      "entries": [
+        {
+          "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
+          "amount": "6772"
+        },
+        {
+          "address": "0x163E1E73ae3aE62634E11C6A5540618CB32C74b0",
+          "amount": "6364451"
+        },
+        {
+          "address": "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55",
+          "amount": "8201"
+        },
+        {
+          "address": "0xf4a2CE37a4C89281Bf89d4C475B169d935510835",
+          "amount": "5867814"
         }
       ]
     }
