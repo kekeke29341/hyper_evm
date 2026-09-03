@@ -350,5 +350,205 @@
         }
       ]
     }
+  ],
+  "pools": [
+    {
+      "key": "ueth-whype",
+      "label": "UETH/HYPE",
+      "vault": "0x1399deab2a70caab308ac54c1544bfa5d10731f8",
+      "adapter": "0x55e9d473cdfda2f8493d512c6db365cf02ecf33e",
+      "airdrop": "0xf0a6708ac8090d76775c3125aa19cfdf7598c371",
+      "oracle": "0x0000000000000000000000000000000000000000",
+      "pool": "0xaf80230eB13222DB743C21762f65A046bb5F5437",
+      "quoteToken": "0x5555555555555555555555555555555555555555",
+      "quoteSymbol": "WHYPE",
+      "quoteDecimals": 18,
+      "baseToken": "0xBe6727B535545C67d5cAa73dEa54865B92CF7907",
+      "baseSymbol": "UETH",
+      "baseDecimals": 18,
+      "rewardToken": "0x5555555555555555555555555555555555555555",
+      "upperRangeBps": 500,
+      "lowerRangeBps": 500,
+      "twapWindow": 900,
+      "vaultDeployBlock": "44786127",
+      "cashdrop": {
+        "vaultDeployBlock": "44786127",
+        "vaultShareHolders": [
+          {
+            "address": "0x0196f2949fbce973d54d2047e3b8bfade06e8cec",
+            "shares": "19000000000000001"
+          }
+        ],
+        "cashdropWeightCheckpoint": {
+          "blockNumber": "44867623",
+          "timestamp": "1788388320",
+          "balances": {
+            "0x0196f2949fbce973d54d2047e3b8bfade06e8cec": "19000000000000001"
+          }
+        },
+        "airdropEntries": [
+          {
+            "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
+            "amount": "21291527646867",
+            "minShares": "1"
+          }
+        ],
+        "lastCashdropDistribution": {
+          "distributionId": "0xedebc1341911c7daf1bc4fe8503bb7f7d0cedfe001935186a352871ebbbf1570",
+          "txHash": "0x329abf01323b5ee26b0823a6d37cdb0f7cba8c0a7368778d26c70dd2a961a9fd",
+          "amount": "21291527646867",
+          "entries": 1,
+          "executedAt": "2026-09-03T00:32:06.378Z",
+          "harvestBlock": "44867623",
+          "harvestTimestamp": "1788388320",
+          "timeWeighted": false
+        },
+        "cashdropDistributionHistory": [
+          {
+            "distributionId": "0xedebc1341911c7daf1bc4fe8503bb7f7d0cedfe001935186a352871ebbbf1570",
+            "txHash": "0x329abf01323b5ee26b0823a6d37cdb0f7cba8c0a7368778d26c70dd2a961a9fd",
+            "executedAt": "2026-09-03T00:32:06.378Z",
+            "entries": [
+              {
+                "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
+                "amount": "21291527646867"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "key": "ubtc-whype",
+      "label": "UBTC/HYPE",
+      "vault": "0x10f98cdfc561a4c9eb253c22f05ff9cbb656d018",
+      "adapter": "0x768f4909ee0de4eb9f538912904cbef8e2426e27",
+      "airdrop": "0x4badd6a5352cd953893e4eb05598781d17bc63cb",
+      "oracle": "0x0000000000000000000000000000000000000000",
+      "pool": "0x0D6ECB912b6ee160e95Bc198b618Acc1bCb92525",
+      "quoteToken": "0x5555555555555555555555555555555555555555",
+      "quoteSymbol": "WHYPE",
+      "quoteDecimals": 18,
+      "baseToken": "0x9FDBdA0A5e284c32744D2f17Ee5c74B284993463",
+      "baseSymbol": "UBTC",
+      "baseDecimals": 8,
+      "rewardToken": "0x5555555555555555555555555555555555555555",
+      "upperRangeBps": 500,
+      "lowerRangeBps": 500,
+      "twapWindow": 900,
+      "vaultDeployBlock": "44787713",
+      "cashdrop": {
+        "vaultDeployBlock": "44787713",
+        "vaultShareHolders": [
+          {
+            "address": "0x0196f2949fbce973d54d2047e3b8bfade06e8cec",
+            "shares": "19000000000000000"
+          }
+        ],
+        "cashdropWeightCheckpoint": {
+          "blockNumber": "44802048",
+          "timestamp": "1788323820",
+          "balances": {
+            "0x0196f2949fbce973d54d2047e3b8bfade06e8cec": "19000000000000000"
+          }
+        },
+        "airdropEntries": [
+          {
+            "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
+            "amount": "2562424425332",
+            "minShares": "1"
+          }
+        ],
+        "lastCashdropDistribution": {
+          "distributionId": "0x56022518083339f057944bbf201f7babf17a851d9252e5f15c72fab21f211e36",
+          "txHash": "0x562a4ac1e8cd89a82b11b8cfacac4db7b974b477aab6ef17aeb71de260da7c96",
+          "amount": "2562424425332",
+          "entries": 1,
+          "executedAt": "2026-09-02T04:41:02.647Z",
+          "harvestBlock": "44802048",
+          "harvestTimestamp": "1788323820",
+          "timeWeighted": false
+        },
+        "cashdropDistributionHistory": [
+          {
+            "distributionId": "0x56022518083339f057944bbf201f7babf17a851d9252e5f15c72fab21f211e36",
+            "txHash": "0x562a4ac1e8cd89a82b11b8cfacac4db7b974b477aab6ef17aeb71de260da7c96",
+            "executedAt": "2026-09-02T04:41:02.647Z",
+            "entries": [
+              {
+                "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
+                "amount": "2562424425332"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "key": "upump-whype",
+      "label": "UPUMP/HYPE",
+      "vault": "0x125cbac752a93010d856007b0d1eafca89658082",
+      "adapter": "0xb03f65a9742e0e1fb4ca6064f53c8ebb22a7ef51",
+      "airdrop": "0x9aede1f72e4db59fff8ed965873a58bd2554aa6c",
+      "oracle": "0x0000000000000000000000000000000000000000",
+      "pool": "0x78cc152A531DBde2F3Fe7001ad659fa120Fa893b",
+      "quoteToken": "0x5555555555555555555555555555555555555555",
+      "quoteSymbol": "WHYPE",
+      "quoteDecimals": 18,
+      "baseToken": "0x27eC642013bcB3D80CA3706599D3cdA04F6f4452",
+      "baseSymbol": "UPUMP",
+      "baseDecimals": 6,
+      "rewardToken": "0x5555555555555555555555555555555555555555",
+      "upperRangeBps": 500,
+      "lowerRangeBps": 500,
+      "twapWindow": 900,
+      "vaultDeployBlock": "44788628",
+      "cashdrop": {
+        "vaultDeployBlock": "44788628",
+        "vaultShareHolders": [
+          {
+            "address": "0x0196f2949fbce973d54d2047e3b8bfade06e8cec",
+            "shares": "19000000000000000"
+          }
+        ],
+        "cashdropWeightCheckpoint": {
+          "blockNumber": "44802170",
+          "timestamp": "1788323940",
+          "balances": {
+            "0x0196f2949fbce973d54d2047e3b8bfade06e8cec": "19000000000000000"
+          }
+        },
+        "airdropEntries": [
+          {
+            "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
+            "amount": "38203337734509",
+            "minShares": "1"
+          }
+        ],
+        "lastCashdropDistribution": {
+          "distributionId": "0xe3bb1b1bf3fd57f63bff5a96faa2c4f58340e3fef0a5a99c5e0237e723f2bf7b",
+          "txHash": "0xcdd65102105dd11e29e6f4fee114cbce97ece0271812664b1f7966511d432cee",
+          "amount": "38203337734509",
+          "entries": 1,
+          "executedAt": "2026-09-02T04:43:03.862Z",
+          "harvestBlock": "44802170",
+          "harvestTimestamp": "1788323940",
+          "timeWeighted": false
+        },
+        "cashdropDistributionHistory": [
+          {
+            "distributionId": "0xe3bb1b1bf3fd57f63bff5a96faa2c4f58340e3fef0a5a99c5e0237e723f2bf7b",
+            "txHash": "0xcdd65102105dd11e29e6f4fee114cbce97ece0271812664b1f7966511d432cee",
+            "executedAt": "2026-09-02T04:43:03.862Z",
+            "entries": [
+              {
+                "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
+                "amount": "38203337734509"
+              }
+            ]
+          }
+        ]
+      }
+    }
   ]
 }
