@@ -523,28 +523,28 @@
           }
         ],
         "cashdropWeightCheckpoint": {
-          "blockNumber": "44802170",
-          "timestamp": "1788323940",
+          "blockNumber": "44866403",
+          "timestamp": "1788387120",
           "balances": {
-            "0x0196f2949fbce973d54d2047e3b8bfade06e8cec": "19000000000000000"
+            "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC": "19000000000000000"
           }
         },
         "airdropEntries": [
           {
             "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
-            "amount": "38203337734509",
+            "amount": "50790180427608",
             "minShares": "1"
           }
         ],
         "lastCashdropDistribution": {
-          "distributionId": "0xe3bb1b1bf3fd57f63bff5a96faa2c4f58340e3fef0a5a99c5e0237e723f2bf7b",
-          "txHash": "0xcdd65102105dd11e29e6f4fee114cbce97ece0271812664b1f7966511d432cee",
-          "amount": "38203337734509",
+          "distributionId": "0xd7da2f4a94be949da1e88b33a6d2b392ca7967895754d0802dcff820f09745f4",
+          "txHash": "0x197379985e8275cb65ec2e099416d7910876ad29ab22caf736236bbb27862831",
+          "amount": "50790180427608",
           "entries": 1,
-          "executedAt": "2026-09-02T04:43:03.862Z",
-          "harvestBlock": "44802170",
-          "harvestTimestamp": "1788323940",
-          "timeWeighted": false
+          "executedAt": "2026-09-03T01:02:02.850Z",
+          "harvestBlock": "44866403",
+          "harvestTimestamp": "1788387120",
+          "timeWeighted": true
         },
         "cashdropDistributionHistory": [
           {
@@ -555,6 +555,17 @@
               {
                 "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
                 "amount": "38203337734509"
+              }
+            ]
+          },
+          {
+            "distributionId": "0xd7da2f4a94be949da1e88b33a6d2b392ca7967895754d0802dcff820f09745f4",
+            "txHash": "0x197379985e8275cb65ec2e099416d7910876ad29ab22caf736236bbb27862831",
+            "executedAt": "2026-09-03T01:02:02.850Z",
+            "entries": [
+              {
+                "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
+                "amount": "50790180427608"
               }
             ]
           }
