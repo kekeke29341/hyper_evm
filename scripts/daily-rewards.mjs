@@ -5,10 +5,14 @@
  *
  * Env: PRIVATE_KEY, RPC_URL (999), DEPLOYMENT_CHAIN=999
  *      DAILY_REWARDS_PHASE=harvest|distribute|all (default all)
+ *      POOL_KEY (optional) — when set, harvest/distribute a HYPE-quoted pools[] entry using its own
+ *        isolated pool.cashdrop.* state and pool.rewardToken (WHYPE). When unset, behaviour is
+ *        byte-for-byte identical to before: the live HYPE/USDC top-level Cashdrop.
  */
 import fs from "fs";
 import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
+import { mergeScopeOntoDisk, resolveRewardScope } from "./lib/pool-config.mjs";
 
 import { buildCashdropEntries, fetchReferrerMap } from "./lib/referral-allocation.mjs";
 import {
@@ -68,15 +72,15 @@ const ZERO_ROOT = `0x${"0".repeat(64)}`;
 const TIME_WEIGHTED_CASHDROP = process.env.TIME_WEIGHTED_CASHDROP !== "0";
 const DAILY_REWARDS_PHASE = (process.env.DAILY_REWARDS_PHASE ?? "all").toLowerCase();
 
-function vaultDeployBlock(deployment) {
+function vaultDeployBlock() {
   if (process.env.DEPLOY_BLOCK) return BigInt(process.env.DEPLOY_BLOCK);
-  if (deployment.vaultDeployBlock) return BigInt(deployment.vaultDeployBlock);
-  if (CHAIN === 999) return 39_115_156n;
+  if (scope.vaultDeployBlock) return BigInt(scope.vaultDeployBlock);
+  if (CHAIN === 999 && !scope.key) return 39_115_156n; // legacy HYPE/USDC vault deploy block
   return 0n;
 }
 
 async function resolveWeightingPeriod(publicClient) {
-  const checkpoint = deployment.cashdropWeightCheckpoint;
+  const checkpoint = state.cashdropWeightCheckpoint;
   if (checkpoint?.blockNumber && checkpoint?.timestamp) {
     return {
       fromBlock: BigInt(checkpoint.blockNumber) + 1n,
@@ -85,7 +89,7 @@ async function resolveWeightingPeriod(publicClient) {
     };
   }
 
-  const last = deployment.lastCashdropDistribution;
+  const last = state.lastCashdropDistribution;
   if (last?.harvestBlock && last?.harvestTimestamp) {
     return {
       fromBlock: BigInt(last.harvestBlock) + 1n,
@@ -95,13 +99,13 @@ async function resolveWeightingPeriod(publicClient) {
   }
   if (last?.executedAt) {
     return {
-      fromBlock: vaultDeployBlock(deployment),
+      fromBlock: vaultDeployBlock(),
       periodStartTimestamp: Math.floor(Date.parse(last.executedAt) / 1000),
       initialBalances: {},
     };
   }
 
-  const fromBlock = vaultDeployBlock(deployment);
+  const fromBlock = vaultDeployBlock();
   const startBlock = await getBlock({ blockNumber: fromBlock }, `startBlock:${fromBlock}`);
   return {
     fromBlock,
@@ -151,8 +155,16 @@ function getBlock(request, label) {
   return getBlockWithRetry({ publicClient, clients: rpcClients, request, label });
 }
 
-const vault = deployment.hyperpoolVault ?? deployment.liquidityVault;
-if (!vault) throw new Error("hyperpoolVault not in deployment JSON");
+// Resolve the Cashdrop scope. Legacy (POOL_KEY unset): state === deployment, so all top-level
+// reads/writes are unchanged. HYPE-quoted (POOL_KEY set): state === pool.cashdrop, reward = WHYPE,
+// and every cashdrop field is isolated from the live top-level pool.
+const scope = resolveRewardScope(deployment, process.env.POOL_KEY);
+const vault = scope.vault;
+const state = scope.state;
+// Per-scope pending-cashdrop file key so a pool harvest never collides with the legacy one.
+const PENDING_KEY = scope.key ? `${CHAIN}-${scope.key}` : CHAIN;
+if (!vault) throw new Error(scope.key ? `pools[${scope.key}].vault missing` : "hyperpoolVault not in deployment JSON");
+console.log(`Daily rewards target: ${scope.key ? `pool '${scope.key}'` : "legacy HYPE/USDC"} vault=${vault} reward=${scope.rewardToken}`);
 
 function addCombinedEntry(map, entry) {
   const key = entry.address.toLowerCase();
@@ -195,7 +207,7 @@ function distributionIdFor(entries, pending, carryover) {
       [
         BigInt(CHAIN),
         vault,
-        deployment.airdrop,
+        scope.airdrop,
         pending,
         carryover,
         entries.map((entry) => entry.address),
@@ -207,29 +219,29 @@ function distributionIdFor(entries, pending, carryover) {
 
 async function collectCarryoverEntries() {
   const currentRoot = await readContract({
-    address: deployment.airdrop,
+    address: scope.airdrop,
     abi: airdropAbi,
     functionName: "merkleRoot",
   }, "airdrop.merkleRoot");
   const currentDeadline = await readContract({
-    address: deployment.airdrop,
+    address: scope.airdrop,
     abi: airdropAbi,
     functionName: "claimDeadline",
   }, "airdrop.claimDeadline");
 
-  const previousEntries = deployment.airdropEntries ?? [];
+  const previousEntries = state.airdropEntries ?? [];
   if (
     !previousEntries.length ||
-    !deployment.merkleRoot ||
+    !state.merkleRoot ||
     !currentRoot ||
     currentRoot.toLowerCase() === ZERO_ROOT
   ) {
     return [];
   }
 
-  if (deployment.merkleRoot.toLowerCase() !== currentRoot.toLowerCase()) {
+  if (state.merkleRoot.toLowerCase() !== currentRoot.toLowerCase()) {
     throw new Error(
-      `Deployment merkleRoot ${deployment.merkleRoot} does not match on-chain root ${currentRoot}; refusing to guess carryover`
+      `Deployment merkleRoot ${state.merkleRoot} does not match on-chain root ${currentRoot}; refusing to guess carryover`
     );
   }
 
@@ -243,7 +255,7 @@ async function collectCarryoverEntries() {
   const carryover = [];
   for (const entry of previousEntries) {
     const claimed = await readContract({
-      address: deployment.airdrop,
+      address: scope.airdrop,
       abi: airdropAbi,
       functionName: "claimedByRoot",
       args: [currentRoot, entry.address],
@@ -275,7 +287,18 @@ function saveDeploymentJson() {
     path.join(root, "contracts/deployments", `${CHAIN}.json`),
     path.join(root, "frontend/src/lib/contracts/deployments", `${CHAIN}.json`),
   ]) {
-    if (fs.existsSync(path.dirname(p))) fs.writeFileSync(p, JSON.stringify(deployment, null, 2) + "\n");
+    if (!fs.existsSync(path.dirname(p))) continue;
+    // Re-read and merge only this scope's fields: a concurrently running legacy/other-pool job
+    // must not have its Cashdrop state reverted by our (older) in-memory copy of the file.
+    let out = deployment;
+    if (fs.existsSync(p)) {
+      try {
+        out = mergeScopeOntoDisk(JSON.parse(fs.readFileSync(p, "utf8")), deployment, scope);
+      } catch (err) {
+        console.warn(`Could not merge onto ${p} (${err.message}); writing in-memory state`);
+      }
+    }
+    fs.writeFileSync(p, JSON.stringify(out, null, 2) + "\n");
   }
 }
 
@@ -291,9 +314,13 @@ async function runHarvestPhase() {
     vault,
     vaultAbi,
     extraAddresses: extraHolders,
+    // Legacy: state === deployment, so the same top-level fields are written as before — but via
+    // saveDeploymentJson, which merges onto the current file instead of clobbering it wholesale.
+    state,
+    persist: saveDeploymentJson,
   };
   await syncVaultShareHolders(syncOptions);
-  let holders = deployment.vaultShareHolders ?? [];
+  let holders = state.vaultShareHolders ?? [];
   console.log(`  ${holders.length} holder(s) snapshotted`);
   for (const h of holders) {
     console.log(`    ${h.address}: ${h.shares} shares`);
@@ -313,7 +340,7 @@ async function runHarvestPhase() {
     } finally {
       process.env.SKIP_LOG_SCAN = "1";
     }
-    holders = deployment.vaultShareHolders ?? [];
+    holders = state.vaultShareHolders ?? [];
     console.log(`  ${holders.length} holder(s) after log scan`);
     for (const h of holders) {
       console.log(`    ${h.address}: ${h.shares} shares`);
@@ -356,7 +383,7 @@ async function runHarvestPhase() {
 
   if (pending === 0n && carryover === 0n) {
     console.log("No user rewards or carryover to distribute");
-    clearPendingCashdrop(root, CHAIN);
+    clearPendingCashdrop(root, PENDING_KEY);
     return null;
   }
 
@@ -374,7 +401,7 @@ async function runHarvestPhase() {
     holders,
     createdAt: new Date().toISOString(),
   };
-  writePendingCashdrop(root, CHAIN, pendingState);
+  writePendingCashdrop(root, PENDING_KEY, pendingState);
   console.log("Wrote pending Cashdrop state for distribute phase");
   return pendingState;
 }
@@ -396,7 +423,7 @@ async function runDistributePhase(pendingState) {
     holders = pendingState.holders ?? [];
     harvestTimestamp = Number(pendingState.harvestTimestamp);
   } else {
-    const saved = readPendingCashdrop(root, CHAIN);
+    const saved = readPendingCashdrop(root, PENDING_KEY);
     if (!saved) {
       console.log("No pending harvest state — skipping distribute phase");
       return;
@@ -420,7 +447,7 @@ async function runDistributePhase(pendingState) {
 
   if (pending === 0n && carryover === 0n) {
     console.log("No user rewards or carryover to distribute");
-    clearPendingCashdrop(root, CHAIN);
+    clearPendingCashdrop(root, PENDING_KEY);
     return;
   }
 
@@ -439,7 +466,7 @@ async function runDistributePhase(pendingState) {
   let allocationTotal = eligibleShares;
 
   let useTimeWeighted = TIME_WEIGHTED_CASHDROP;
-  if (pending > 0n && useTimeWeighted && !deployment.cashdropWeightCheckpoint?.blockNumber && holders.length > 0) {
+  if (pending > 0n && useTimeWeighted && !state.cashdropWeightCheckpoint?.blockNumber && holders.length > 0) {
     console.log(
       "No cashdropWeightCheckpoint — using harvest shareholder snapshot (skipping full-period log scan)"
     );
@@ -467,7 +494,7 @@ async function runDistributePhase(pendingState) {
 
     allocationHolders = weighted.holders;
     allocationTotal = weighted.totalWeighted;
-    deployment.cashdropWeightCheckpoint = weighted.checkpoint;
+    state.cashdropWeightCheckpoint = weighted.checkpoint;
 
     console.log(`Time-weighted Cashdrop (${weighted.holders.length} participant(s)):`);
     for (const h of weighted.holders) {
@@ -476,7 +503,7 @@ async function runDistributePhase(pendingState) {
     }
   } else if (pending > 0n) {
     console.log("Using end-of-period snapshot shares (no time-weighted log scan)");
-    deployment.cashdropWeightCheckpoint = checkpointFromHolders(
+    state.cashdropWeightCheckpoint = checkpointFromHolders(
       holders,
       harvestReceipt.blockNumber,
       harvestTimestamp
@@ -497,7 +524,7 @@ async function runDistributePhase(pendingState) {
   }
 
   let referrers = new Map();
-  const registry = deployment.referralRegistry;
+  const registry = scope.referralRegistry;
   const ZERO = "0x0000000000000000000000000000000000000000";
   if (pending > 0n && registry && registry.toLowerCase() !== ZERO) {
     referrers = await fetchReferrerMap(publicClient, registry, allocationHolders, rpcClients);
@@ -533,17 +560,17 @@ async function runDistributePhase(pendingState) {
       address: vault,
       abi: vaultAbi,
       functionName: "pullPendingRewards",
-      args: [deployment.airdrop, pending],
+      args: [scope.airdrop, pending],
     });
     await publicClient.waitForTransactionReceipt({ hash: pullHash });
   }
 
   const airdropBal = await readContract({
-    address: deployment.tokenUSDC,
+    address: scope.rewardToken,
     abi: erc20Abi,
     functionName: "balanceOf",
-    args: [deployment.airdrop],
-  }, "airdrop.usdcBalance");
+    args: [scope.airdrop],
+  }, "airdrop.rewardBalance");
   if (airdropBal < totalDistribution) {
     throw new Error(
       `MerkleAirdrop balance ${airdropBal} is lower than auto distribution ${totalDistribution}`
@@ -552,7 +579,7 @@ async function runDistributePhase(pendingState) {
 
   const distributionId = distributionIdFor(entries, pending, carryover);
   const distributed = await readContract({
-    address: deployment.airdrop,
+    address: scope.airdrop,
     abi: airdropAbi,
     functionName: "distributionExecuted",
     args: [distributionId],
@@ -562,7 +589,7 @@ async function runDistributePhase(pendingState) {
   }
 
   const distributeHash = await walletClient.writeContract({
-    address: deployment.airdrop,
+    address: scope.airdrop,
     abi: airdropAbi,
     functionName: "distributeRewards",
     args: [
@@ -573,12 +600,12 @@ async function runDistributePhase(pendingState) {
   });
   const distributeReceipt = await publicClient.waitForTransactionReceipt({ hash: distributeHash });
 
-  deployment.airdropEntries = entries.map((e) => ({
+  state.airdropEntries = entries.map((e) => ({
     address: e.address,
     amount: e.amount.toString(),
     minShares: e.minShares?.toString(),
   }));
-  deployment.lastCashdropDistribution = {
+  state.lastCashdropDistribution = {
     distributionId,
     txHash: distributeReceipt.transactionHash,
     amount: totalDistribution.toString(),
@@ -588,18 +615,18 @@ async function runDistributePhase(pendingState) {
     harvestTimestamp: String(harvestTimestamp),
     timeWeighted: useTimeWeighted,
   };
-  appendDistributionHistory(deployment, {
+  appendDistributionHistory(state, {
     distributionId,
     txHash: distributeReceipt.transactionHash,
-    executedAt: deployment.lastCashdropDistribution.executedAt,
+    executedAt: state.lastCashdropDistribution.executedAt,
     entries: entries.map((e) => ({ address: e.address, amount: e.amount.toString() })),
   });
-  delete deployment.merkleRoot;
+  delete state.merkleRoot;
   saveDeploymentJson();
-  clearPendingCashdrop(root, CHAIN);
+  clearPendingCashdrop(root, PENDING_KEY);
 
   console.log(
-    `Auto Cashdrop distributed — ${entries.length} entries, ${totalDistribution} USDC units, tx ${distributeReceipt.transactionHash}`
+    `Auto Cashdrop distributed — ${entries.length} entries, ${totalDistribution} ${scope.key ? "reward" : "USDC"} units, tx ${distributeReceipt.transactionHash}`
   );
   console.log(
     `Fee split bps — ops: ${OPERATIONS_FEE_BPS} (7%), user: ${USER_FEE_BPS} (60%), owner: ${OWNER_FEE_BPS} (33%)`

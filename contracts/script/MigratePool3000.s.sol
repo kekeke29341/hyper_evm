@@ -41,7 +41,7 @@ contract MigratePool3000 is Script {
         address ownerFeeWallet = _ownerFeeWallet(oldVault, deployer);
 
         ProjectXAdapter newAdapter = new ProjectXAdapter(
-            npm, token0, token1, usdc, whype, ProjectXConstants.FEE_TIER_DEFAULT, deployer
+            npm, token0, token1, usdc, whype, ProjectXConstants.FEE_TIER_DEFAULT, oldAdapter.refPriceUsdc6PerHype18(), deployer
         );
 
         HyperpoolVault newVault = new HyperpoolVault(

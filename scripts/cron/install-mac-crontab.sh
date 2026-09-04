@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 # Install Hyperpool keeper + daily-rewards into the current user's crontab (macOS).
+#
+# Default (2026-09+): HYPE-quoted pools only (UETH/UBTC/UPUMP). Legacy HYPE/USDC gen9
+# cron (POOL_KEY unset) is intentionally EXCLUDED — re-enabling it would touch the live
+# top-level Cashdrop. Set INSTALL_LEGACY_HYPE_USDC_CRON=1 to also install the old block.
+#
 # Usage: ./scripts/cron/install-mac-crontab.sh
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -30,18 +35,39 @@ if [[ ! -d "$ROOT/frontend/node_modules/viem" ]]; then
   (cd "$ROOT/frontend" && npm ci)
 fi
 
+LEGACY_BLOCK=""
+if [[ "${INSTALL_LEGACY_HYPE_USDC_CRON:-0}" == "1" ]]; then
+  LEGACY_BLOCK=$(cat <<EOF
+# Legacy HYPE/USDC gen9 (POOL_KEY unset) — only when INSTALL_LEGACY_HYPE_USDC_CRON=1
+0 7 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=999 $HARVEST >> $LOG_DAILY 2>&1
+0 9 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=999 $DISTRIBUTE >> $LOG_DAILY 2>&1
+30 9 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=999 $DISTRIBUTE >> $LOG_DAILY 2>&1
+0 */6 * * * DEPLOYMENT_CHAIN=999 $KEEPER >> $LOG_KEEPER 2>&1
+EOF
+)
+fi
+
 BLOCK=$(cat <<EOF
 $MARKER_BEGIN
 SHELL=/bin/bash
 PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin
-# Daily Cashdrop harvest — Mainnet 999 (JST 07:00)
-0 7 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=999 $HARVEST >> $LOG_DAILY 2>&1
-# Daily Cashdrop distribute — Mainnet 999 (JST 09:00, after harvest completes)
-0 9 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=999 $DISTRIBUTE >> $LOG_DAILY 2>&1
-# Retry distribute if harvest overran the 09:00 slot (pending file still present)
-30 9 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=999 $DISTRIBUTE >> $LOG_DAILY 2>&1
-# Keeper rebalance — Mainnet 999 (every 6 hours)
-0 */6 * * * DEPLOYMENT_CHAIN=999 $KEEPER >> $LOG_KEEPER 2>&1
+$LEGACY_BLOCK
+# HYPE-quoted pools (WHYPE Cashdrop, pool TWAP guard). Minutes staggered per pool.
+# UPUMP/HYPE
+10 7 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=999 POOL_KEY=upump-whype $HARVEST >> $LOG_DAILY 2>&1
+10 9 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=999 POOL_KEY=upump-whype $DISTRIBUTE >> $LOG_DAILY 2>&1
+40 9 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=999 POOL_KEY=upump-whype $DISTRIBUTE >> $LOG_DAILY 2>&1
+15 */6 * * * DEPLOYMENT_CHAIN=999 POOL_KEY=upump-whype SKIP_ORACLE=1 $KEEPER >> $LOG_KEEPER 2>&1
+# UBTC/HYPE
+20 7 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=999 POOL_KEY=ubtc-whype $HARVEST >> $LOG_DAILY 2>&1
+20 9 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=999 POOL_KEY=ubtc-whype $DISTRIBUTE >> $LOG_DAILY 2>&1
+50 9 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=999 POOL_KEY=ubtc-whype $DISTRIBUTE >> $LOG_DAILY 2>&1
+30 */6 * * * DEPLOYMENT_CHAIN=999 POOL_KEY=ubtc-whype SKIP_ORACLE=1 $KEEPER >> $LOG_KEEPER 2>&1
+# UETH/HYPE
+30 7 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=999 POOL_KEY=ueth-whype $HARVEST >> $LOG_DAILY 2>&1
+30 9 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=999 POOL_KEY=ueth-whype $DISTRIBUTE >> $LOG_DAILY 2>&1
+0 10 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=999 POOL_KEY=ueth-whype $DISTRIBUTE >> $LOG_DAILY 2>&1
+45 */6 * * * DEPLOYMENT_CHAIN=999 POOL_KEY=ueth-whype SKIP_ORACLE=1 $KEEPER >> $LOG_KEEPER 2>&1
 $MARKER_END
 EOF
 )
@@ -60,12 +86,18 @@ FILTERED="$(printf '%s\n' "$EXISTING" | awk "
 } | crontab -
 
 echo "Installed Hyperpool crontab entries for: $ROOT"
+if [[ "${INSTALL_LEGACY_HYPE_USDC_CRON:-0}" == "1" ]]; then
+  echo "  (includes legacy HYPE/USDC gen9 cron)"
+else
+  echo "  HYPE-quoted pools only (ueth/ubtc/upump). Legacy gen9 cron NOT installed."
+  echo "  To add legacy: INSTALL_LEGACY_HYPE_USDC_CRON=1 $0"
+fi
 echo ""
 crontab -l | awk "/hyperpool cron/,/hyperpool cron end/"
 echo ""
 echo "Logs: $LOG_KEEPER , $LOG_DAILY"
 echo "Manual test:"
-echo "  $KEEPER"
-echo "  $HARVEST    # harvest only"
-echo "  $DISTRIBUTE # distribute only"
-echo "  $DAILY      # both phases (manual)"
+echo "  POOL_KEY=ueth-whype $KEEPER"
+echo "  POOL_KEY=ueth-whype $HARVEST"
+echo "  POOL_KEY=ueth-whype $DISTRIBUTE"
+echo "  POOL_KEY=ueth-whype $DAILY"

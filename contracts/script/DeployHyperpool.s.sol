@@ -61,6 +61,7 @@ contract DeployHyperpool is Script {
             usdc,
             whype,
             ProjectXConstants.FEE_TIER_DEFAULT,
+            42e6 * 1e12,
             deployer
         );
 

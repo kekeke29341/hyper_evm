@@ -6,26 +6,30 @@ import {PoolMath} from "./PoolMath.sol";
 import {ProjectXConstants} from "./ProjectXConstants.sol";
 import {TickMath} from "./TickMath.sol";
 
-/// @title ProjectXPrice — ref price ↔ Uniswap V3 ticks for WHYPE/USDC pool
+/// @title ProjectXPrice — ref price ↔ Uniswap V3 ticks for a generic base/quote pool
+/// @dev `priceDiv = 10^(baseDecimals + 18 − quoteDecimals)` is the constant that bridges the
+///      canonical ref price (humanPrice * 1e18 = quote-per-base scaled by 1e18) to the pool's
+///      raw token-unit price. For the legacy USDC(6)/WHYPE(18) pool this reduces to 1e30, so the
+///      generalization is regression-exact. `quoteIsToken0` = (pool token0 is the quote token).
 library ProjectXPrice {
     int24 internal constant TICK_SPACING = 60;
 
-    function sqrtPriceX96FromRefPrice(uint256 priceUsdc6PerHype18, bool usdcIsToken0)
+    function sqrtPriceX96FromRefPrice(uint256 refPriceQuotePerBase18, bool quoteIsToken0, uint256 priceDiv)
         internal
         pure
         returns (uint160 sqrtPriceX96)
     {
-        require(priceUsdc6PerHype18 > 0, "ProjectXPrice: ZERO");
+        require(refPriceQuotePerBase18 > 0, "ProjectXPrice: ZERO");
+        require(priceDiv > 0, "ProjectXPrice: PRICE_DIV");
 
-        // refPrice is scaled as (USDC 6-dec per HYPE) * 1e12 = humanPrice * 1e18.
-        // The Uniswap pool price is in raw token units, so it must also carry the USDC(6)/WHYPE(18)
-        // decimal gap of 1e12. That makes the bridging constant 1e18 * 1e12 = 1e30 (not 1e18);
-        // omitting the 1e12 mis-scales pool ticks by 1e12 on a real 6-dec-USDC / 18-dec-WHYPE pool.
+        // refPrice is quote-per-base * 1e18. The Uniswap pool price is in raw token units, so it
+        // must also carry the base/quote decimal gap; the bridging constant is
+        // priceDiv = 10^(baseDec + 18 − quoteDec). For USDC(6)/WHYPE(18) that is 1e30.
         uint256 ratioX192;
-        if (usdcIsToken0) {
-            ratioX192 = FullMath.mulDiv(1e30, uint256(1) << 192, priceUsdc6PerHype18);
+        if (quoteIsToken0) {
+            ratioX192 = FullMath.mulDiv(priceDiv, uint256(1) << 192, refPriceQuotePerBase18);
         } else {
-            ratioX192 = FullMath.mulDiv(priceUsdc6PerHype18, uint256(1) << 192, 1e30);
+            ratioX192 = FullMath.mulDiv(refPriceQuotePerBase18, uint256(1) << 192, priceDiv);
         }
 
         sqrtPriceX96 = uint160(PoolMath.sqrt(ratioX192));
@@ -33,19 +37,20 @@ library ProjectXPrice {
     }
 
     function ticksFromRefPrice(
-        uint256 priceUsdc6PerHype18,
-        bool usdcIsToken0,
+        uint256 refPriceQuotePerBase18,
+        bool quoteIsToken0,
+        uint256 priceDiv,
         uint256 upperBps,
         uint256 lowerBps
     ) internal pure returns (int24 tickLower, int24 tickUpper) {
         require(upperBps > 0 && lowerBps > 0, "ProjectXPrice: RANGE");
 
-        uint256 upperPrice = (priceUsdc6PerHype18 * (ProjectXConstants.BPS + upperBps)) / ProjectXConstants.BPS;
-        uint256 lowerPrice = (priceUsdc6PerHype18 * (ProjectXConstants.BPS - lowerBps)) / ProjectXConstants.BPS;
+        uint256 upperPrice = (refPriceQuotePerBase18 * (ProjectXConstants.BPS + upperBps)) / ProjectXConstants.BPS;
+        uint256 lowerPrice = (refPriceQuotePerBase18 * (ProjectXConstants.BPS - lowerBps)) / ProjectXConstants.BPS;
         require(lowerPrice > 0, "ProjectXPrice: LOWER_ZERO");
 
-        int24 rawLower = TickMath.getTickAtSqrtRatio(sqrtPriceX96FromRefPrice(lowerPrice, usdcIsToken0));
-        int24 rawUpper = TickMath.getTickAtSqrtRatio(sqrtPriceX96FromRefPrice(upperPrice, usdcIsToken0));
+        int24 rawLower = TickMath.getTickAtSqrtRatio(sqrtPriceX96FromRefPrice(lowerPrice, quoteIsToken0, priceDiv));
+        int24 rawUpper = TickMath.getTickAtSqrtRatio(sqrtPriceX96FromRefPrice(upperPrice, quoteIsToken0, priceDiv));
 
         if (rawLower > rawUpper) {
             (rawLower, rawUpper) = (rawUpper, rawLower);

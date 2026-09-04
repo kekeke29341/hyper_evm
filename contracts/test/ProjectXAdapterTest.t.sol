@@ -35,6 +35,7 @@ contract ProjectXAdapterTest is Test {
             address(usdc),
             address(whype),
             ProjectXConstants.FEE_TIER_DEFAULT,
+            42e6 * 1e12,
             address(this)
         );
 
@@ -86,7 +87,7 @@ contract ProjectXAdapterTest is Test {
     function test_CurrentPoolPriceTracksSlot0() public {
         uint256 price = 67e6 * 1e12;
         bool usdcIsToken0 = address(adapter.token0()) == address(usdc);
-        uint160 sqrtPrice = ProjectXPrice.sqrtPriceX96FromRefPrice(price, usdcIsToken0);
+        uint160 sqrtPrice = ProjectXPrice.sqrtPriceX96FromRefPrice(price, usdcIsToken0, 1e30);
         adapter.setPool(address(new MockUniswapV3Pool(sqrtPrice, 0)));
 
         assertApproxEqRel(adapter.currentPoolPriceUsdc6PerHype18(), price, 1e12);
@@ -161,7 +162,7 @@ contract ProjectXAdapterTest is Test {
         uint256 livePrice = 67e6 * 1e12;
         bool usdcIsToken0 = address(adapter.token0()) == address(usdc);
 
-        uint160 liveSqrt = ProjectXPrice.sqrtPriceX96FromRefPrice(livePrice, usdcIsToken0);
+        uint160 liveSqrt = ProjectXPrice.sqrtPriceX96FromRefPrice(livePrice, usdcIsToken0, 1e30);
         adapter.setPool(address(new MockUniswapV3Pool(liveSqrt, TickMath.getTickAtSqrtRatio(liveSqrt))));
 
         // Constructor seeds refPrice at $42 while pool spot is $67.
@@ -229,7 +230,7 @@ contract ProjectXAdapterTest is Test {
     function test_RangeDepositRatioBpsSumsToFullRange() public {
         uint256 price = 42e6 * 1e12;
         bool usdcIsToken0 = address(adapter.token0()) == address(usdc);
-        uint160 sqrtPrice = ProjectXPrice.sqrtPriceX96FromRefPrice(price, usdcIsToken0);
+        uint160 sqrtPrice = ProjectXPrice.sqrtPriceX96FromRefPrice(price, usdcIsToken0, 1e30);
         adapter.setPool(address(new MockUniswapV3Pool(sqrtPrice, 0)));
 
         usdc.mint(address(vault), 1000e6);

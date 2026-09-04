@@ -17,9 +17,23 @@ function formatUsd(value: number): string {
   return `$${value.toFixed(value < 10 ? 2 : 0)}`;
 }
 
-export function EarningsTrendChart({ data }: { data: EarningsChartPoint[] }) {
+function formatToken(value: number, symbol: string): string {
+  if (value >= 1000) return `${(value / 1000).toFixed(2)}K ${symbol}`;
+  if (value < 0.01) return `${value.toFixed(6)} ${symbol}`;
+  return `${value.toFixed(4)} ${symbol}`;
+}
+
+export function EarningsTrendChart({
+  data,
+  valueSymbol,
+}: {
+  data: EarningsChartPoint[];
+  /** When set (e.g. "HYPE"), chart axis/tooltip use token units instead of USD. */
+  valueSymbol?: string;
+}) {
   const { t } = useI18n();
   const [mounted, setMounted] = useState(false);
+  const fmt = (v: number) => (valueSymbol ? formatToken(v, valueSymbol) : formatUsd(v));
 
   useEffect(() => {
     setMounted(true);
@@ -54,8 +68,8 @@ export function EarningsTrendChart({ data }: { data: EarningsChartPoint[] }) {
             tick={{ fill: "#71717a", fontSize: 10 }}
             axisLine={false}
             tickLine={false}
-            width={48}
-            tickFormatter={formatUsd}
+            width={valueSymbol ? 72 : 48}
+            tickFormatter={fmt}
             domain={[0, maxVal * 1.1]}
           />
           <Tooltip
@@ -67,7 +81,7 @@ export function EarningsTrendChart({ data }: { data: EarningsChartPoint[] }) {
             }}
             labelStyle={{ color: "#a1a1aa" }}
             formatter={(value) => [
-              formatUsd(typeof value === "number" ? value : Number(value ?? 0)),
+              fmt(typeof value === "number" ? value : Number(value ?? 0)),
               t("dashboard.chartValue"),
             ]}
           />

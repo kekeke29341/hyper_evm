@@ -118,18 +118,24 @@ export async function syncVaultShareHolders({
   vaultAbi,
   extraAddresses = [],
   fromBlock,
+  // Optional Cashdrop-scope overrides (default = legacy top-level behaviour, byte-for-byte):
+  //   state   — object that holds vaultShareHolders + checkpoint/last (default `deployment`).
+  //   persist — callback invoked to save after mutation (default writes `deployment` to both JSONs).
+  state,
+  persist,
 }) {
+  const st = state ?? deployment;
   const rpcClients = await createPublicClientsForChain(publicClient.chain, rpcUrlsForChain(chain));
   const seed = parseExtraAddresses(
     extraAddresses,
     process.env.EXTRA_HOLDERS,
-    ...(deployment.vaultShareHolders ?? []).map((h) => h.address)
+    ...(st.vaultShareHolders ?? []).map((h) => h.address)
   );
 
   const discovered = await discoverVaultShareholderAddresses({
     publicClient,
     vault,
-    fromBlock: fromBlock ?? incrementalLogFromBlock(chain, deployment),
+    fromBlock: fromBlock ?? incrementalLogFromBlock(chain, st),
     extraAddresses: seed,
   });
 
@@ -152,14 +158,18 @@ export async function syncVaultShareHolders({
   }
 
   holders.sort((a, b) => a.address.localeCompare(b.address));
-  deployment.vaultShareHolders = holders;
+  st.vaultShareHolders = holders;
 
-  for (const p of [
-    path.join(root, "contracts/deployments", `${chain}.json`),
-    path.join(root, "frontend/src/lib/contracts/deployments", `${chain}.json`),
-  ]) {
-    if (fs.existsSync(path.dirname(p))) {
-      fs.writeFileSync(p, JSON.stringify(deployment, null, 2) + "\n");
+  if (persist) {
+    persist(holders);
+  } else {
+    for (const p of [
+      path.join(root, "contracts/deployments", `${chain}.json`),
+      path.join(root, "frontend/src/lib/contracts/deployments", `${chain}.json`),
+    ]) {
+      if (fs.existsSync(path.dirname(p))) {
+        fs.writeFileSync(p, JSON.stringify(deployment, null, 2) + "\n");
+      }
     }
   }
 

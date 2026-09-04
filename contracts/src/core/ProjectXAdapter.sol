@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {IProjectXNPM} from "../interfaces/IProjectXNPM.sol";
@@ -20,8 +21,16 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
     IProjectXNPM public immutable npm;
     IERC20 public immutable token0;
     IERC20 public immutable token1;
-    IERC20 public immutable usdc;
-    IERC20 public immutable whype;
+    /// @notice Quote (numeraire) token. Legacy name `usdc` retained; for HYPE-quoted pools this is WHYPE.
+    IERC20 public immutable quoteToken;
+    /// @notice Base token being priced against the quote. Legacy name `whype` retained.
+    IERC20 public immutable baseToken;
+    /// @notice Decimals of the quote/base tokens, read on-chain at construction.
+    uint8 public immutable quoteDecimals;
+    uint8 public immutable baseDecimals;
+    /// @notice priceDiv = 10^(baseDecimals + 18 − quoteDecimals): bridges the canonical ref price
+    ///         (quote-per-base * 1e18) to the pool's raw token-unit price. 1e30 for USDC/WHYPE.
+    uint256 public immutable priceDiv;
     uint24 public immutable fee;
     address public vault;
     IUniswapV3Pool public pool;
@@ -30,7 +39,9 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
     int24 public tickLower;
     int24 public tickUpper;
 
-    /// @notice Last reference price: USDC (6 dec) per 1 HYPE (1e18 wei)
+    /// @notice Last reference price: quote token per 1 base token, scaled by 1e18 (humanPrice * 1e18).
+    /// @dev Public name kept as `refPriceUsdc6PerHype18` for ABI compatibility with the live vault
+    ///      tooling (keeper / frontend); see refPriceQuotePerBase18() for the role-based alias.
     uint256 public refPriceUsdc6PerHype18;
 
     uint256 public upperRangeBps = ProjectXConstants.UPPER_RANGE_BPS;
@@ -54,23 +65,52 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
         address _npm,
         address _token0,
         address _token1,
-        address _usdc,
-        address _whype,
+        address _quoteToken,
+        address _baseToken,
         uint24 _fee,
+        uint256 _initialRefPrice,
         address _owner
     ) Ownable(_owner) {
         require(
-            _npm != address(0) && _token0 != address(0) && _token1 != address(0) && _usdc != address(0)
-                && _whype != address(0),
+            _npm != address(0) && _token0 != address(0) && _token1 != address(0) && _quoteToken != address(0)
+                && _baseToken != address(0),
             "ProjectXAdapter: ZERO"
         );
+        require(_quoteToken == _token0 || _quoteToken == _token1, "ProjectXAdapter: QUOTE_NOT_IN_PAIR");
+        require(_baseToken == _token0 || _baseToken == _token1, "ProjectXAdapter: BASE_NOT_IN_PAIR");
         npm = IProjectXNPM(_npm);
         token0 = IERC20(_token0);
         token1 = IERC20(_token1);
-        usdc = IERC20(_usdc);
-        whype = IERC20(_whype);
+        quoteToken = IERC20(_quoteToken);
+        baseToken = IERC20(_baseToken);
         fee = _fee;
-        refPriceUsdc6PerHype18 = 42e6 * 1e12;
+
+        uint8 qDec = IERC20Metadata(_quoteToken).decimals();
+        uint8 bDec = IERC20Metadata(_baseToken).decimals();
+        quoteDecimals = qDec;
+        baseDecimals = bDec;
+        // priceDiv = 10^(baseDec + 18 − quoteDec). With base∈{6,8,18} and quote∈{6,18} the exponent
+        // stays in [6, 30], so priceDiv never underflows or overflows uint256.
+        int256 exp = int256(uint256(bDec)) + 18 - int256(uint256(qDec));
+        require(exp >= 0 && exp <= 60, "ProjectXAdapter: DECIMALS");
+        priceDiv = 10 ** uint256(exp);
+
+        refPriceUsdc6PerHype18 = _initialRefPrice;
+    }
+
+    /// @notice Role-based alias for the quote token (ABI-compat legacy getter).
+    function usdc() external view returns (IERC20) {
+        return quoteToken;
+    }
+
+    /// @notice Role-based alias for the base token (ABI-compat legacy getter).
+    function whype() external view returns (IERC20) {
+        return baseToken;
+    }
+
+    /// @notice Role-based alias for refPriceUsdc6PerHype18 (quote-per-base * 1e18).
+    function refPriceQuotePerBase18() external view returns (uint256) {
+        return refPriceUsdc6PerHype18;
     }
 
     function setVault(address _vault) external onlyOwner {
@@ -80,7 +120,22 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
 
     /// @notice Set Project X pool for position-specific NAV (required on mainnet shared NPM)
     function setPool(address _pool) external onlyOwner {
+        if (_pool != address(0)) _validatePool(IUniswapV3Pool(_pool));
         pool = IUniswapV3Pool(_pool);
+    }
+
+    /// @dev Every price, tick and NAV read goes through this pool, so pointing the adapter at the
+    ///      wrong one (wrong pair, wrong fee tier, or a tick spacing other than the 60 that
+    ///      ProjectXPrice aligns to) silently corrupts all of them. Real pools answer these getters;
+    ///      test mocks that do not are skipped so the mock-NPM harness still works.
+    function _validatePool(IUniswapV3Pool p) internal view {
+        try p.token0() returns (address poolToken0) {
+            if (poolToken0 == address(0)) return;
+            require(poolToken0 == address(token0), "ProjectXAdapter: POOL_TOKEN0");
+            require(p.token1() == address(token1), "ProjectXAdapter: POOL_TOKEN1");
+            require(p.fee() == fee, "ProjectXAdapter: POOL_FEE");
+            require(p.tickSpacing() == ProjectXPrice.TICK_SPACING, "ProjectXAdapter: POOL_TICK_SPACING");
+        } catch {}
     }
 
     function currentPoolPriceUsdc6PerHype18() public view returns (uint256) {
@@ -91,15 +146,19 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
         uint256 ratioX96 = FullMath.mulDiv(uint256(sqrtPriceX96), uint256(sqrtPriceX96), uint256(1) << 96);
         if (ratioX96 == 0) return refPriceUsdc6PerHype18;
 
-        if (address(token0) == address(usdc)) {
-            // Pool raw price is WHYPE(18) per USDC(6). Invert and keep the canonical
-            // humanPrice * 1e18 scale used by the vault.
-            return FullMath.mulDiv(1e30, uint256(1) << 96, ratioX96);
+        if (address(token0) == address(quoteToken)) {
+            // Pool raw price is base per quote. Invert and rescale to the canonical
+            // quote-per-base * 1e18 used by the vault: refPrice = priceDiv / rawPrice.
+            return FullMath.mulDiv(priceDiv, uint256(1) << 96, ratioX96);
         }
 
-        // Pool raw price is USDC(6) per WHYPE(18). Apply the 1e12 decimal gap and
-        // scale by 1e18, so refPrice = rawPrice * 1e30.
-        return FullMath.mulDiv(ratioX96, 1e30, uint256(1) << 96);
+        // Pool raw price is quote per base. Rescale to quote-per-base * 1e18: refPrice = rawPrice * priceDiv.
+        return FullMath.mulDiv(ratioX96, priceDiv, uint256(1) << 96);
+    }
+
+    /// @notice Role-based alias for currentPoolPriceUsdc6PerHype18 (quote-per-base * 1e18).
+    function currentPoolPriceQuotePerBase18() external view returns (uint256) {
+        return currentPoolPriceUsdc6PerHype18();
     }
 
     function syncRefPriceFromPool() external onlyVault returns (uint256 price) {
@@ -382,7 +441,7 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
         require(to != address(0), "ProjectXAdapter: ZERO");
         require(amount > 0, "ProjectXAdapter: ZERO_AMOUNT");
         require(
-            address(token) != address(usdc) && address(token) != address(whype),
+            address(token) != address(quoteToken) && address(token) != address(baseToken),
             "ProjectXAdapter: UNDERLYING"
         );
         token.safeTransfer(to, amount);
@@ -423,51 +482,52 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
         return IERC721Receiver.onERC721Received.selector;
     }
 
-    function _amountsToUsdc(uint256 amount0, uint256 amount1, uint256 priceUsdc6PerHype18)
+    function _amountsToUsdc(uint256 amount0, uint256 amount1, uint256 priceQuotePerBase18)
         internal
         view
         returns (uint256)
     {
-        uint256 usdcAmt;
-        uint256 hypeAmt;
-        if (address(token0) == address(usdc)) {
-            usdcAmt = amount0;
-            hypeAmt = amount1;
+        uint256 quoteAmt;
+        uint256 baseAmt;
+        if (address(token0) == address(quoteToken)) {
+            quoteAmt = amount0;
+            baseAmt = amount1;
         } else {
-            usdcAmt = amount1;
-            hypeAmt = amount0;
+            quoteAmt = amount1;
+            baseAmt = amount0;
         }
-        return usdcAmt + _hypeToUsdc(hypeAmt, priceUsdc6PerHype18);
+        return quoteAmt + _hypeToUsdc(baseAmt, priceQuotePerBase18);
     }
 
-    /// @dev refPrice is humanPrice*1e18 (= USDC6/HYPE * 1e12); hypeAmount is 1e18-wei.
-    ///      USDC token amount (6-dec) = hypeAmount * refPrice / 1e30 (1e18 wei + 1e12 price scale).
-    function _hypeToUsdc(uint256 hypeAmount, uint256 priceUsdc6PerHype18) internal pure returns (uint256) {
-        if (hypeAmount == 0 || priceUsdc6PerHype18 == 0) return 0;
-        return (hypeAmount * priceUsdc6PerHype18) / 1e30;
+    /// @dev price is quote-per-base * 1e18; baseAmount is in base token units (10^baseDec).
+    ///      quote token amount (10^quoteDec) = baseAmount * price / priceDiv,
+    ///      where priceDiv = 10^(baseDec + 18 − quoteDec). Reduces to /1e30 for USDC/WHYPE.
+    function _hypeToUsdc(uint256 baseAmount, uint256 priceQuotePerBase18) internal view returns (uint256) {
+        if (baseAmount == 0 || priceQuotePerBase18 == 0) return 0;
+        return (baseAmount * priceQuotePerBase18) / priceDiv;
     }
 
     function _priceFromAmounts(uint256 amount0, uint256 amount1) internal view returns (uint256) {
         if (amount0 == 0 || amount1 == 0) return refPriceUsdc6PerHype18;
-        uint256 usdcAmt;
-        uint256 hypeAmt;
-        if (address(token0) == address(usdc)) {
-            usdcAmt = amount0;
-            hypeAmt = amount1;
+        uint256 quoteAmt;
+        uint256 baseAmt;
+        if (address(token0) == address(quoteToken)) {
+            quoteAmt = amount0;
+            baseAmt = amount1;
         } else {
-            usdcAmt = amount1;
-            hypeAmt = amount0;
+            quoteAmt = amount1;
+            baseAmt = amount0;
         }
-        if (hypeAmt == 0) return refPriceUsdc6PerHype18;
-        // refPrice canonical scale = humanPrice*1e18 = (USDC6/HYPE)*1e12.
-        // usdcAmt is 6-dec, hypeAmt is 1e18-wei → multiply by 1e30 to land on the 1e18 scale.
-        return (usdcAmt * 1e30) / hypeAmt;
+        if (baseAmt == 0) return refPriceUsdc6PerHype18;
+        // quoteAmt is 10^quoteDec, baseAmt is 10^baseDec → multiply by priceDiv to land on the
+        // canonical quote-per-base * 1e18 scale.
+        return (quoteAmt * priceDiv) / baseAmt;
     }
 
-    function _ticksFromPrice(uint256 priceUsdc6PerHype18) internal view returns (int24 lower, int24 upper) {
-        bool usdcIsToken0 = address(token0) == address(usdc);
+    function _ticksFromPrice(uint256 priceQuotePerBase18) internal view returns (int24 lower, int24 upper) {
+        bool quoteIsToken0 = address(token0) == address(quoteToken);
         return ProjectXPrice.ticksFromRefPrice(
-            priceUsdc6PerHype18, usdcIsToken0, upperRangeBps, lowerRangeBps
+            priceQuotePerBase18, quoteIsToken0, priceDiv, upperRangeBps, lowerRangeBps
         );
     }
 

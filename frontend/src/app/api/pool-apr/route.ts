@@ -1,11 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { PROJECT_X_POOL } from "@/lib/constants";
+import { getPoolByKey } from "@/lib/contracts";
 
 export const revalidate = 600; // refresh from GeckoTerminal every 10 minutes
 
-const GECKO_POOL_URL = `https://api.geckoterminal.com/api/v2/networks/hyperevm/pools/${PROJECT_X_POOL.poolAddress}`;
 const FEE_RATE = 0.003; // Project X 0.3% pool
-const USER_SHARE = PROJECT_X_POOL.userShareBps / 10_000;
+const USER_SHARE = PROJECT_X_POOL.userShareBps / 10_000; // 60% cashdrop share
+const MAINNET = 999;
 
 export type PoolAprResponse = {
   /** Gross LP fee APR of the Project X pool (percent) */
@@ -16,22 +17,52 @@ export type PoolAprResponse = {
   volume24hUsd: number;
   source: "geckoterminal" | "fallback";
   fetchedAt: string;
+  poolAddress?: string;
+  poolKey?: string | null;
 };
 
-function fallback(): PoolAprResponse {
+function geckoUrl(poolAddress: string): string {
+  return `https://api.geckoterminal.com/api/v2/networks/hyperevm/pools/${poolAddress}`;
+}
+
+function fallback(poolAddress: string, poolKey: string | null): PoolAprResponse {
+  // Legacy HYPE/USDC keeps the static snapshot; HYPE-quoted pools have no static APR —
+  // return zeros so the UI shows "—" rather than the wrong USDC-pool number.
+  const isLegacy = !poolKey;
   return {
-    poolAprPercent: PROJECT_X_POOL.referenceAprNum,
-    netAprPercent: Math.round(PROJECT_X_POOL.referenceAprNum * USER_SHARE * 10) / 10,
+    poolAprPercent: isLegacy ? PROJECT_X_POOL.referenceAprNum : 0,
+    netAprPercent: isLegacy
+      ? Math.round(PROJECT_X_POOL.referenceAprNum * USER_SHARE * 10) / 10
+      : 0,
     tvlUsd: 0,
     volume24hUsd: 0,
     source: "fallback",
     fetchedAt: new Date().toISOString(),
+    poolAddress,
+    poolKey,
   };
 }
 
-export async function GET() {
+function resolvePool(req: NextRequest): { address: string; key: string | null } {
+  const p = req.nextUrl.searchParams;
+  const poolKey = p.get("poolKey");
+  if (poolKey) {
+    const pool = getPoolByKey(MAINNET, poolKey);
+    if (pool?.pool) return { address: pool.pool, key: poolKey };
+  }
+  const address = p.get("pool");
+  if (address && /^0x[a-fA-F0-9]{40}$/.test(address)) {
+    return { address, key: poolKey };
+  }
+  // Default: legacy HYPE/USDC (unchanged behaviour for existing callers)
+  return { address: PROJECT_X_POOL.poolAddress, key: null };
+}
+
+export async function GET(req: NextRequest) {
+  const { address: poolAddress, key: poolKey } = resolvePool(req);
+
   try {
-    const res = await fetch(GECKO_POOL_URL, {
+    const res = await fetch(geckoUrl(poolAddress), {
       headers: { accept: "application/json" },
       next: { revalidate: 600 },
     });
@@ -57,12 +88,14 @@ export async function GET() {
       volume24hUsd: Math.round(volume24h),
       source: "geckoterminal",
       fetchedAt: new Date().toISOString(),
+      poolAddress,
+      poolKey,
     };
     return NextResponse.json(body, {
       headers: { "Cache-Control": "public, s-maxage=600, stale-while-revalidate=3600" },
     });
   } catch {
-    return NextResponse.json(fallback(), {
+    return NextResponse.json(fallback(poolAddress, poolKey), {
       headers: { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600" },
     });
   }

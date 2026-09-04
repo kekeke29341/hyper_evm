@@ -26,10 +26,17 @@ contract DeployIdleDustFork is Test {
         vm.createSelectFork("https://rpc.hyperliquid.xyz/evm");
     }
 
+    /// @dev The 0.01 USDC floor below which the vault deliberately leaves a side idle.
+    uint256 constant DUST_DEPOSIT_USDC = 10_000;
+
     function _vaultHasDustSplitIdle() internal view returns (bool) {
-        // The bug only reproduces while the vault holds idle on both sides; guard so the
-        // test degrades gracefully once the idle has been migrated off this vault.
-        return IERC20Minimal(WHYPE).balanceOf(VAULT) > 0 && IERC20Minimal(USDC).balanceOf(VAULT) > 0;
+        // The bug only reproduces while the vault holds idle on both sides, with the USDC side
+        // above the dust floor; guard so the test degrades gracefully once the idle has been
+        // migrated off this vault. The live vault now holds only sub-dust residue (a few hundred
+        // wei of USDC), which the fixed logic correctly leaves idle rather than LP-depositing —
+        // asserting against that would test the opposite of the intended behaviour.
+        return IERC20Minimal(WHYPE).balanceOf(VAULT) > 0
+            && IERC20Minimal(USDC).balanceOf(VAULT) >= DUST_DEPOSIT_USDC;
     }
 
     function test_deployedGen7DeployIdleReverts() public {
@@ -46,9 +53,19 @@ contract DeployIdleDustFork is Test {
         // immutables match, then etch its runtime code over the live vault. Storage
         // (keeper, swapRouter, balances) is untouched — this simulates the gen-8 logic
         // running against the exact on-chain failure state.
+        //
+        // The live gen-7 adapter predates the numeraire generalization, so it cannot answer the
+        // role/decimal getters the vault constructor now reads. Mock them for the construction
+        // only, with the values the legacy USDC(6)/WHYPE(18) pair reduces to, then clear the mocks
+        // so the etched vault runs against the untouched on-chain adapter.
+        vm.mockCall(ADAPTER, abi.encodeWithSignature("quoteToken()"), abi.encode(USDC));
+        vm.mockCall(ADAPTER, abi.encodeWithSignature("baseToken()"), abi.encode(WHYPE));
+        vm.mockCall(ADAPTER, abi.encodeWithSignature("priceDiv()"), abi.encode(uint256(1e30)));
+        vm.mockCall(ADAPTER, abi.encodeWithSignature("quoteDecimals()"), abi.encode(uint8(6)));
         HyperpoolVault fixedImpl = new HyperpoolVault(
             ADAPTER, ORACLE, 0, WHYPE, USDC, AIRDROP, address(this), KEEPER, address(this), address(this)
         );
+        vm.clearMockedCalls();
         vm.etch(VAULT, address(fixedImpl).code);
 
         uint256 usdcBefore = IERC20Minimal(USDC).balanceOf(VAULT);

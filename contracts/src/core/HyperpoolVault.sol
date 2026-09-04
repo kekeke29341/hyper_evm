@@ -10,26 +10,47 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {ProjectXAdapter} from "./ProjectXAdapter.sol";
 import {HyperCoreOracle} from "./HyperCoreOracle.sol";
 import {IProjectXSwapRouter} from "../interfaces/IProjectXSwapRouter.sol";
+import {IUniswapV3Pool} from "../interfaces/IUniswapV3Pool.sol";
 import {HyperCoreConstants} from "../libraries/HyperCoreConstants.sol";
 import {ProjectXConstants} from "../libraries/ProjectXConstants.sol";
+import {FullMath} from "../libraries/FullMath.sol";
+import {TickMath} from "../libraries/TickMath.sol";
 
 /// @title HyperpoolVault — ERC20 vault shares; deposits to Project X via adapter
 contract HyperpoolVault is ERC20, Ownable, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    uint256 private constant MINIMUM_VAULT_SHARES = 1000;
-    /// @dev Sides worth less than 0.01 USDC are left idle instead of LP-deposited (see _dropDustSide).
-    uint256 private constant DUST_DEPOSIT_USDC = 10_000;
     address private constant DEAD = address(0xdEaD);
 
     ProjectXAdapter public immutable adapter;
     HyperCoreOracle public immutable oracle;
+    /// @notice Base token (legacy name `tokenWHYPE`; for HYPE-quoted vaults this is the priced asset).
     IERC20 public immutable tokenWHYPE;
+    /// @notice Quote/numeraire token (legacy name `tokenUSDC`; WHYPE for HYPE-quoted vaults).
     IERC20 public immutable tokenUSDC;
     address public immutable merkleAirdrop;
+    /// @notice priceDiv = 10^(baseDec + 18 − quoteDec), mirrored from the adapter. 1e30 for USDC/WHYPE.
+    uint256 public immutable priceDiv;
+    /// @dev Sides worth less than 0.01 quote token are left idle instead of LP-deposited (see _dropDustSide).
+    ///      Quote-decimals-aware: 10^quoteDec / 100. For USDC (6 dec) this is 10_000, regression-exact.
+    uint256 public immutable dustDepositQuote;
+    /// @dev Shares burned to DEAD on the first deposit, hardening against the share-inflation attack.
+    ///      Shares are denominated in the quote token, so this floor must scale with quote decimals:
+    ///      10^quoteDec / 1000 = 0.001 quote. For USDC (6 dec) that is 1000 — the historical constant,
+    ///      so the legacy pool is regression-exact — and 1e15 for an 18-decimal quote such as WHYPE,
+    ///      where a flat 1000 wei would have been worth ~1e-15 HYPE and protected nothing.
+    uint256 public immutable minimumVaultShares;
 
     uint32 public hypeOracleAssetId;
     uint256 public maxRebalanceDeviationBps = HyperCoreConstants.DEFAULT_REBALANCE_DEVIATION_BPS;
+
+    /// @notice Pool TWAP entry guard (oracle-independent). 0 = disabled (legacy USDC/HYPE vaults).
+    ///         HYPE-quoted vaults set a window (e.g. 900s) so deposits/rebalances are rejected when
+    ///         the pool spot deviates from its TWAP by more than maxRebalanceDeviationBps.
+    uint32 public twapWindow;
+    /// @notice When true, an unavailable/insufficient-cardinality TWAP reverts entry (fail-closed);
+    ///         when false the TWAP check fails open. Recommended true once cardinality is grown.
+    bool public twapRequired;
 
     address public keeper;
     address public operatorWallet;
@@ -67,6 +88,8 @@ contract HyperpoolVault is ERC20, Ownable, Pausable, ReentrancyGuard {
     event RebalanceDeviationBpsUpdated(uint256 bps);
     event ForeignTokenRecovered(address indexed token, address indexed to, uint256 amount);
     event IdleDeployed(uint256 amountHype, uint256 amountUsdc);
+    event TwapWindowUpdated(uint32 window);
+    event TwapRequiredUpdated(bool required);
 
     modifier onlyKeeperOrOwner() {
         require(msg.sender == keeper || msg.sender == owner(), "HyperpoolVault: NOT_KEEPER");
@@ -91,11 +114,27 @@ contract HyperpoolVault is ERC20, Ownable, Pausable, ReentrancyGuard {
             "HyperpoolVault: ZERO"
         );
         adapter = ProjectXAdapter(_adapter);
+        // The vault's legacy `tokenUSDC`/`tokenWHYPE` slots carry the quote/base roles, and priceDiv
+        // below is derived from the adapter's view of those roles. Swapping the two constructor
+        // arguments would therefore invert every valuation while still deploying cleanly, so pin
+        // them to the adapter rather than trusting the deploy script.
+        require(
+            _tokenUSDC == address(ProjectXAdapter(_adapter).quoteToken())
+                && _tokenWHYPE == address(ProjectXAdapter(_adapter).baseToken()),
+            "HyperpoolVault: ADAPTER_TOKENS"
+        );
         oracle = HyperCoreOracle(_oracle);
         hypeOracleAssetId = _hypeOracleAssetId;
         tokenWHYPE = IERC20(_tokenWHYPE);
         tokenUSDC = IERC20(_tokenUSDC);
         merkleAirdrop = _merkleAirdrop;
+        // Mirror the adapter's decimal-scaling so NAV/fee math shares one source of truth, and derive
+        // the quote-denominated dust floor (0.01 quote token) that keeps single-sided deposits from
+        // minting zero liquidity.
+        priceDiv = ProjectXAdapter(_adapter).priceDiv();
+        uint256 quoteUnit = 10 ** uint256(ProjectXAdapter(_adapter).quoteDecimals());
+        dustDepositQuote = quoteUnit / 100;
+        minimumVaultShares = quoteUnit / 1000;
         keeper = _keeper == address(0) ? _owner : _keeper;
         operatorWallet = _operatorWallet == address(0) ? _owner : _operatorWallet;
         ownerFeeWallet = _ownerFeeWallet == address(0) ? _owner : _ownerFeeWallet;
@@ -159,6 +198,35 @@ contract HyperpoolVault is ERC20, Ownable, Pausable, ReentrancyGuard {
         emit RebalanceDeviationBpsUpdated(bps);
     }
 
+    /// @notice Set the pool-TWAP entry guard window in seconds (0 disables the guard).
+    function setTwapWindow(uint32 window) external onlyOwner {
+        twapWindow = window;
+        emit TwapWindowUpdated(window);
+    }
+
+    /// @notice When true, deposits/rebalances revert if the pool TWAP cannot be read (fail-closed).
+    function setTwapRequired(bool required) external onlyOwner {
+        twapRequired = required;
+        emit TwapRequiredUpdated(required);
+    }
+
+    /// @notice Grow the pool's observation ring buffer so the TWAP window becomes queryable.
+    function increasePoolObservationCardinality(uint16 next) external onlyKeeperOrOwner {
+        IUniswapV3Pool pool = adapter.pool();
+        require(address(pool) != address(0), "HyperpoolVault: NO_POOL");
+        pool.increaseObservationCardinalityNext(next);
+    }
+
+    /// @notice Role-based alias for the quote/numeraire token (tokenUSDC).
+    function quoteToken() external view returns (IERC20) {
+        return tokenUSDC;
+    }
+
+    /// @notice Role-based alias for the base token (tokenWHYPE).
+    function baseToken() external view returns (IERC20) {
+        return tokenWHYPE;
+    }
+
     /// @notice Net assets backing shares (excludes pending user reward liability)
     /// @dev Values the position and idle HYPE at the live pool price so the composition
     ///      (taken from the same slot0) and its valuation use one consistent price. Reverts
@@ -180,7 +248,7 @@ contract HyperpoolVault is ERC20, Ownable, Pausable, ReentrancyGuard {
         uint256 supply = totalSupply();
         uint256 assets = totalAssetsUsdc();
         if (supply == 0 || assets == 0) {
-            return amountUsdc > MINIMUM_VAULT_SHARES ? amountUsdc - MINIMUM_VAULT_SHARES : 0;
+            return amountUsdc > minimumVaultShares ? amountUsdc - minimumVaultShares : 0;
         }
         return (amountUsdc * supply) / assets;
     }
@@ -384,24 +452,97 @@ contract HyperpoolVault is ERC20, Ownable, Pausable, ReentrancyGuard {
         }
     }
 
-    /// @dev Reverts a deposit/rebalance when the pool spot price deviates from the oracle by more
-    ///      than `maxRebalanceDeviationBps`. No-op when the oracle price is unavailable.
+    /// @dev Reverts a deposit/rebalance when the pool spot price is dislocated. Two complementary
+    ///      guards, either of which can be disabled by config:
+    ///        1. HyperCore oracle deviation — legacy USDC/HYPE path. No-op when the oracle price is
+    ///           unavailable (HYPE-quoted vaults deploy with the oracle unset, skipping this).
+    ///        2. Pool TWAP deviation — oracle-independent, used by HYPE-quoted vaults (twapWindow>0).
     function _enforceEntryPriceSane() internal view {
         uint256 oraclePrice = _entryOraclePrice();
-        if (oraclePrice == 0) return;
+        if (oraclePrice != 0) {
+            uint256 spot = adapter.currentPoolPriceUsdc6PerHype18();
+            if (spot != 0) {
+                uint256 diff = spot > oraclePrice ? spot - oraclePrice : oraclePrice - spot;
+                require(
+                    diff * ProjectXConstants.BPS / oraclePrice <= maxRebalanceDeviationBps,
+                    "HyperpoolVault: ENTRY_PRICE_DEVIATION"
+                );
+            }
+        }
 
-        uint256 spot = adapter.currentPoolPriceUsdc6PerHype18();
-        if (spot == 0) return;
-
-        uint256 diff = spot > oraclePrice ? spot - oraclePrice : oraclePrice - spot;
-        require(
-            diff * ProjectXConstants.BPS / oraclePrice <= maxRebalanceDeviationBps,
-            "HyperpoolVault: ENTRY_PRICE_DEVIATION"
-        );
+        _enforcePoolTwap();
     }
 
+    /// @dev Pool TWAP entry guard: compares the pool's current spot price against its
+    ///      `twapWindow`-second time-weighted average. Reverts when they deviate by more than
+    ///      `maxRebalanceDeviationBps`. Prices are compared in raw pool units (ratio of the two
+    ///      squared sqrtPrices), so no decimal/priceDiv scaling is needed and it is numeraire-agnostic.
+    ///      Disabled when twapWindow == 0 (legacy vaults). When the TWAP cannot be read, behaviour is
+    ///      governed by `twapRequired` (fail-closed) vs fail-open.
+    function _enforcePoolTwap() internal view {
+        uint32 window = twapWindow;
+        if (window == 0) return;
+
+        IUniswapV3Pool pool = adapter.pool();
+        if (address(pool) == address(0)) {
+            require(!twapRequired, "HyperpoolVault: TWAP_NO_POOL");
+            return;
+        }
+
+        (uint160 spotSqrt,,,,,,) = pool.slot0();
+        if (spotSqrt == 0) {
+            require(!twapRequired, "HyperpoolVault: TWAP_NO_SPOT");
+            return;
+        }
+
+        uint32[] memory secondsAgos = new uint32[](2);
+        secondsAgos[0] = window;
+        secondsAgos[1] = 0;
+
+        try pool.observe(secondsAgos) returns (int56[] memory tickCumulatives, uint160[] memory) {
+            int56 tickDelta = tickCumulatives[1] - tickCumulatives[0];
+            int24 twapTick = int24(tickDelta / int56(int32(window)));
+            uint160 twapSqrt = TickMath.getSqrtRatioAtTick(twapTick);
+
+            uint256 spotP = FullMath.mulDiv(uint256(spotSqrt), uint256(spotSqrt), uint256(1) << 96);
+            uint256 twapP = FullMath.mulDiv(uint256(twapSqrt), uint256(twapSqrt), uint256(1) << 96);
+            if (twapP == 0) {
+                require(!twapRequired, "HyperpoolVault: TWAP_ZERO");
+                return;
+            }
+
+            uint256 diff = spotP > twapP ? spotP - twapP : twapP - spotP;
+            require(
+                diff * ProjectXConstants.BPS / twapP <= maxRebalanceDeviationBps,
+                "HyperpoolVault: TWAP_DEVIATION"
+            );
+        } catch {
+            require(!twapRequired, "HyperpoolVault: TWAP_UNAVAILABLE");
+        }
+    }
+
+    /// @dev Bounds the keeper-supplied recentre price. Legacy USDC/HYPE vaults check it against the
+    ///      HyperCore oracle. HYPE-quoted vaults have no such oracle, so they check it against the
+    ///      live pool price — which `_enforceEntryPriceSane` has already TWAP-validated in the same
+    ///      call. Without this, an oracle-less vault would accept ANY price from the keeper and
+    ///      re-mint the whole position around it; a single decimal-scaling slip in the keeper
+    ///      (the top risk of this generalization) would move the LP range orders of magnitude away
+    ///      from the market and realise the loss immediately.
     function _enforceOracleDeviation(uint256 refPriceUsdc6PerHype18) internal view {
-        if (address(oracle) == address(0)) return;
+        if (address(oracle) == address(0)) {
+            // No pool configured means no independent price reference exists at all (dedicated
+            // mock-NPM path) — nothing to check against.
+            if (address(adapter.pool()) == address(0)) return;
+            uint256 spot = adapter.currentPoolPriceUsdc6PerHype18();
+            if (spot == 0) return;
+            uint256 spotDiff =
+                refPriceUsdc6PerHype18 > spot ? refPriceUsdc6PerHype18 - spot : spot - refPriceUsdc6PerHype18;
+            require(
+                spotDiff * ProjectXConstants.BPS / spot <= maxRebalanceDeviationBps,
+                "HyperpoolVault: POOL_PRICE_DEVIATION"
+            );
+            return;
+        }
 
         uint256 oraclePrice = _oraclePriceUsdc6PerHype18();
         require(oraclePrice > 0, "HyperpoolVault: ORACLE_UNAVAILABLE");
@@ -441,27 +582,35 @@ contract HyperpoolVault is ERC20, Ownable, Pausable, ReentrancyGuard {
         return (token1Bps, token0Bps);
     }
 
-    /// @dev USDC token amount (6 decimals) from a HYPE (1e18-wei) amount.
-    ///      refPrice canonical scale = humanPrice*1e18 (= USDC6/HYPE * 1e12), so the divisor is
-    ///      1e18 (wei) * 1e12 (price scale) = 1e30. Used for both NAV valuation and fee-swap min-out.
-    function _hypeToUsdc(uint256 hypeAmount, uint256 priceUsdc6PerHype18) internal pure returns (uint256) {
+    /// @dev Quote token amount (10^quoteDec) from a base (10^baseDec) amount.
+    ///      price is quote-per-base * 1e18, so the divisor is priceDiv = 10^(baseDec + 18 − quoteDec).
+    ///      Reduces to /1e30 for USDC/WHYPE. Used for both NAV valuation and fee-swap min-out.
+    function _hypeToUsdc(uint256 hypeAmount, uint256 priceUsdc6PerHype18) internal view returns (uint256) {
         if (hypeAmount == 0 || priceUsdc6PerHype18 == 0) return 0;
-        return (hypeAmount * priceUsdc6PerHype18) / 1e30;
+        return (hypeAmount * priceUsdc6PerHype18) / priceDiv;
     }
 
     /// @dev Alias kept for fee-swap call sites; identical scale to _hypeToUsdc.
-    function _hypeFeeToUsdcTokens(uint256 hypeAmount, uint256 priceUsdc6PerHype18) internal pure returns (uint256) {
+    function _hypeFeeToUsdcTokens(uint256 hypeAmount, uint256 priceUsdc6PerHype18) internal view returns (uint256) {
         return _hypeToUsdc(hypeAmount, priceUsdc6PerHype18);
     }
 
-    function _usdcToHype(uint256 usdcAmount, uint256 priceUsdc6PerHype18) internal pure returns (uint256) {
+    function _usdcToHype(uint256 usdcAmount, uint256 priceUsdc6PerHype18) internal view returns (uint256) {
         if (usdcAmount == 0 || priceUsdc6PerHype18 == 0) return 0;
-        return (usdcAmount * 1e30) / priceUsdc6PerHype18;
+        return (usdcAmount * priceDiv) / priceUsdc6PerHype18;
     }
 
     /// @dev Swap collected WHYPE fees to USDC via Project X router before 7/60/33 split
     function _swapHypeFeesToUsdc(uint256 hypeIn) internal returns (uint256 usdcOut) {
         uint256 price = adapter.refPriceUsdc6PerHype18();
+        // refPrice is only refreshed on rebalance (every ~6h). If the base token has fallen since,
+        // a minOut derived from the stale high price is unreachable and the swap reverts — which
+        // _tryHarvestFees swallows, so fees silently stop being split and instead leak to the next
+        // withdrawer. Take the lower of refPrice and the live pool price: it keeps the manipulation
+        // ceiling that refPrice provides (a pumped spot cannot raise minOut's basis) while letting a
+        // genuine price drop through.
+        uint256 spot = adapter.currentPoolPriceUsdc6PerHype18();
+        if (spot > 0 && (price == 0 || spot < price)) price = spot;
         if (price == 0) price = _oraclePriceUsdc6PerHype18();
         require(price > 0, "HyperpoolVault: NO_PRICE");
 
@@ -472,10 +621,10 @@ contract HyperpoolVault is ERC20, Ownable, Pausable, ReentrancyGuard {
     }
 
     /// @dev Mints `shares` (already priced on pre-deposit NAV by the caller). On the first
-    ///      deposit, also locks MINIMUM_VAULT_SHARES to DEAD to harden against share-inflation.
+    ///      deposit, also locks minimumVaultShares to DEAD to harden against share-inflation.
     function _mintShares(uint256 shares, address receiver) internal {
         if (totalSupply() == 0) {
-            _mint(DEAD, MINIMUM_VAULT_SHARES);
+            _mint(DEAD, minimumVaultShares);
         }
         _mint(receiver, shares);
     }
@@ -531,7 +680,7 @@ contract HyperpoolVault is ERC20, Ownable, Pausable, ReentrancyGuard {
 
     /// @dev The NPM derives position liquidity from the smaller side of (amount0, amount1),
     ///      so a dust-sized side makes pool.mint revert on zero liquidity. Zero out any side
-    ///      worth less than DUST_DEPOSIT_USDC — the deposit then routes through the
+    ///      worth less than dustDepositQuote — the deposit then routes through the
     ///      single-sided balancer (or is skipped entirely when everything is dust). Dropped
     ///      dust stays idle in the vault and keeps backing NAV.
     function _dropDustSide(uint256 amountHype, uint256 amountUsdc)
@@ -545,9 +694,9 @@ contract HyperpoolVault is ERC20, Ownable, Pausable, ReentrancyGuard {
         if (price == 0) return (amountHype, amountUsdc);
 
         uint256 hypeAsUsdc = _hypeToUsdc(amountHype, price);
-        if (hypeAsUsdc + amountUsdc < DUST_DEPOSIT_USDC) return (0, 0);
-        if (hypeAsUsdc < DUST_DEPOSIT_USDC) return (0, amountUsdc);
-        if (amountUsdc < DUST_DEPOSIT_USDC) return (amountHype, 0);
+        if (hypeAsUsdc + amountUsdc < dustDepositQuote) return (0, 0);
+        if (hypeAsUsdc < dustDepositQuote) return (0, amountUsdc);
+        if (amountUsdc < dustDepositQuote) return (amountHype, 0);
         return (amountHype, amountUsdc);
     }
 

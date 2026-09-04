@@ -77,6 +77,13 @@ export function Header({ activeTab }: { activeTab: TabId }) {
               <TabLink key={id} id={id} activeTab={activeTab} />
             ))}
             <Link
+              href="/pools"
+              prefetch
+              className="px-3 py-1.5 text-sm whitespace-nowrap rounded-md transition-colors shrink-0 text-violet-400/90 hover:text-violet-300 border border-violet-500/20 hover:border-violet-500/40 bg-violet-500/5"
+            >
+              HYPE Pools
+            </Link>
+            <Link
               href="/about"
               prefetch
               className="px-3 py-1.5 text-sm whitespace-nowrap rounded-md transition-colors shrink-0 text-zinc-400 hover:text-zinc-200"
@@ -159,6 +166,13 @@ export function Header({ activeTab }: { activeTab: TabId }) {
           {TAB_IDS.map((id) => (
             <TabLink key={id} id={id} activeTab={activeTab} className="text-xs px-3 py-2.5 min-h-[44px] snap-start" />
           ))}
+          <Link
+            href="/pools"
+            prefetch
+            className="text-xs px-3 py-2.5 min-h-[44px] snap-start whitespace-nowrap rounded-md transition-colors shrink-0 text-violet-400 border border-violet-500/25 bg-violet-500/5"
+          >
+            HYPE Pools
+          </Link>
           <Link
             href="/about"
             prefetch

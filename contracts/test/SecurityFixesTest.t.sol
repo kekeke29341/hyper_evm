@@ -50,7 +50,7 @@ contract SecurityFixesTest is Test {
         usdcIsToken0 = token0 == address(usdc);
 
         adapter = new ProjectXAdapter(
-            address(npm), token0, token1, address(usdc), address(whype), ProjectXConstants.FEE_TIER_DEFAULT, address(this)
+            address(npm), token0, token1, address(usdc), address(whype), ProjectXConstants.FEE_TIER_DEFAULT, 42e6 * 1e12, address(this)
         );
         vault = new HyperpoolVault(
             address(adapter),
@@ -84,7 +84,7 @@ contract SecurityFixesTest is Test {
     }
 
     function _sqrt(uint256 price) internal view returns (uint160) {
-        return ProjectXPrice.sqrtPriceX96FromRefPrice(price, usdcIsToken0);
+        return ProjectXPrice.sqrtPriceX96FromRefPrice(price, usdcIsToken0, 1e30);
     }
 
     function _setSpot(uint256 price) internal {

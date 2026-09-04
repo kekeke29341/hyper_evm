@@ -17,6 +17,36 @@ PATH=/usr/local/bin:/usr/bin:/bin
 # Keeper rebalance (every 6 hours; mainnet uses HyperCore oracle)
 0 */6 * * * DEPLOYMENT_CHAIN=999 /path/hyper_evm/scripts/cron/run-keeper-local.sh >> /tmp/hyperpool-keeper.log 2>&1
 
+# ---------------------------------------------------------------------------
+# HYPE-quoted pools (UPUMP/UBTC/UETH) — enable per pool AFTER it is deployed and
+# merged into deployments/999.json pools[]. POOL_KEY flows through the wrappers
+# to keeper-rebalance.mjs / daily-rewards.mjs (isolated pool.cashdrop state, WHYPE
+# rewards, pool-TWAP entry guard — no oracle). Minutes are STAGGERED so the vaults
+# never harvest/rebalance simultaneously. Staggering matters for more than gas: each
+# daily-rewards run merges its own scope back onto deployments/999.json, so overlapping
+# runs stay correct, but keeping them apart also keeps the logs readable.
+# Uncomment a block once its pool is live. SKIP_ORACLE=1 is a no-op on these pools
+# (POOL_KEY already bypasses the HyperCore oracle); it is kept only for symmetry.
+#
+# UPUMP/HYPE (live 2026-09-02)
+10 7 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=999 POOL_KEY=upump-whype /path/hyper_evm/scripts/cron/run-daily-harvest-local.sh   >> /tmp/hyperpool-daily.log 2>&1
+10 9 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=999 POOL_KEY=upump-whype /path/hyper_evm/scripts/cron/run-daily-distribute-local.sh >> /tmp/hyperpool-daily.log 2>&1
+40 9 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=999 POOL_KEY=upump-whype /path/hyper_evm/scripts/cron/run-daily-distribute-local.sh >> /tmp/hyperpool-daily.log 2>&1
+15 */6 * * *            DEPLOYMENT_CHAIN=999 POOL_KEY=upump-whype SKIP_ORACLE=1 /path/hyper_evm/scripts/cron/run-keeper-local.sh >> /tmp/hyperpool-keeper.log 2>&1
+#
+# UBTC/HYPE (live 2026-09-02)
+20 7 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=999 POOL_KEY=ubtc-whype  /path/hyper_evm/scripts/cron/run-daily-harvest-local.sh   >> /tmp/hyperpool-daily.log 2>&1
+20 9 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=999 POOL_KEY=ubtc-whype  /path/hyper_evm/scripts/cron/run-daily-distribute-local.sh >> /tmp/hyperpool-daily.log 2>&1
+50 9 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=999 POOL_KEY=ubtc-whype  /path/hyper_evm/scripts/cron/run-daily-distribute-local.sh >> /tmp/hyperpool-daily.log 2>&1
+30 */6 * * *            DEPLOYMENT_CHAIN=999 POOL_KEY=ubtc-whype  SKIP_ORACLE=1 /path/hyper_evm/scripts/cron/run-keeper-local.sh >> /tmp/hyperpool-keeper.log 2>&1
+#
+# UETH/HYPE (live 2026-09-02)
+30 7 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=999 POOL_KEY=ueth-whype  /path/hyper_evm/scripts/cron/run-daily-harvest-local.sh   >> /tmp/hyperpool-daily.log 2>&1
+30 9 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=999 POOL_KEY=ueth-whype  /path/hyper_evm/scripts/cron/run-daily-distribute-local.sh >> /tmp/hyperpool-daily.log 2>&1
+ 0 10 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=999 POOL_KEY=ueth-whype /path/hyper_evm/scripts/cron/run-daily-distribute-local.sh >> /tmp/hyperpool-daily.log 2>&1
+45 */6 * * *            DEPLOYMENT_CHAIN=999 POOL_KEY=ueth-whype  SKIP_ORACLE=1 /path/hyper_evm/scripts/cron/run-keeper-local.sh >> /tmp/hyperpool-keeper.log 2>&1
+# ---------------------------------------------------------------------------
+
 # Testnet (998) — override chain when needed:
 # 0 7 * * * TZ=Asia/Tokyo DEPLOYMENT_CHAIN=998 /path/hyper_evm/scripts/cron/run-daily-rewards-local.sh >> /tmp/hyperpool-daily-testnet.log 2>&1
 # 0 */6 * * * DEPLOYMENT_CHAIN=998 /path/hyper_evm/scripts/cron/run-keeper-local.sh >> /tmp/hyperpool-keeper-testnet.log 2>&1

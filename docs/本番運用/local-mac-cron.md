@@ -1,7 +1,13 @@
-# 手元 Mac で keeper / 日次 Cashdrop（暫定運用）
+# 手元 Mac で keeper / 日次 Cashdrop（参考・非推奨）
 
-GitHub Actions が使えない間、**24 時間起動の Mac** で cron を回します。  
-本番公開前の Testnet 運用・開発向け。**本番移行先は VPS を推奨**（[external-cron.md](./external-cron.md) · [vps-cron.md](./vps-cron.md)）。
+> **2026-09-04 以降:** 開発用 Mac の crontab は **停止済み**。定期実行は **別の運用マシン** が担当する。  
+> 手順の正本: **[cron-運用マシン.md](./cron-運用マシン.md)**  
+> セットアップ先: [windows-server-wsl2-cron.md](./windows-server-wsl2-cron.md) / [vps-cron.md](./vps-cron.md)
+
+以下は過去の Mac 暫定運用の手順メモ。**このマシンで `install-mac-crontab.sh` を再実行しないこと**（二重実行防止）。
+
+GitHub Actions が使えない間、**24 時間起動の Mac** で cron を回す想定だった。  
+本番公開前の Testnet 運用・開発向け。**本番移行先は VPS / Windows Server**（[external-cron.md](./external-cron.md) · [vps-cron.md](./vps-cron.md)）。
 
 ---
 
@@ -34,6 +40,29 @@ cd /path/to/hyper_evm
 ---
 
 ## スケジュール
+
+### HYPE建てプール（2026-09 以降のデフォルト）
+
+`install-mac-crontab.sh` は **UETH/UBTC/UPUMP の 3 プールのみ** を登録します（`POOL_KEY` 指定）。
+稼働中 HYPE/USDC gen9 の legacy cron（`POOL_KEY` なし）は **意図的に含めません**。
+legacy を戻す場合のみ `INSTALL_LEGACY_HYPE_USDC_CRON=1 ./scripts/cron/install-mac-crontab.sh`。
+
+| 時刻 (JST) | POOL_KEY | 処理 |
+|------------|----------|------|
+| 7:10 / 9:10 / 9:40 | `upump-whype` | harvest / distribute / retry |
+| 7:20 / 9:20 / 9:50 | `ubtc-whype` | 同上 |
+| 7:30 / 9:30 / 10:00 | `ueth-whype` | 同上 |
+| 毎 6h（:15 / :30 / :45） | 各プール | keeper rebalance |
+
+手動:
+
+```bash
+POOL_KEY=ueth-whype ./scripts/cron/run-keeper-local.sh
+POOL_KEY=ueth-whype ./scripts/cron/run-daily-harvest-local.sh
+POOL_KEY=ueth-whype ./scripts/cron/run-daily-distribute-local.sh
+```
+
+### Legacy HYPE/USDC gen9（停止中）
 
 | 時刻 | スクリプト | 処理 |
 |------|-----------|------|

@@ -46,6 +46,7 @@ contract HyperpoolVaultTest is Test {
             address(usdc),
             address(whype),
             ProjectXConstants.FEE_TIER_DEFAULT,
+            42e6 * 1e12,
             address(this)
         );
         vault = new HyperpoolVault(
@@ -172,7 +173,7 @@ contract HyperpoolVaultTest is Test {
     function test_DepositUsesCurrentPoolPriceWhenMarketMoved() public {
         uint256 currentPrice = 67e6 * 1e12;
         bool usdcIsToken0 = address(adapter.token0()) == address(usdc);
-        uint160 sqrtPrice = ProjectXPrice.sqrtPriceX96FromRefPrice(currentPrice, usdcIsToken0);
+        uint160 sqrtPrice = ProjectXPrice.sqrtPriceX96FromRefPrice(currentPrice, usdcIsToken0, 1e30);
         int24 currentTick = TickMath.getTickAtSqrtRatio(sqrtPrice);
         adapter.setPool(address(new MockUniswapV3Pool(sqrtPrice, currentTick)));
 
@@ -252,6 +253,7 @@ contract HyperpoolVaultTest is Test {
             address(usdc),
             address(whype),
             ProjectXConstants.FEE_TIER_DEFAULT,
+            42e6 * 1e12,
             address(this)
         );
         HyperpoolVault vaultWithOracle = new HyperpoolVault(
@@ -489,6 +491,7 @@ contract HyperpoolVaultTest is Test {
             address(usdc),
             address(whype),
             ProjectXConstants.FEE_TIER_DEFAULT,
+            42e6 * 1e12,
             address(this)
         );
         HyperpoolVault vaultWithOracle = new HyperpoolVault(

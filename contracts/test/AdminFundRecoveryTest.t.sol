@@ -42,6 +42,7 @@ contract AdminFundRecoveryTest is Test {
             address(usdc),
             address(whype),
             ProjectXConstants.FEE_TIER_DEFAULT,
+            42e6 * 1e12,
             owner
         );
         vault = new HyperpoolVault(

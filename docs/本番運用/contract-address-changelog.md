@@ -35,11 +35,59 @@
 
 ## オンチェーンのみ存在（アプリ未切替）
 
-（該当なし — 2026-07-21 に第9世代へ切替）
+HYPE建てマネージドLP（±5%）。稼働中 HYPE/USDC（gen9）トップレベルは不変。`deployments/999.json` の `pools[]` にのみ登録。**2026-09-02** より `/pools` 別ページ UI で預入・引出可能（メインタブは HYPE/USDC のまま）。
+
+| ペア | Vault | Adapter | MerkleAirdrop | Pool |
+|------|-------|---------|---------------|------|
+| **UETH/HYPE** | `0x1399DeAB2A70CaAB308Ac54c1544bfA5D10731F8` | `0x55E9d473Cdfda2F8493D512c6db365cF02eCF33E` | `0xf0a6708ac8090d76775c3125AA19CFDF7598C371` | `0xaf80230eB13222DB743C21762f65A046bb5F5437` |
+| **UBTC/HYPE** | `0x10F98CDfC561A4C9eb253C22f05ff9cBB656D018` | `0x768f4909eE0De4eb9f538912904CBEf8e2426e27` | `0x4BADD6a5352CD953893E4eB05598781D17BC63cb` | `0x0D6ECB912b6ee160e95Bc198b618Acc1bCb92525` |
+| **UPUMP/HYPE** | `0x125cbaC752A93010D856007b0d1EaFCa89658082` | `0xb03f65a9742e0e1FB4Ca6064f53c8eBb22A7ef51` | `0x9AEde1F72e4Db59FfF8ED965873a58BD2554Aa6c` | `0x78cc152A531DBde2F3Fe7001ad659fa120Fa893b` |
 
 ---
 
 ## 変更履歴
+
+### 2026-09-02 — HYPE建て UPUMP/HYPE Vault デプロイ（オンチェーンのみ）
+
+| 項目 | 内容 |
+|------|------|
+| **実施日** | 2026-09-02 |
+| **理由** | HYPE建てマネージドLP 第三弾（6桁 UPUMP / priceDiv=1e6） |
+| **オンチェーン** | Vault `0x125c…8082` / Adapter `0xb03f…ef51` / Airdrop `0x9AEd…Aa6c`（block 44788628 付近） |
+| **運営シード** | 0.02 WHYPE 預入 → keeper rebalance 成功（tick 177240〜178260） |
+| **アプリ反映** | **未実施** — `pools[]` に `upump-whype` upsert のみ |
+| **Vercel 本番** | **未デプロイ**（複数プール UI スコープ外） |
+| **legacy 影響** | gen9 / トップレベル Cashdrop **無変更** |
+
+---
+
+### 2026-09-02 — HYPE建て UBTC/HYPE Vault デプロイ（オンチェーンのみ）
+
+| 項目 | 内容 |
+|------|------|
+| **実施日** | 2026-09-02 |
+| **理由** | HYPE建てマネージドLP 第二弾（8桁 UBTC / priceDiv=1e8） |
+| **オンチェーン** | Vault `0x10F98…D018` / Adapter `0x768f…6e27` / Airdrop `0x4BAD…63cb`（block 44787713 付近） |
+| **運営シード** | 0.02 WHYPE 預入 → keeper rebalance 成功（tick -299160〜-298080） |
+| **アプリ反映** | **未実施** — `pools[]` に `ubtc-whype` upsert のみ |
+| **Vercel 本番** | **未デプロイ**（複数プール UI スコープ外） |
+| **legacy 影響** | gen9 / トップレベル Cashdrop **無変更** |
+
+---
+
+### 2026-09-02 — HYPE建て UETH/HYPE Vault デプロイ（オンチェーンのみ）
+
+| 項目 | 内容 |
+|------|------|
+| **実施日** | 2026-09-02 |
+| **理由** | 顧客要望の HYPE建てマネージドLP（UPUMP/UBTC/UETH ±5%）の第一弾。numeraire 一般化コントラクトを UETH/HYPE に新規デプロイ |
+| **オンチェーン** | `DeployHyperpoolPair` broadcast（block 44786127 付近）。TWAP_REQUIRED=true / twapWindow=900 / ±500 bps |
+| **運営シード** | 0.02 WHYPE 預入 → keeper rebalance 成功（tick -34260〜-33180、NAV ≈ 0.02 WHYPE） |
+| **アプリ反映** | **未実施** — トップレベル gen9 不変。`pools[]` に `ueth-whype` のみ upsert（`finalize-deployment.mjs --pair ueth-whype`） |
+| **Vercel 本番** | **未デプロイ**（複数プール UI スコープ外） |
+| **legacy 影響** | gen9 Vault `0xE248…806a` / Cashdrop トップレベル **無変更** |
+
+---
 
 ### 2026-07-21 — アプリを第9世代へ切替（gen8 pause）
 

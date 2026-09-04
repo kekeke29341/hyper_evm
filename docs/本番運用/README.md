@@ -14,9 +14,12 @@
 | [vault-redeploy-999.md](./vault-redeploy-999.md) | **Mainnet Vault 再デプロイ**（7/60/33 分配・移行手順） |
 | [チェックリスト.md](./チェックリスト.md) | コピペ用チェックリスト |
 | [external-cron.md](./external-cron.md) | **外部 cron 候補比較**（GitHub 以外 — VPS 推奨） |
+| [cron-運用マシン.md](./cron-運用マシン.md) | **どのマシンが cron を回すか**（開発 Mac は停止・別マシンが本番実行） |
 | [vps-cron.md](./vps-cron.md) | **VPS で keeper / 日次 Cashdrop**（本番移行先） |
+| [windows-server-wsl2-cron.md](./windows-server-wsl2-cron.md) | **Windows Server + WSL2** で cron を回す手順 |
+| [hype建てプール追加手順.md](./hype建てプール追加手順.md) | HYPE建て Vault（UETH/UBTC/UPUMP）追加・隔離ルール |
 | [github-actions-cron.md](./github-actions-cron.md) | keeper / 日次 Cashdrop の GitHub Actions 設定 |
-| [local-mac-cron.md](./local-mac-cron.md) | **暫定: 手元 Mac crontab 運用**（GitHub 課金不可時） |
+| [local-mac-cron.md](./local-mac-cron.md) | **参考: Mac crontab**（開発 Mac では使わない — 別マシン運用） |
 | [運営確認事項_お客様向け.md](./運営確認事項_お客様向け.md) | **お客様・ビジネス向け Q&A**（収益分配・Cashdrop・紹介・法務・公開判断） |
 | [運営確認事項.md](./運営確認事項.md) | **開発・DevOps 向け Q&A**（cron・env・アドレス・immutable パラメータ等） |
 | [検証手順.md](./検証手順.md) | **手動検証**（Vercel Redeploy・MetaMask・Position） |

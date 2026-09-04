@@ -1,5 +1,10 @@
 /**
- * HyperCore oraclePx (8-dec USD per 1 HYPE) → vault refPrice scale (usdc6PerHype18)
+ * LEGACY HYPE/USDC ONLY. HyperCore oraclePx (USD per 1 HYPE) → vault refPrice scale
+ * (usdc6PerHype18). This is inherently USDC-denominated and matches the live vault's old bytecode.
+ *
+ * HYPE-quoted pools (UPUMP/UBTC/UETH) do NOT use this: they have no meaningful HYPE/USD oracle, so
+ * the keeper reads the adapter's live pool price (quote-per-base * 1e18) directly and the on-chain
+ * pool-TWAP guard protects entry. Do not generalize the 1e14 here — the legacy vault depends on it.
  */
 export function oraclePxToRefPrice(oraclePx) {
   // Match HyperpoolVault._oraclePriceUsdc6PerHype18: px * 1e14 (HyperCore 4-dec USD/HYPE)

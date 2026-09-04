@@ -69,6 +69,7 @@ contract DepositFailureRootCause is Test {
         (int24 lower, int24 upper) = ProjectXPrice.ticksFromRefPrice(
             price,
             false,
+            1e30,
             ProjectXConstants.UPPER_RANGE_BPS,
             ProjectXConstants.LOWER_RANGE_BPS
         );
