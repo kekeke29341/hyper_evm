@@ -33,9 +33,10 @@
 
 ---
 
-## オンチェーンのみ存在（アプリ未切替）
+## オンチェーン + `/pools` UI（HYPE建て）
 
-HYPE建てマネージドLP（±5%）。稼働中 HYPE/USDC（gen9）トップレベルは不変。`deployments/999.json` の `pools[]` にのみ登録。**2026-09-02** より `/pools` 別ページ UI で預入・引出可能（メインタブは HYPE/USDC のまま）。
+HYPE建てマネージドLP（±5%）。稼働中 HYPE/USDC（gen9）トップレベルは不変。`deployments/999.json` の `pools[]` に登録。  
+**2026-09-02** デプロイ、**同日〜09-03** に `/pools` UI・ライブ APR を Vercel 本番反映。メインタブは gen9 のまま。
 
 | ペア | Vault | Adapter | MerkleAirdrop | Pool |
 |------|-------|---------|---------------|------|
@@ -43,9 +44,19 @@ HYPE建てマネージドLP（±5%）。稼働中 HYPE/USDC（gen9）トップ�
 | **UBTC/HYPE** | `0x10F98CDfC561A4C9eb253C22f05ff9cBB656D018` | `0x768f4909eE0De4eb9f538912904CBEf8e2426e27` | `0x4BADD6a5352CD953893E4eB05598781D17BC63cb` | `0x0D6ECB912b6ee160e95Bc198b618Acc1bCb92525` |
 | **UPUMP/HYPE** | `0x125cbaC752A93010D856007b0d1EaFCa89658082` | `0xb03f65a9742e0e1FB4Ca6064f53c8eBb22A7ef51` | `0x9AEde1F72e4Db59FfF8ED965873a58BD2554Aa6c` | `0x78cc152A531DBde2F3Fe7001ad659fa120Fa893b` |
 
+引き継ぎ正本（アドレス一覧・日次回収）: [引き継ぎ_デプロイと日次利益回収.md](./引き継ぎ_デプロイと日次利益回収.md)
+
 ---
 
 ## 変更履歴
+
+### 2026-09-05 — 引き継ぎメモ追加・HYPE建て UI 反映を履歴に明記
+
+| 項目 | 内容 |
+|------|------|
+| **実施日** | 2026-09-05 |
+| **内容** | `docs/本番運用/引き継ぎ_デプロイと日次利益回収.md` を正本化。日次利益回収は別マシン cron。開発 Mac crontab は停止のまま |
+| **アプリ** | `/pools` は本番稼働中（https://hyper-evm-ten.vercel.app/pools）。トップレベル gen9 不変 |
 
 ### 2026-09-02 — HYPE建て UPUMP/HYPE Vault デプロイ（オンチェーンのみ）
 
