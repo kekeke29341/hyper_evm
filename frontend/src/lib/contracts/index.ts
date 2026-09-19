@@ -119,7 +119,7 @@ function isLive(d: Deployment): boolean {
 const DEPLOYMENTS: Record<number, Deployment> = {
   31337: deployment31337 as Deployment,
   998: deployment998 as Deployment,
-  999: deployment999 as Deployment,
+  999: deployment999 as unknown as Deployment,
 };
 
 export function getDeployment(chainId: number): Deployment | null {

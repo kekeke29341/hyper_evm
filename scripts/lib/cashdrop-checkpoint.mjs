@@ -29,7 +29,7 @@ export function checkpointFromHolders(holders, harvestBlock, harvestTimestamp) {
   const balances = {};
   for (const h of holders) {
     if (BigInt(h.shares) > 0n) {
-      balances[h.address] = h.shares.toString();
+      balances[String(h.address).toLowerCase()] = h.shares.toString();
     }
   }
   return {
