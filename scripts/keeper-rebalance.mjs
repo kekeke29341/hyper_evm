@@ -338,9 +338,12 @@ try {
       console.error(
         "  cannot be re-centred: the NPM mint computes zero liquidity and the pool reverts."
       );
-      console.error("  The vault is collecting NO fees until this is repaired. Run:");
+      console.error("  The vault is collecting NO fees until this is repaired.");
       console.error(
-        `    ${cfg.key ? `POOL_KEY=${cfg.key} ` : ""}node scripts/recover-out-of-range.mjs`
+        "  Recovery: send a small seed of the missing token to the adapter, then re-run this keeper."
+      );
+      console.error(
+        "  See docs/update/2026-09-21-pool-cron-and-out-of-range.md for the exact amounts."
       );
       process.exit(3);
     }
