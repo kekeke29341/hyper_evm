@@ -34,6 +34,7 @@ import {
   getBlockWithRetry,
   parseExtraAddresses,
   readContractWithRetry,
+  resilientTransport,
   rpcUrlsForChain,
 } from "./lib/rpc-logs.mjs";
 
@@ -143,8 +144,16 @@ const chain = {
   nativeCurrency: { name: "HYPE", symbol: "HYPE", decimals: 18 },
   rpcUrls: { default: { http: [RPC] } },
 };
-const publicClient = viem.createPublicClient({ chain, transport: viem.http(RPC) });
-const walletClient = viem.createWalletClient({ account, chain, transport: viem.http(RPC) });
+// Write path: official + free public HyperEVM RPCs. Log scan stays on rpcUrlsForChain
+// (official-only by default) so drpc/etc. cannot poison eth_getLogs failover.
+const writeRpcUrls = [
+  ...rpcUrlsForChain(CHAIN),
+  "https://rpc.hypurrscan.io",
+  "https://hyperliquid-json-rpc.stakely.io",
+];
+const rewardTransport = await resilientTransport(writeRpcUrls);
+const publicClient = viem.createPublicClient({ chain, transport: rewardTransport });
+const walletClient = viem.createWalletClient({ account, chain, transport: rewardTransport });
 const rpcClients = await createPublicClientsForChain(chain, rpcUrlsForChain(CHAIN));
 
 function readContract(request, label) {
@@ -362,13 +371,20 @@ async function runHarvestPhase() {
   }
 
   console.log("Harvesting fees from vault", vault);
-  const harvestHash = await walletClient.writeContract({
-    address: vault,
-    abi: vaultAbi,
-    functionName: "harvestFees",
-  });
-  const harvestReceipt = await publicClient.waitForTransactionReceipt({ hash: harvestHash });
-  console.log("harvestFees tx", harvestReceipt.transactionHash);
+  let harvestReceipt = null;
+  try {
+    const harvestHash = await walletClient.writeContract({
+      address: vault,
+      abi: vaultAbi,
+      functionName: "harvestFees",
+    });
+    harvestReceipt = await publicClient.waitForTransactionReceipt({ hash: harvestHash });
+    console.log("harvestFees tx", harvestReceipt.transactionHash);
+  } catch (err) {
+    const msg = err?.shortMessage ?? err?.message ?? String(err);
+    console.warn("harvestFees failed:", msg);
+    console.warn("Falling back to existing pendingUserRewards if any");
+  }
 
   const pending = await readContract({
     address: vault,
@@ -387,16 +403,18 @@ async function runHarvestPhase() {
     return null;
   }
 
-  const harvestBlockData = await getBlock(
-    { blockNumber: harvestReceipt.blockNumber },
-    `harvestBlock:${harvestReceipt.blockNumber}`
-  );
+  const blockRef = harvestReceipt
+    ? await getBlock(
+        { blockNumber: harvestReceipt.blockNumber },
+        `harvestBlock:${harvestReceipt.blockNumber}`
+      )
+    : await getBlock({}, "latestBlock");
 
   const pendingState = {
     vault,
-    harvestTxHash: harvestReceipt.transactionHash,
-    harvestBlock: harvestReceipt.blockNumber.toString(),
-    harvestTimestamp: String(harvestBlockData.timestamp),
+    harvestTxHash: harvestReceipt?.transactionHash ?? blockRef.hash,
+    harvestBlock: (harvestReceipt?.blockNumber ?? blockRef.number).toString(),
+    harvestTimestamp: String(blockRef.timestamp),
     pending: pending.toString(),
     holders,
     createdAt: new Date().toISOString(),

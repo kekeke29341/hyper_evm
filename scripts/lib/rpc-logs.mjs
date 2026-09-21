@@ -27,6 +27,33 @@ export async function createPublicClientsForChain(chain, urls) {
   );
 }
 
+/**
+ * Build ONE viem transport that survives public-RPC rate limits without any
+ * paid provider:
+ *   - viem.fallback fans over to the next free endpoint the moment one returns
+ *     a rate-limit / network error (all endpoints are free public HyperEVM RPCs)
+ *   - each underlying http transport retries the same endpoint a few times with
+ *     backoff before the fallback moves on
+ * Use this for the publicClient AND walletClient so the write path (nonce /
+ * estimateGas / sendRawTransaction) gets the same failover the read path has.
+ *
+ * Prefer passing write-oriented URLs (not eth_getLogs archives). Log scanning
+ * should keep using rpcUrlsForChain() which defaults to the official RPC only.
+ */
+export async function resilientTransport(urls, { batch = false, timeout = 20_000 } = {}) {
+  const viem = await loadViem();
+  const list = urls?.length ? [...new Set(urls)] : ["https://rpc.hyperliquid.xyz/evm"];
+  const transports = list.map((url) =>
+    viem.http(url, {
+      batch: batch ? { wait: 16 } : false,
+      retryCount: 4,
+      retryDelay: 700,
+      timeout,
+    })
+  );
+  return viem.fallback(transports, { rank: false, retryCount: 2, retryDelay: 1_000 });
+}
+
 export function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -42,10 +69,17 @@ export function rpcUrlsForChain(chain) {
     );
     return [...new Set(urls)];
   }
-  urls.push(
-    process.env.MAINNET_RPC ?? "https://rpc.hyperliquid.xyz/evm",
-    "https://hyperliquid.drpc.org",
-  );
+  // Official HyperEVM RPC only by default. drpc free tier rejects eth_getLogs
+  // ("ranges over 10000 blocks") even for small chunks and poisons failover.
+  const mainnet = process.env.MAINNET_RPC?.trim() || "https://rpc.hyperliquid.xyz/evm";
+  urls.push(mainnet);
+  const extra = process.env.EXTRA_LOG_RPCS?.trim();
+  if (extra) {
+    for (const u of extra.split(",")) {
+      const t = u.trim();
+      if (t) urls.push(t);
+    }
+  }
   return [...new Set(urls)];
 }
 
@@ -126,14 +160,24 @@ export async function scanLogs({
   delayMs = 800,
   maxRetries = 5,
   rpcUrls = [],
+  /** When true (default), throw if too many chunks fail — empty scans silently corrupt Cashdrop weights. */
+  requireComplete = process.env.LOG_SCAN_REQUIRE_COMPLETE !== "0",
+  maxGiveUpFraction = Number(process.env.LOG_SCAN_MAX_GIVEUP_FRACTION ?? "0.05"),
 }) {
   const logs = [];
   let start = fromBlock;
-  let chunk = chunkSize;
+  // Public HyperEVM RPC rate-limits above ~400-block windows; clamp optimistic env overrides.
+  let chunk = chunkSize > 400n ? 100n : chunkSize;
+  if (chunkSize > 400n) {
+    console.warn(
+      `LOG_CHUNK_SIZE=${chunkSize} exceeds public RPC comfort range; clamping to ${chunk}`
+    );
+  }
   let clientIndex = 0;
   const totalBlocks = Number(toBlock - fromBlock + 1n);
   let scannedBlocks = 0;
   let chunkCount = 0;
+  let giveUpBlocks = 0n;
 
   let clients = [publicClient];
   if (rpcUrls.length > 0) {
@@ -190,8 +234,20 @@ export async function scanLogs({
       start = end + 1n;
       if (delayMs > 0) await sleep(delayMs);
     } else {
+      giveUpBlocks += end - start + 1n;
       start = end + 1n;
       if (delayMs > 0) await sleep(delayMs * 3);
+    }
+  }
+
+  if (requireComplete && totalBlocks > 0) {
+    const giveUpFraction = Number(giveUpBlocks) / totalBlocks;
+    if (giveUpFraction > maxGiveUpFraction) {
+      throw new Error(
+        `Log scan incomplete: gave up on ${giveUpBlocks}/${totalBlocks} blocks ` +
+          `(${(giveUpFraction * 100).toFixed(1)}% > ${maxGiveUpFraction * 100}%). ` +
+          `Lower LOG_CHUNK_SIZE (try 100) and raise LOG_CHUNK_DELAY_MS (try 800).`
+      );
     }
   }
 

@@ -11,13 +11,14 @@ configure_mainnet_cashdrop_env() {
   export EXTRA_HOLDERS="${EXTRA_HOLDERS:-0xf35208bfadc5f7d38334fd71f42fddc7eeb85b55,0x7638891d1E3962Fa170D6Daa4DB40a7d6079f112}"
   export BALANCE_READ_DELAY_MS="${BALANCE_READ_DELAY_MS:-200}"
 
-  # Dedicated RPC (MAINNET_RPC or RPC_URL) allows larger log chunks.
+  # Dedicated archive RPC can use larger chunks; public HyperEVM RPC must stay ≤~100.
   if [[ -n "${MAINNET_RPC:-}" ]]; then
     export RPC_URL="${MAINNET_RPC}"
   fi
-  if [[ -n "${RPC_URL:-}" ]] && [[ "${RPC_URL}" != "https://rpc.hyperliquid.xyz/evm" ]]; then
-    export LOG_CHUNK_SIZE="${LOG_CHUNK_SIZE:-500}"
-    export LOG_CHUNK_DELAY_MS="${LOG_CHUNK_DELAY_MS:-300}"
+  if [[ -n "${RPC_URL:-}" ]] && [[ "${RPC_URL}" != "https://rpc.hyperliquid.xyz/evm" ]] \
+    && [[ "${RPC_URL}" != *"hyperliquid.drpc.org"* ]]; then
+    export LOG_CHUNK_SIZE="${LOG_CHUNK_SIZE:-200}"
+    export LOG_CHUNK_DELAY_MS="${LOG_CHUNK_DELAY_MS:-400}"
   else
     export LOG_CHUNK_SIZE="${LOG_CHUNK_SIZE:-100}"
     export LOG_CHUNK_DELAY_MS="${LOG_CHUNK_DELAY_MS:-800}"
