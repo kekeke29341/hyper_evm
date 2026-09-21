@@ -260,6 +260,94 @@ if (onChainOracle > 0n) {
 
 console.log("Rebalance ref price (usdc6PerHype18):", refPrice.toString());
 
+const SLOT0_ABI = [
+  {
+    name: "slot0",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [
+      { name: "sqrtPriceX96", type: "uint160" },
+      { name: "tick", type: "int24" },
+      { name: "observationIndex", type: "uint16" },
+      { name: "observationCardinality", type: "uint16" },
+      { name: "observationCardinalityNext", type: "uint16" },
+      { name: "feeProtocol", type: "uint8" },
+      { name: "unlocked", type: "bool" },
+    ],
+  },
+];
+
+/**
+ * Live pool tick vs the adapter's minted range. Best-effort: returns null on any read
+ * failure and for the legacy adapter, whose old bytecode lacks these getters — callers
+ * must treat null as "unknown" and keep their previous behaviour.
+ */
+async function readRangeStatus() {
+  if (!adapter) return null;
+  try {
+    const poolAddr = await publicClient.readContract({
+      address: adapter,
+      abi: adapterAbi,
+      functionName: "pool",
+    });
+    if (!poolAddr || /^0x0+$/.test(poolAddr)) return null;
+    const [slot0, tickLower, tickUpper] = await Promise.all([
+      publicClient.readContract({ address: poolAddr, abi: SLOT0_ABI, functionName: "slot0" }),
+      publicClient.readContract({ address: adapter, abi: adapterAbi, functionName: "tickLower" }),
+      publicClient.readContract({ address: adapter, abi: adapterAbi, functionName: "tickUpper" }),
+    ]);
+    const tick = Number(slot0[1]);
+    const lower = Number(tickLower);
+    const upper = Number(tickUpper);
+    if (lower >= upper) return null;
+    return { tick, tickLower: lower, tickUpper: upper, inRange: tick >= lower && tick < upper };
+  } catch {
+    return null;
+  }
+}
+
+// Preflight the rebalance instead of discovering the revert from a write that has already
+// paid for a harvest tx. More importantly, HyperEVM returns no revert data, so this failure
+// used to surface as a bare "execution reverted" and crash the keeper every 6h — which is
+// exactly how ubtc-whype sat out of range earning nothing from 2026-09-18 without anyone
+// noticing. Diagnose the one failure mode that is NOT transient and say what to run.
+try {
+  await publicClient.simulateContract({
+    address: vault,
+    abi: vaultAbi,
+    functionName: "rebalance",
+    args: [refPrice],
+    account,
+  });
+} catch (err) {
+  const reason = err?.shortMessage ?? err?.message ?? String(err);
+  if (!/revert/i.test(reason)) {
+    // A transport hiccup must not stop a rebalance that would have gone through: fall back
+    // to the previous behaviour and let the write itself decide.
+    console.warn("rebalance preflight could not run (continuing):", reason);
+  } else {
+    const range = await readRangeStatus();
+    if (range && !range.inRange) {
+      console.error(
+        `REBALANCE BLOCKED — position is fully out of range (pool tick ${range.tick} outside [${range.tickLower}, ${range.tickUpper}]).`
+      );
+      console.error(
+        "  adapter.rebalance() burns and re-mints WITHOUT swapping, so a 100% one-sided position"
+      );
+      console.error(
+        "  cannot be re-centred: the NPM mint computes zero liquidity and the pool reverts."
+      );
+      console.error("  The vault is collecting NO fees until this is repaired. Run:");
+      console.error(
+        `    ${cfg.key ? `POOL_KEY=${cfg.key} ` : ""}node scripts/recover-out-of-range.mjs`
+      );
+      process.exit(3);
+    }
+    throw new Error(`rebalance preflight failed: ${reason}`);
+  }
+}
+
 // Harvest fees BEFORE rebalance: adapter.rebalance() collects only the principal
 // returned by decreaseLiquidity, so any uncollected fees would be stranded on the
 // abandoned NFT when the position is re-minted. harvestFees() collects the full

@@ -73,18 +73,18 @@ HYPERPOOL_LOG_DIR=$LOG_DIR
 HYPERPOOL_LOCK_DIR=$LOCK_DIR
 $LEGACY_BLOCK
 # HYPE-quoted pools (staggered JST). POOL_KEY is forwarded by the vps wrapper scripts.
-10 7 * * * TZ=Asia/Tokyo flock -n $LOCK_DIR/hyperpool-harvest-upump-whype.lock POOL_KEY=upump-whype $HARVEST >> $LOG_DAILY 2>&1
-10 9 * * * TZ=Asia/Tokyo flock -n $LOCK_DIR/hyperpool-distribute-upump-whype.lock POOL_KEY=upump-whype $DISTRIBUTE >> $LOG_DAILY 2>&1
-40 9 * * * TZ=Asia/Tokyo flock -n $LOCK_DIR/hyperpool-distribute-upump-whype.lock POOL_KEY=upump-whype $DISTRIBUTE >> $LOG_DAILY 2>&1
-15 */6 * * * flock -n $LOCK_DIR/hyperpool-keeper-upump-whype.lock POOL_KEY=upump-whype SKIP_ORACLE=1 $KEEPER >> $LOG_KEEPER 2>&1
-20 7 * * * TZ=Asia/Tokyo flock -n $LOCK_DIR/hyperpool-harvest-ubtc-whype.lock POOL_KEY=ubtc-whype $HARVEST >> $LOG_DAILY 2>&1
-20 9 * * * TZ=Asia/Tokyo flock -n $LOCK_DIR/hyperpool-distribute-ubtc-whype.lock POOL_KEY=ubtc-whype $DISTRIBUTE >> $LOG_DAILY 2>&1
-50 9 * * * TZ=Asia/Tokyo flock -n $LOCK_DIR/hyperpool-distribute-ubtc-whype.lock POOL_KEY=ubtc-whype $DISTRIBUTE >> $LOG_DAILY 2>&1
-30 */6 * * * flock -n $LOCK_DIR/hyperpool-keeper-ubtc-whype.lock POOL_KEY=ubtc-whype SKIP_ORACLE=1 $KEEPER >> $LOG_KEEPER 2>&1
-30 7 * * * TZ=Asia/Tokyo flock -n $LOCK_DIR/hyperpool-harvest-ueth-whype.lock POOL_KEY=ueth-whype $HARVEST >> $LOG_DAILY 2>&1
-30 9 * * * TZ=Asia/Tokyo flock -n $LOCK_DIR/hyperpool-distribute-ueth-whype.lock POOL_KEY=ueth-whype $DISTRIBUTE >> $LOG_DAILY 2>&1
-0 10 * * * TZ=Asia/Tokyo flock -n $LOCK_DIR/hyperpool-distribute-ueth-whype.lock POOL_KEY=ueth-whype $DISTRIBUTE >> $LOG_DAILY 2>&1
-45 */6 * * * flock -n $LOCK_DIR/hyperpool-keeper-ueth-whype.lock POOL_KEY=ueth-whype SKIP_ORACLE=1 $KEEPER >> $LOG_KEEPER 2>&1
+10 7 * * * TZ=Asia/Tokyo flock -n $LOCK_DIR/hyperpool-harvest-upump-whype.lock env POOL_KEY=upump-whype $HARVEST >> $LOG_DAILY 2>&1
+10 9 * * * TZ=Asia/Tokyo flock -n $LOCK_DIR/hyperpool-distribute-upump-whype.lock env POOL_KEY=upump-whype $DISTRIBUTE >> $LOG_DAILY 2>&1
+40 9 * * * TZ=Asia/Tokyo flock -n $LOCK_DIR/hyperpool-distribute-upump-whype.lock env POOL_KEY=upump-whype $DISTRIBUTE >> $LOG_DAILY 2>&1
+15 */6 * * * flock -n $LOCK_DIR/hyperpool-keeper-upump-whype.lock env POOL_KEY=upump-whype SKIP_ORACLE=1 $KEEPER >> $LOG_KEEPER 2>&1
+20 7 * * * TZ=Asia/Tokyo flock -n $LOCK_DIR/hyperpool-harvest-ubtc-whype.lock env POOL_KEY=ubtc-whype $HARVEST >> $LOG_DAILY 2>&1
+20 9 * * * TZ=Asia/Tokyo flock -n $LOCK_DIR/hyperpool-distribute-ubtc-whype.lock env POOL_KEY=ubtc-whype $DISTRIBUTE >> $LOG_DAILY 2>&1
+50 9 * * * TZ=Asia/Tokyo flock -n $LOCK_DIR/hyperpool-distribute-ubtc-whype.lock env POOL_KEY=ubtc-whype $DISTRIBUTE >> $LOG_DAILY 2>&1
+30 */6 * * * flock -n $LOCK_DIR/hyperpool-keeper-ubtc-whype.lock env POOL_KEY=ubtc-whype SKIP_ORACLE=1 $KEEPER >> $LOG_KEEPER 2>&1
+30 7 * * * TZ=Asia/Tokyo flock -n $LOCK_DIR/hyperpool-harvest-ueth-whype.lock env POOL_KEY=ueth-whype $HARVEST >> $LOG_DAILY 2>&1
+30 9 * * * TZ=Asia/Tokyo flock -n $LOCK_DIR/hyperpool-distribute-ueth-whype.lock env POOL_KEY=ueth-whype $DISTRIBUTE >> $LOG_DAILY 2>&1
+0 10 * * * TZ=Asia/Tokyo flock -n $LOCK_DIR/hyperpool-distribute-ueth-whype.lock env POOL_KEY=ueth-whype $DISTRIBUTE >> $LOG_DAILY 2>&1
+45 */6 * * * flock -n $LOCK_DIR/hyperpool-keeper-ueth-whype.lock env POOL_KEY=ueth-whype SKIP_ORACLE=1 $KEEPER >> $LOG_KEEPER 2>&1
 $MARKER_END
 EOF
 )

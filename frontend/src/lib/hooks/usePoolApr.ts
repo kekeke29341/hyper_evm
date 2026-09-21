@@ -13,6 +13,7 @@ const LEGACY_FALLBACK: PoolAprResponse = {
   source: "fallback",
   fetchedAt: "",
   poolKey: null,
+  vaultInRange: null,
 };
 
 async function fetchPoolApr(poolKey?: string): Promise<PoolAprResponse> {
@@ -46,16 +47,25 @@ export function usePoolApr(poolKey?: string) {
   const apr = data ?? (poolKey ? { ...LEGACY_FALLBACK, poolAprPercent: 0, netAprPercent: 0, poolKey } : LEGACY_FALLBACK);
   const isLive = apr.source === "geckoterminal";
   const hasApr = isLive && apr.poolAprPercent > 0;
+  // false = the vault's LP position has drifted outside its range and earns nothing.
+  const outOfRange = apr.vaultInRange === false;
 
   return {
     isLoading,
     isLive,
+    outOfRange,
+    vaultInRange: apr.vaultInRange ?? null,
     poolAprPercent: apr.poolAprPercent,
     netAprPercent: apr.netAprPercent,
     tvlUsd: apr.tvlUsd,
     volume24hUsd: apr.volume24hUsd,
     poolAprLabel: hasApr || (!poolKey && apr.poolAprPercent > 0) ? `${apr.poolAprPercent.toFixed(1)}%` : "—",
-    netAprLabel: hasApr || (!poolKey && apr.netAprPercent > 0) ? `${apr.netAprPercent.toFixed(1)}%` : "—",
+    // Out of range pays 0 — say so plainly instead of showing the pool-wide number.
+    netAprLabel: outOfRange
+      ? "0%"
+      : hasApr || (!poolKey && apr.netAprPercent > 0)
+        ? `${apr.netAprPercent.toFixed(1)}%`
+        : "—",
     poolTvlLabel: isLive
       ? formatUsdCompact(apr.tvlUsd)
       : poolKey

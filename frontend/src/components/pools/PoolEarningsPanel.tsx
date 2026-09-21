@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { TrendingUp } from "lucide-react";
+import { AlertTriangle, TrendingUp } from "lucide-react";
 import { usePoolEarnings } from "@/lib/hooks/usePoolEarnings";
 import { TxHashLink } from "@/components/ui/TxHashLink";
 import { EarningsTrendChart } from "@/components/charts/EarningsTrendChart";
@@ -14,21 +14,47 @@ export function PoolEarningsPanel() {
   const [chartMode, setChartMode] = useState<EarningsChartMode>("cumulative");
   const earnings = usePoolEarnings(chartMode);
   const { quoteSym, apr, chartData } = earnings;
+  const outOfRange = apr.outOfRange;
 
   return (
     <div className="space-y-4 max-w-2xl mx-auto">
       <MainCard className="max-w-2xl">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
           <StatPill label="Pool APR" value={apr.isLoading ? "…" : apr.poolAprLabel} accent="violet" />
-          <StatPill label="Your net APR" value={apr.isLoading ? "…" : apr.netAprLabel} accent="emerald" />
+          <StatPill
+            label="Your net APR"
+            value={apr.isLoading ? "…" : apr.netAprLabel}
+            accent={outOfRange ? "amber" : "emerald"}
+          />
           <StatPill label="Pool TVL" value={apr.isLoading ? "…" : apr.poolTvlLabel} accent="cyan" />
           <StatPill label="24h volume" value={apr.isLoading ? "…" : apr.volume24hLabel} accent="cyan" />
         </div>
         <p className="text-[10px] text-zinc-600">
           Live fee APR from Project X pool (GeckoTerminal). Net APR = pool × 60% Cashdrop share.
+          {outOfRange
+            ? " The vault's LP position is outside its range, so it currently earns no fees — your net APR is 0 regardless of the pool APR."
+            : ""}
           {apr.isLive ? "" : " (fallback / unavailable)"}
         </p>
       </MainCard>
+
+      {outOfRange && (
+        <div className="rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent p-4 max-w-2xl mx-auto">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <p className="text-[11px] text-amber-300/90 uppercase tracking-wide font-medium">
+                Position out of range
+              </p>
+              <p className="text-xs text-zinc-300 mt-1 leading-relaxed">
+                The pool price has moved outside the vault&apos;s liquidity range, so the position is
+                not collecting trading fees. Daily Cashdrop payouts stay at 0 until the keeper
+                re-centres it. Your deposit is unaffected and can be withdrawn at any time.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {earnings.hasPosition && (
         <div className="rounded-xl border border-emerald-500/25 bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent p-4 max-w-2xl mx-auto">
@@ -45,8 +71,9 @@ export function PoolEarningsPanel() {
             <TrendingUp className="w-5 h-5 text-emerald-400/80 shrink-0 mt-1" />
           </div>
           <p className="text-[10px] text-zinc-500 mt-3 leading-relaxed">
-            Your share of on-chain pending rewards (updates after harvest). Paid in {quoteSym} daily ~JST
-            9:00.
+            {outOfRange
+              ? `Your share of on-chain pending rewards. Not growing right now — the position is out of range.`
+              : `Your share of on-chain pending rewards (updates after harvest). Paid in ${quoteSym} daily ~JST 9:00.`}
           </p>
         </div>
       )}
