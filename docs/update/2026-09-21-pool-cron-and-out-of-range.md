@@ -1,5 +1,16 @@
 # 2026-09-21 HYPE建てプール: cron 不発とレンジ外ポジション
 
+## ステータス (2026-09-21)
+
+| 項目 | 状態 | 担当 |
+|---|---|---|
+| コード修正 (cron flock / keeper preflight / APR UI) | **main に merge 済み** | — |
+| オンチェーン復旧 (ubtc / upump レンジ復帰) | **完了** | 開発 Mac |
+| Windows crontab の `env POOL_KEY=` 修正 | **未着手** | Windows (`keiohigh2nd`) |
+| Windows リポジトリ `git pull` | **未着手（必須）** | Windows |
+
+→ Mac 実施の詳細は「開発 Mac で実施したこと」、Windows 依頼は「Windows 機への依頼」を参照。
+
 ## 概要
 
 ユーザーから「まだ機能していない」という申告があり調査した。原因は独立した 2 件のバグで、
@@ -168,40 +179,161 @@ keeper の native HYPE は 0.008596 なので gas は約 67 回分ある。
 注記: `eth_simulateV1` (drpc のみ対応) で transfer と rebalance を連鎖させると結果が安定しなかった。
 `eth_call` + state override の結果を正とする。
 
-## 残課題
+## 開発 Mac で実施したこと (2026-09-21 JST)
 
-### 1. オンチェーン復旧 (最優先・未実施)
+対象マシン: 開発用 Mac（Cursor / `.env.testnet` の `MAIN_PRIVATE_KEY` = 運営ウォレット
+`0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC`）。**crontab は触っていない**（開発 Mac の cron は 2026-09-04 停止済みのまま）。
 
-`ubtc-whype` と `upump-whype` はレンジ外のままで、手数料ゼロ。
-cron を直しても harvest は 0 しか取れない。**新しい送金スクリプトは不要**で、
-アダプタに不足側トークンを少量入れれば、あとは既存の本番キーパーが
-`rebalance` から `deployIdle` まで完了させる (deployIdle 経路はスワップ調整を持つため、
-残りの UBTC は自動で約 50/50 に戻る)。
+| # | 作業 | 結果 |
+|---|---|---|
+| 1 | `git pull origin main` | `9242e03` → `96d6101`（本アップデート一式を取り込み） |
+| 2 | オンチェーン状態確認 | ubtc / upump ともレンジ外・adapter WHYPE=0・ratio 片側 100% を再確認 |
+| 3 | WHYPE シード送金 | 下記 tx 表 |
+| 4 | `keeper-rebalance.mjs` 手動実行 | `POOL_KEY=ubtc-whype` / `upump-whype` 各 1 回、exit 0 |
+| 5 | 本番 API / UI 確認 | `vaultInRange: true`、レンジ外バナー無し |
 
-手順 1: keeper ウォレットから通常の ERC20 送金
+### オンチェーン復旧の tx 記録
 
-| pool | 送り先 (adapter) | トークン | 金額 |
+| 手順 | HyperEVMScan |
+|---|---|
+| ubtc adapter へ 0.005 WHYPE | [0x90a0ca1a…d49aec](https://hyperevmscan.io/tx/0x90a0ca1a13f485bd2f9cd3b1d2d9afe1444a4aec332a98d0c17ff3a6f5d49aec) |
+| upump adapter へ 0.001 WHYPE | [0x69aced41…faa75b](https://hyperevmscan.io/tx/0x69aced419e93d576982cd7d1e942e96b89fc696b88c3a2d569edaebba2faa75b) |
+| ubtc `harvestFees` (rebalance 前) | [0x9951e589…64c439](https://hyperevmscan.io/tx/0x9951e589945a6c2dc2bc3af76e0bd8bc092e871673c5c3f21fe6a4eed164c439) |
+| ubtc `rebalance` → ticks `[-298560, -297480]` | [0xcca547a1…f6c853](https://hyperevmscan.io/tx/0xcca547a179babf67dd302eaeb688a59b369d962ab21321a30fd7735bc4f6c853) |
+| ubtc `deployIdle` | [0x46e01755…12b61b8](https://hyperevmscan.io/tx/0x46e017554dd41d9428ffb9ef031bdf4f077c7dbc58a93c4acedb9497c12b61b8) |
+| upump `harvestFees` | [0x6bf35ca4…d84113](https://hyperevmscan.io/tx/0x6bf35ca482f5febd1e20e88bc06a3a0d6437627f59cf740a90aa9cc5cdd84113) |
+| upump `rebalance` → ticks `[175920, 176940]` | [0xe9f6699d…92c8511](https://hyperevmscan.io/tx/0xe9f6699d4d36cf28cb7c1f1893b664c4100b105d24567e1b8143d27ef92c8511) |
+| upump `deployIdle` | idle ≈ 0.017 WHYPE &lt; min 0.2 のため **skip**（レンジ復帰には不要） |
+
+実行コマンド（参考）:
+
+```bash
+# 鍵は .env.testnet の MAIN_PRIVATE_KEY（表示しない）
+cast send 0x5555…5555 "transfer(address,uint256)(bool)" <ADAPTER> <AMOUNT_WEI> \
+  --private-key "$PRIVATE_KEY" --rpc-url https://rpc.hyperliquid.xyz/evm --legacy
+
+DEPLOYMENT_CHAIN=999 POOL_KEY=ubtc-whype SKIP_ORACLE=1 node scripts/keeper-rebalance.mjs
+DEPLOYMENT_CHAIN=999 POOL_KEY=upump-whype SKIP_ORACLE=1 node scripts/keeper-rebalance.mjs
+```
+
+### 復旧後の確認値 (2026-09-21 11:23 JST 頃)
+
+| pool | spot tick | adapter range | `rangeDepositRatioBps` | `/api/pool-apr` |
+|---|---:|---|---|---|
+| ubtc-whype | `-298021` | `[-298560, -297480]` | ≈ 5001 / 4999 | `vaultInRange: true`, netApr ≈ 17.6% |
+| upump-whype | `176437` | `[175920, 176940]` | ≈ 4923 / 5077 | `vaultInRange: true`, netApr ≈ 65% |
+| ueth-whype | (変更なし) | in range | — | `vaultInRange: true` |
+
+UI: https://hyper-evm-ten.vercel.app/pools/ubtc-whype ・ `/pools/upump-whype`  
+→ LP range が上記 ticks、レンジ外警告なし、net APR 表示あり。
+
+**Windows 機でオンチェーン復旧をやり直す必要はない。**
+
+---
+
+## Windows 機 (`keiohigh2nd` / WSL) への依頼
+
+本番 cron は **このマシンだけ** が動かす。以下を **この順で** 実施すること。
+開発 Mac では cron を入れない（二重 harvest / 二重 keeper 防止）。
+
+### ✅ チェックリスト（必須）
+
+| # | 優先 | 作業 | 完了 |
 |---|---|---|---|
-| ubtc-whype | `0x768f4909ee0de4eb9f538912904cbef8e2426e27` | WHYPE | 0.005 |
-| upump-whype | `0xb03f65a9742e0e1fb4ca6064f53c8ebb22a7ef51` | WHYPE | 0.001 |
+| W1 | **P0** | WSL リポジトリを `git pull`（下記コマンド） | ☐ |
+| W2 | **P0** | crontab の pool 行を `flock … env POOL_KEY=…` に修正 | ☐ |
+| W3 | P1 | 修正後の flock 動作スモークテスト | ☐ |
+| W4 | P2 | （任意）RPC failover `stash@{0}` を適用 | ☐ |
 
-この WHYPE は vault の NAV に入る。keeper には戻せないので少額で。
-0.005 WHYPE は NAV 299.3 WHYPE の約 0.0017%。
+### W1. 必ず先に pull（翌朝の distribute push 失敗防止）
 
-手順 2: キーパーを 1 回回す
+日次 distribute は `999.json` を commit して **pull せずに push** する。
+リモートが先に進んでいると `fetch first` で失敗する（2026-09-05 に前例あり）。
 
-```
-sudo -u hyperpool env HYPERPOOL_ENV_FILE=/etc/hyperpool/env POOL_KEY=ubtc-whype SKIP_ORACLE=1 \
-  /opt/hyperpool/hyper_evm/scripts/cron/run-keeper-vps.sh
-```
-
-手順 3: 確認
-
-```
-curl -s "https://hyper-evm-ten.vercel.app/api/pool-apr?chainId=999&poolKey=ubtc-whype"
+```bash
+sudo -u hyperpool git -C /opt/hyperpool/hyper_evm pull --rebase --autostash origin main
 ```
 
-`vaultInRange: true` になれば復旧。
+確認:
+
+```bash
+sudo -u hyperpool git -C /opt/hyperpool/hyper_evm log -1 --oneline
+# docs: Mac on-chain recovery + Windows ops checklist… などが HEAD にあれば OK
+```
+
+### W2. pool cron の flock 修正（原因 1 の本番適用）
+
+`install-vps-crontab.sh` を再実行するか、既存 crontab を sed で直す。
+
+**方法 A（推奨・再インストール）:**
+
+```bash
+sudo -u hyperpool /opt/hyperpool/hyper_evm/scripts/cron/install-vps-crontab.sh
+```
+
+**方法 B（その場で置換）:**
+
+```bash
+crontab -u hyperpool -l > /tmp/ct.bak
+sed -E "s#(flock -n [^ ]+) (POOL_KEY=)#\1 env \2#" /tmp/ct.bak > /tmp/ct.new
+diff /tmp/ct.bak /tmp/ct.new   # pool 12 行に env が入ったことを目視
+crontab -u hyperpool /tmp/ct.new
+```
+
+正しい行の形:
+
+```
+… flock -n /opt/hyperpool/locks/….lock env POOL_KEY=ubtc-whype /opt/hyperpool/…/run-daily-harvest-vps.sh
+```
+
+誤った行（修正前）:
+
+```
+… flock -n ….lock POOL_KEY=ubtc-whype /opt/hyperpool/…/run-….sh
+# → flock: failed to execute POOL_KEY=ubtc-whype: No such file or directory
+```
+
+### W3. スモークテスト
+
+```bash
+sudo -u hyperpool flock -n /opt/hyperpool/locks/test.lock env POOL_KEY=ubtc-whype /bin/echo OK
+# → OK と出れば flock+env は通る
+
+# ログに flock エラーが消えていること（翌朝以降）
+sudo tail -n 50 /var/log/hyperpool/daily.log
+```
+
+任意で 1 pool だけ手動 harvest（本番送金あり・注意）:
+
+```bash
+sudo -u hyperpool env HYPERPOOL_ENV_FILE=/etc/hyperpool/env POOL_KEY=ubtc-whype \
+  /opt/hyperpool/hyper_evm/scripts/cron/run-daily-harvest-vps.sh
+```
+
+### W4. （任意）RPC フェイルオーバー
+
+公開 RPC の rate limit 対策。2026-09-05 から stash 未適用のまま。
+
+```bash
+sudo -u hyperpool git -C /opt/hyperpool/hyper_evm stash list
+sudo -u hyperpool git -C /opt/hyperpool/hyper_evm stash apply stash@{0}
+```
+
+コンフリクトしたら無理に apply せず、stash 内容を確認してから。
+
+### Windows でやらなくてよいこと
+
+| 作業 | 理由 |
+|---|---|
+| オンチェーン WHYPE 送金 / 手動 rebalance | 開発 Mac で完了済み |
+| Vercel 再デプロイ | main push で自動ビルド済み |
+| 開発 Mac の crontab を触る | 停止済みのまま維持 |
+
+---
+
+## 残課題（コード / 別案件）
+
+### 1. オンチェーン復旧 — **実施済み**（上記「開発 Mac で実施したこと」）
 
 ### 2. ProjectXAdapter.rebalance() の恒久対策 (要デプロイ)
 
@@ -212,74 +344,21 @@ cron が直って keeper が 6 時間ごとに回れば、片側 100% になる�
 
 ### 3. RPC フェイルオーバーが未適用
 
-`git stash@{0}` (viem fallback 4 エンドポイント + harvestFees フォールバック) が
-2026-09-05 から未適用のまま。今日も公開 RPC から `Request exceeds defined limit` を受けている。
-
-```
-sudo -u hyperpool git -C /opt/hyperpool/hyper_evm stash apply stash@{0}
-```
+Windows 依頼 W4 参照。
 
 ### 4. 新規入金者の Cashdrop 対象化
 
 `vaultShareHolders` に載っていない新規入金者がいる (totalSupply の約 98%)。
 ここは壊れていない。`assertShareholderSyncComplete` が不足を検出して
-Transfer ログスキャンにフォールバックするので、次の harvest 実行時に自動で拾われる。
-
-## 別マシンで進める場合の手順
-
-### A. このアップデートを取り込む
-
-```
-git pull origin main
-```
-
-frontend の変更は Vercel が main から自動で再ビルドする。
-
-### B. cron の修正は「keeper を実行しているマシン」でだけ意味がある
-
-本番 keeper は Windows 機 (`keiohigh2nd`) の WSL Ubuntu で動いており、
-Windows タスクスケジューラが legacy を、WSL crontab が pool を叩いている。
-別マシンに移す場合は、そのマシンで crontab を入れ直すこと。
-
-```
-sudo -u hyperpool /opt/hyperpool/hyper_evm/scripts/cron/install-vps-crontab.sh
-```
-
-本アップデート適用後の `install-vps-crontab.sh` は `env POOL_KEY=` 形式を生成する。
-既存の crontab をその場で直す場合は sed で置換する。
-
-```
-crontab -u hyperpool -l > /tmp/ct.bak
-sed -E "s#(flock -n [^ ]+) (POOL_KEY=)#\1 env \2#" /tmp/ct.bak > /tmp/ct.new
-crontab -u hyperpool /tmp/ct.new
-sudo -u hyperpool flock -n /opt/hyperpool/locks/test.lock env POOL_KEY=ubtc-whype /bin/echo OK
-```
-
-**二重実行に注意。** 旧マシンと新マシンで同時に cron を有効にしないこと。
-lock は `/opt/hyperpool/locks` のローカル flock なのでマシンをまたいだ排他はできない。
-移行するなら旧マシンの crontab とタスクスケジューラを先に止める。
-
-### C. オンチェーン復旧を実施する
-
-上記「残課題 1」。keeper の秘密鍵 (`/etc/hyperpool/env` の `PRIVATE_KEY`) が要る。
-
-### D. 旧 Windows 機で必ずやること
-
-**このアップデートを push した後、旧 Windows 機の WSL リポジトリで先に pull しておくこと。**
-
-```
-sudo -u hyperpool git -C /opt/hyperpool/hyper_evm pull --rebase --autostash origin main
-```
-
-日次 distribute は `999.json` を commit して **pull せずに push** する実装なので、
-リモートが先に進んでいると翌朝の push が `fetch first` で失敗する。
-2026-09-05 にこれで配布記録を取りこぼした前例がある (`docs/インシデント` 参照)。
+Transfer ログスキャンにフォールバックするので、次の harvest 実行時に自動で拾われる
+（**W2 の crontab 修正後**に初めて自動 harvest が動く）。
 
 ## 関連ファイル
 
-Windows バンドル `C:\Users\keiohigh2nd\Downloads\hyperpool-windows-bundle\` 内:
+Windows バンドル `C:\Users\keiohigh2nd\Downloads\hyperpool-windows-bundle\` 内
+（パッチ適用済みなら本リポジトリの pull だけで足りる）:
 
 - `_apply-pool-fixes.sh` - crontab 修正 + パッチ適用 + commit/push を一括実行
 - `_fix-pools-2026-09-21.patch` - 本アップデートのパッチ
-- `_RECOVERY-ubtc.md` - オンチェーン復旧手順
+- `_RECOVERY-ubtc.md` - オンチェーン復旧手順（**Mac 実施済み・再実行不要**）
 - `_verify-ubtc-state.sh` - ubtc-whype の状態確認
