@@ -81,7 +81,7 @@ UPUMP/HYPE の Adapter だけが **スワップ付き rebalance**（`swapRouter`
 | **外部ホルダー** | なし（旧 Vault のシェアは運営 1.9e16 + dead 1e15 のみ） |
 | **Cashdrop** | `finalize --pair` が Vault 変更を検知して `pools[upump-whype].cashdrop` をリセット、旧スタックは `retiredStacks` に記録。旧 Airdrop の WHYPE 残高 0 |
 | **アプリ反映** | `999.json`（contracts / frontend 両方）の `pools[upump-whype]` を新アドレスに更新。トップレベル gen9 **無変更** |
-| **Vercel 本番** | 下記「Vercel デプロイ」参照 |
+| **Vercel 本番** | **2026-10-04 13:09 JST** `hyper-evm` へ `vercel --prod`（commit `d2bd483`）→ https://hyper-evm-ten.vercel.app 。`/api/pool-apr?poolKey=upump-whype` が `vaultInRange: true` を返すことを確認 |
 | **cron** | `POOL_KEY=upump-whype` のまま。cron マシンが main を pull すると新 Vault を対象にする |
 | **検証** | ユニット 20 件 + Mainnet フォーク `RebalanceSwapMainnetFork`（UPUMP 上抜け/下抜け・UETH 上抜けで再センタリング、NAV 損失 0.12〜0.16%） |
 
