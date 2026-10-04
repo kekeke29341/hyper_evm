@@ -99,6 +99,7 @@ contract DeployHyperpoolPair is Script {
 
         if (swapRouter != address(0)) {
             vault.setSwapRouter(swapRouter);
+            adapter.setSwapRouter(swapRouter);
         }
 
         // Entry guard: pool TWAP. Grow cardinality first if requested, then arm the window.
@@ -128,6 +129,7 @@ contract DeployHyperpoolPair is Script {
         console2.log("lowerRangeBps", lowerBps);
         console2.log("twapWindow", twapWindow);
         console2.log("twapRequired", twapRequired);
+        console2.log("adapterSwapRouter", adapter.swapRouter());
         // Cross-check: derived live pool price (quote-per-base * 1e18) for sanity vs INITIAL_REF_PRICE.
         console2.log("livePoolPriceQuotePerBase18", adapter.currentPoolPriceQuotePerBase18());
         console2.log(

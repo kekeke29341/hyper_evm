@@ -43,9 +43,29 @@ export function upsertPoolPreservingTopLevel(existing, entry) {
   if (idx === -1) {
     pools.push(entry);
   } else {
-    const prev = existing.pools[idx].cashdrop;
-    const prevCashdrop = prev && Object.keys(prev).length > 0 ? prev : entry.cashdrop;
-    pools[idx] = { ...entry, cashdrop: prevCashdrop };
+    const prevEntry = existing.pools[idx];
+    const sameVault = String(prevEntry.vault ?? "").toLowerCase() === String(entry.vault ?? "").toLowerCase();
+    if (sameVault) {
+      const prev = prevEntry.cashdrop;
+      const prevCashdrop = prev && Object.keys(prev).length > 0 ? prev : entry.cashdrop;
+      pools[idx] = { ...entry, retiredStacks: prevEntry.retiredStacks, cashdrop: prevCashdrop };
+      if (!pools[idx].retiredStacks) delete pools[idx].retiredStacks;
+    } else {
+      // A new vault is a migration, not a re-run: its share holders, airdrop entries and deploy
+      // block belong to the old stack and would point the new airdrop at stale balances.
+      const retired = {
+        vault: prevEntry.vault,
+        adapter: prevEntry.adapter,
+        airdrop: prevEntry.airdrop,
+        vaultDeployBlock: prevEntry.vaultDeployBlock,
+        retiredAt: new Date().toISOString(),
+      };
+      pools[idx] = {
+        ...entry,
+        retiredStacks: [...(prevEntry.retiredStacks ?? []), retired],
+        cashdrop: entry.cashdrop ?? {},
+      };
+    }
   }
 
   const updated = { ...existing, pools };

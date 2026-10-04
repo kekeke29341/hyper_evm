@@ -306,8 +306,16 @@ async function runPairMode(explicitPath) {
   };
 
   const existing = JSON.parse(fs.readFileSync(outPath, "utf8"));
-  const hadPool = Array.isArray(existing.pools) && existing.pools.some((p) => p.key === pairKey);
-  console.log(hadPool ? `Updating existing pool '${pairKey}' (cashdrop state preserved)` : `Inserting new pool '${pairKey}'`);
+  const prevPool = Array.isArray(existing.pools) ? existing.pools.find((p) => p.key === pairKey) : undefined;
+  if (!prevPool) {
+    console.log(`Inserting new pool '${pairKey}'`);
+  } else if (String(prevPool.vault).toLowerCase() === vault.toLowerCase()) {
+    console.log(`Updating existing pool '${pairKey}' (same vault — cashdrop state preserved)`);
+  } else {
+    console.log(
+      `Migrating pool '${pairKey}' to a new vault ${prevPool.vault} -> ${vault}: cashdrop reset, old stack moved to retiredStacks`
+    );
+  }
 
   // Keep the frontend's copy in step; daily-rewards writes both and would otherwise re-add pools[]
   // to one file only, leaving the two divergent until the first distribution.

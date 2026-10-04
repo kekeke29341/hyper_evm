@@ -337,6 +337,9 @@ sudo -u hyperpool git -C /opt/hyperpool/hyper_evm stash apply stash@{0}
 
 ### 2. ProjectXAdapter.rebalance() の恒久対策 (要デプロイ)
 
+**2026-10-04 更新:** スワップ付き rebalance を実装し、`upump-whype` は新スタックへ移行済み。
+UETH/UBTC は未移行。手順は `docs/本番運用/rebalance-swap-adapter-migration.md` を参照。
+
 deposit 経路と同じスワップ調整を rebalance 経路にも入れるのが本筋。
 アダプタ (または vault) の再デプロイと資金移行が要るので別案件。
 cron が直って keeper が 6 時間ごとに回れば、片側 100% になる前に再センタリングされるので、

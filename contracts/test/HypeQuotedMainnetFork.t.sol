@@ -82,6 +82,7 @@ contract HypeQuotedMainnetFork is Test {
         adapter.setRangeBps(500, 500);
         airdrop.setVaultShareToken(address(vault));
         vault.setSwapRouter(ProjectXConstants.SWAP_ROUTER_MAINNET);
+        adapter.setSwapRouter(ProjectXConstants.SWAP_ROUTER_MAINNET);
         vault.setTwapWindow(TWAP_WINDOW);
     }
 
