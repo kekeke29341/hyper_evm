@@ -45,38 +45,38 @@
   "airdropEntries": [
     {
       "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
-      "amount": "1055",
+      "amount": "4948",
       "minShares": "1"
     },
     {
       "address": "0x5E450488017Dda204999213F672853039E01eBD5",
-      "amount": "135451",
+      "amount": "634783",
       "minShares": "1"
     },
     {
       "address": "0xC2c096D50326555485f34374C2a1177F013BC206",
-      "amount": "289211",
+      "amount": "1355364",
       "minShares": "1"
     },
     {
       "address": "0xEFD8010bc6903699220962Fd30b859c30Be63968",
-      "amount": "530155",
+      "amount": "2484529",
       "minShares": "1"
     },
     {
       "address": "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55",
-      "amount": "1278",
+      "amount": "5992",
       "minShares": "1"
     },
     {
       "address": "0xf4a2CE37a4C89281Bf89d4C475B169d935510835",
-      "amount": "914824",
+      "amount": "4287235",
       "minShares": "1"
     }
   ],
   "cashdropWeightCheckpoint": {
-    "blockNumber": "47588454",
-    "timestamp": "1791064920",
+    "blockNumber": "47676355",
+    "timestamp": "1791151380",
     "balances": {
       "0x0196f2949fbce973d54d2047e3b8bfade06e8cec": "31361221",
       "0x5e450488017dda204999213f672853039e01ebd5": "4022958422",
@@ -87,13 +87,13 @@
     }
   },
   "lastCashdropDistribution": {
-    "distributionId": "0xca578a5e8db82873c378655b2c5c123d7936a9432d068e4c4c8da4f2e28c8f44",
-    "txHash": "0xcc7b6fbe6d8a12639494f140ca1197e22cbc07f975a6e8dd78044540c8235e14",
-    "amount": "1871974",
+    "distributionId": "0x8c879b512cdf6119e718938be7f876e03df0cb3b3cce4b4cb0d53e8c6e79076a",
+    "txHash": "0xfbce952d0ae2f86de2a80d288f1cda9f0ef18b6dde1e7b1fa91a0b29df102b2c",
+    "amount": "8772851",
     "entries": 6,
-    "executedAt": "2026-10-04T00:01:04.482Z",
-    "harvestBlock": "47588454",
-    "harvestTimestamp": "1791064920",
+    "executedAt": "2026-10-05T00:02:00.007Z",
+    "harvestBlock": "47676355",
+    "harvestTimestamp": "1791151380",
     "timeWeighted": false
   },
   "cashdropDistributionHistory": [
@@ -1940,6 +1940,37 @@
           "amount": "914824"
         }
       ]
+    },
+    {
+      "distributionId": "0x8c879b512cdf6119e718938be7f876e03df0cb3b3cce4b4cb0d53e8c6e79076a",
+      "txHash": "0xfbce952d0ae2f86de2a80d288f1cda9f0ef18b6dde1e7b1fa91a0b29df102b2c",
+      "executedAt": "2026-10-05T00:02:00.007Z",
+      "entries": [
+        {
+          "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
+          "amount": "4948"
+        },
+        {
+          "address": "0x5E450488017Dda204999213F672853039E01eBD5",
+          "amount": "634783"
+        },
+        {
+          "address": "0xC2c096D50326555485f34374C2a1177F013BC206",
+          "amount": "1355364"
+        },
+        {
+          "address": "0xEFD8010bc6903699220962Fd30b859c30Be63968",
+          "amount": "2484529"
+        },
+        {
+          "address": "0xF35208BfAdc5f7d38334FD71f42FdDC7eeB85b55",
+          "amount": "5992"
+        },
+        {
+          "address": "0xf4a2CE37a4C89281Bf89d4C475B169d935510835",
+          "amount": "4287235"
+        }
+      ]
     }
   ],
   "pools": [
@@ -2404,12 +2435,7 @@
       "vaultDeployBlock": "44788628",
       "cashdrop": {
         "vaultDeployBlock": "44788628",
-        "vaultShareHolders": [
-          {
-            "address": "0x0196f2949fbce973d54d2047e3b8bfade06e8cec",
-            "shares": "19000000000000000"
-          }
-        ],
+        "vaultShareHolders": [],
         "cashdropWeightCheckpoint": {
           "blockNumber": "47062108",
           "timestamp": "1790547120",
