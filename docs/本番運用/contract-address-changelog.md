@@ -42,13 +42,48 @@ HYPE建てマネージドLP（±5%）。稼働中 HYPE/USDC（gen9）トップ�
 |------|-------|---------|---------------|------|
 | **UETH/HYPE** | `0x1399DeAB2A70CaAB308Ac54c1544bfA5D10731F8` | `0x55E9d473Cdfda2F8493D512c6db365cF02eCF33E` | `0xf0a6708ac8090d76775c3125AA19CFDF7598C371` | `0xaf80230eB13222DB743C21762f65A046bb5F5437` |
 | **UBTC/HYPE** | `0x10F98CDfC561A4C9eb253C22f05ff9cBB656D018` | `0x768f4909eE0De4eb9f538912904CBEf8e2426e27` | `0x4BADD6a5352CD953893E4eB05598781D17BC63cb` | `0x0D6ECB912b6ee160e95Bc198b618Acc1bCb92525` |
-| **UPUMP/HYPE** | `0x125cbaC752A93010D856007b0d1EaFCa89658082` | `0xb03f65a9742e0e1FB4Ca6064f53c8eBb22A7ef51` | `0x9AEde1F72e4Db59FfF8ED965873a58BD2554Aa6c` | `0x78cc152A531DBde2F3Fe7001ad659fa120Fa893b` |
+| **UPUMP/HYPE** | `0x54b419cfF0136e6Bcb14d496Edaf5736991b0ff3` | `0xf1CBda6f882B53765FAF9eA1eF2870A6E3Cb60D1` | `0x9c53490743f2580855C797dA36f36a0C75A7A856` | `0x78cc152A531DBde2F3Fe7001ad659fa120Fa893b` |
+| 旧 UPUMP/HYPE（retire 2026-10-04） | `0x125cbaC752A93010D856007b0d1EaFCa89658082` | `0xb03f65a9742e0e1FB4Ca6064f53c8eBb22A7ef51` | `0x9AEde1F72e4Db59FfF8ED965873a58BD2554Aa6c` | 同上 — **paused**、dead シェアのみ |
+
+UPUMP/HYPE の Adapter だけが **スワップ付き rebalance**（`swapRouter` 設定済み）。UETH/UBTC は旧 Adapter のままで、片側 100% になると rebalance できない（[rebalance-swap-adapter-migration.md](./rebalance-swap-adapter-migration.md)）。
 
 引き継ぎ正本（アドレス一覧・日次回収）: [引き継ぎ_デプロイと日次利益回収.md](./引き継ぎ_デプロイと日次利益回収.md)
 
 ---
 
 ## 変更履歴
+
+### 2026-10-04 — UPUMP/HYPE をスワップ付き rebalance の新スタックへ移行
+
+| 項目 | 内容 |
+|------|------|
+| **実施日** | 2026-10-04（JST 12:40〜13:10 頃） |
+| **理由** | 旧 Adapter の `rebalance()` はスワップしないため、価格がレンジ上抜け（tick 180699 vs 175920〜176940）してポジションが WHYPE 100% になった後、再センタリングできず手数料ゼロのまま停止していた。Vault は Adapter を `immutable` で持つため、Vault+Adapter+Airdrop 一式を再デプロイ |
+| **コード** | `ProjectXAdapter`: `swapRouter` / `rebalanceSwapSlippageBps`（既定 100、上限 1000）追加。rebalance 時に新レンジの比率までスワップしてから mint。`DeployHyperpoolPair` が Adapter にも router を設定 |
+
+| 役割 | 旧 | 新 |
+|------|----|----|
+| HyperpoolVault | `0x125cbaC752A93010D856007b0d1EaFCa89658082` | `0x54b419cfF0136e6Bcb14d496Edaf5736991b0ff3` |
+| ProjectXAdapter | `0xb03f65a9742e0e1FB4Ca6064f53c8eBb22A7ef51` | `0xf1CBda6f882B53765FAF9eA1eF2870A6E3Cb60D1` |
+| MerkleAirdrop | `0x9AEde1F72e4Db59FfF8ED965873a58BD2554Aa6c` | `0x9c53490743f2580855C797dA36f36a0C75A7A856` |
+| Pool | `0x78cc152A531DBde2F3Fe7001ad659fa120Fa893b` | 変更なし |
+
+| 手順 | tx |
+|------|----|
+| 旧 Vault から運営シェア 0.019 を引出（0.01799 WHYPE + 0.4 UPUMP） | [0xab2d5b83…](https://hyperevmscan.io/tx/0xab2d5b836d955c45696ce36a878cc209442f029085083b72247d9be76bed5123) |
+| 新スタック `DeployHyperpoolPair` broadcast（vaultDeployBlock 47609865） | `contracts/broadcast/DeployHyperpoolPair.s.sol/999/run-latest.json` |
+| 運営シード 0.03 WHYPE 入金 → tick 180240〜181320（live 180806）、NAV 0.02996 WHYPE | [0xa8c34b35…](https://hyperevmscan.io/tx/0xa8c34b35a13e2625bbf36ad8073deb8881c207f43f3d217e1f60f75b3a136f50) |
+| keeper rebalance 1 周（偏り <0.1% のためスワップはスキップ、NAV 不変） | [0xe181bd31…](https://hyperevmscan.io/tx/0xe181bd314e154be929576d85214c9d0b64b1be6c4c2b623dd20c412f0784c225) |
+| 旧 Vault `pause()`（totalSupply = dead 1e15 のみ） | [0xa3f1f82f…](https://hyperevmscan.io/tx/0xa3f1f82f3f965d6f6cc2fbcc1998c69270ade22d5a9090ffe6b832be22f6be2c) |
+
+| 項目 | 内容 |
+|------|------|
+| **外部ホルダー** | なし（旧 Vault のシェアは運営 1.9e16 + dead 1e15 のみ） |
+| **Cashdrop** | `finalize --pair` が Vault 変更を検知して `pools[upump-whype].cashdrop` をリセット、旧スタックは `retiredStacks` に記録。旧 Airdrop の WHYPE 残高 0 |
+| **アプリ反映** | `999.json`（contracts / frontend 両方）の `pools[upump-whype]` を新アドレスに更新。トップレベル gen9 **無変更** |
+| **Vercel 本番** | **2026-10-04 13:09 JST** `hyper-evm` へ `vercel --prod`（commit `d2bd483`）→ https://hyper-evm-ten.vercel.app 。`/api/pool-apr?poolKey=upump-whype` が `vaultInRange: true` を返すことを確認 |
+| **cron** | `POOL_KEY=upump-whype` のまま。cron マシンが main を pull すると新 Vault を対象にする |
+| **検証** | ユニット 20 件 + Mainnet フォーク `RebalanceSwapMainnetFork`（UPUMP 上抜け/下抜け・UETH 上抜けで再センタリング、NAV 損失 0.12〜0.16%） |
 
 ### 2026-09-05 — 引き継ぎメモ追加・HYPE建て UI 反映を履歴に明記
 

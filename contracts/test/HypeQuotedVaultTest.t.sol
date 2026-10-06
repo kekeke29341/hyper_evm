@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Test} from "forge-std/Test.sol";
+import {Test, Vm} from "forge-std/Test.sol";
 import {MockERC20} from "../src/mocks/MockERC20.sol";
 import {MockProjectXNPM} from "../src/mocks/MockProjectXNPM.sol";
 import {MockUniswapV3Pool} from "../src/mocks/MockUniswapV3Pool.sol";
@@ -315,6 +315,120 @@ contract HypeQuotedVaultTest is Test {
         // The keeper's actual target — the live pool price — is accepted.
         vault.rebalance(spot);
         assertEq(adapter.refPriceUsdc6PerHype18(), spot);
+    }
+
+    // --- rebalance swap-to-ratio ---------------------------------------------------------
+
+    event RebalanceSwapped(address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 amountOut);
+
+    /// @dev Leaves the live position holding only the quote token, which is what a real V3
+    ///      position looks like once price runs above the range (UPUMP/HYPE, 2026-10).
+    function _driftPositionAllQuote() internal {
+        uint256 baseHeld = base.balanceOf(address(npm));
+        vm.prank(address(npm));
+        base.transfer(address(0xdead), baseHeld);
+    }
+
+    function _positionValueSplit() internal view returns (uint256 quoteVal, uint256 baseVal) {
+        uint256 price = adapter.currentPoolPriceQuotePerBase18();
+        quoteVal = quote.balanceOf(address(npm));
+        baseVal = (base.balanceOf(address(npm)) * price) / adapter.priceDiv();
+    }
+
+    function test_RebalanceSwapsOneSidedPositionBackIntoRange() public {
+        _assertOneSidedRecovery(6, 1e15);
+        _assertOneSidedRecovery(8, 65_000e18);
+        _assertOneSidedRecovery(18, 3e18);
+    }
+
+    function _assertOneSidedRecovery(uint8 baseDec, uint256 refPrice) internal {
+        _setupPair(baseDec, refPrice);
+        adapter.setSwapRouter(address(router));
+        _depositQuote(user, 100 ether);
+        _driftPositionAllQuote();
+
+        uint256 oldId = adapter.positionTokenId();
+        uint256 quoteBefore = quote.balanceOf(address(npm));
+        uint256 spot = adapter.currentPoolPriceQuotePerBase18();
+
+        vm.expectEmit(true, true, false, false, address(adapter));
+        emit RebalanceSwapped(address(quote), address(base), 0, 0);
+        vault.rebalance(spot);
+
+        assertTrue(adapter.positionTokenId() != oldId, "position not re-minted");
+        (uint256 quoteVal, uint256 baseVal) = _positionValueSplit();
+        assertGt(baseVal, 0, "re-minted position still holds no base");
+        (uint256 t0Bps, uint256 t1Bps) = adapter.rangeDepositRatioBps();
+        uint256 baseTargetBps = address(adapter.token0()) == address(base) ? t0Bps : t1Bps;
+        uint256 baseGotBps = (baseVal * 10_000) / (quoteVal + baseVal);
+        assertApproxEqAbs(baseGotBps, baseTargetBps, 30, "value split does not match the new range");
+        assertApproxEqRel(quoteVal + baseVal, quoteBefore, 1e15, "swap leaked value");
+    }
+
+    function test_RebalanceWithoutAdapterRouterKeepsLegacyOneSidedRemint() public {
+        _setupPair(6, 1e15);
+        _depositQuote(user, 100 ether);
+        _driftPositionAllQuote();
+
+        vault.rebalance(adapter.currentPoolPriceQuotePerBase18());
+
+        assertEq(base.balanceOf(address(npm)), 0, "legacy path must not swap");
+        assertGt(quote.balanceOf(address(npm)), 0);
+    }
+
+    function test_RebalanceSwapRevertsWhenRouterUnderDelivers() public {
+        _setupPair(6, 1e15);
+        _depositQuote(user, 100 ether);
+        _driftPositionAllQuote();
+
+        // A router quoting 3% worse than spot breaches the 1% default tolerance.
+        MockSwapRouter badRouter = new MockSwapRouter((1e15 * 103) / 100);
+        badRouter.setQuoteToken(address(quote));
+        base.mint(address(badRouter), 1_000_000e6);
+        adapter.setSwapRouter(address(badRouter));
+
+        uint256 spot = adapter.currentPoolPriceQuotePerBase18();
+        vm.expectRevert("MockSwapRouter: SLIPPAGE");
+        vault.rebalance(spot);
+
+        // Raising the tolerance lets the operator push the recovery through deliberately.
+        adapter.setRebalanceSwapSlippageBps(500);
+        vault.rebalance(spot);
+        assertGt(base.balanceOf(address(npm)), 0, "recovery should succeed with wider tolerance");
+    }
+
+    function test_RebalanceSkipsSwapWhenAlreadyBalanced() public {
+        _setupPair(18, 3e18);
+        adapter.setSwapRouter(address(router));
+        _depositQuote(user, 100 ether);
+
+        vm.recordLogs();
+        vault.rebalance(adapter.currentPoolPriceQuotePerBase18());
+        bytes32 sig = keccak256("RebalanceSwapped(address,address,uint256,uint256)");
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        for (uint256 i = 0; i < logs.length; i++) {
+            assertTrue(logs[i].topics.length == 0 || logs[i].topics[0] != sig, "balanced position must not swap");
+        }
+    }
+
+    function test_RebalanceSwapSettersAreOwnerOnlyAndBounded() public {
+        _setupPair(6, 1e15);
+
+        vm.prank(user);
+        vm.expectRevert();
+        adapter.setSwapRouter(address(router));
+
+        vm.prank(user);
+        vm.expectRevert();
+        adapter.setRebalanceSwapSlippageBps(200);
+
+        vm.expectRevert("ProjectXAdapter: INVALID_BPS");
+        adapter.setRebalanceSwapSlippageBps(1001);
+
+        adapter.setRebalanceSwapSlippageBps(1000);
+        assertEq(adapter.rebalanceSwapSlippageBps(), 1000);
+        adapter.setSwapRouter(address(router));
+        assertEq(adapter.swapRouter(), address(router));
     }
 
     // --- helpers ------------------------------------------------------------------------

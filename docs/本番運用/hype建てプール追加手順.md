@@ -192,4 +192,6 @@ legacy keeper の再有効化を意味しない。legacy を再開する場合�
 |-----|-------|---------|---------|
 | `ueth-whype` | `0x1399DeAB2A70CaAB308Ac54c1544bfA5D10731F8` | `0x55E9d473Cdfda2F8493D512c6db365cF02eCF33E` | `0xf0a6708ac8090d76775c3125AA19CFDF7598C371` |
 | `ubtc-whype` | `0x10F98CDfC561A4C9eb253C22f05ff9cBB656D018` | `0x768f4909eE0De4eb9f538912904CBEf8e2426e27` | `0x4BADD6a5352CD953893E4eB05598781D17BC63cb` |
-| `upump-whype` | `0x125cbaC752A93010D856007b0d1EaFCa89658082` | `0xb03f65a9742e0e1FB4Ca6064f53c8eBb22A7ef51` | `0x9AEde1F72e4Db59FfF8ED965873a58BD2554Aa6c` |
+| `upump-whype` | `0x54b419cfF0136e6Bcb14d496Edaf5736991b0ff3` | `0xf1CBda6f882B53765FAF9eA1eF2870A6E3Cb60D1` | `0x9c53490743f2580855C797dA36f36a0C75A7A856` |
+
+`upump-whype` は 2026-10-04 再デプロイ（スワップ付き rebalance）。新規ペアは `DeployHyperpoolPair` が Adapter にも `swapRouter` を設定するので、同じ不具合は起きない。

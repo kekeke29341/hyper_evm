@@ -120,25 +120,58 @@ test("upsert inserts a new pool and leaves every top-level field untouched", () 
   assert.equal(LIVE_TOPLEVEL.pools, undefined);
 });
 
-test("upsert updates an existing pool but preserves its accumulated cashdrop", () => {
+test("upsert re-run for the same vault refreshes fields but preserves its accumulated cashdrop", () => {
   const withPool = {
     ...LIVE_TOPLEVEL,
     pools: [
       {
         ...NEW_ENTRY,
-        vault: "0xOldVault",
+        vault: "0xVAULTUETH",
+        label: "old label",
         cashdrop: { cashdropDistributionHistory: [{ at: "2026-08-10" }] },
       },
     ],
   };
   const out = upsertPoolPreservingTopLevel(withPool, NEW_ENTRY);
   assert.equal(out.pools.length, 1);
-  assert.equal(out.pools[0].vault, "0xVaultUeth", "addresses refreshed");
+  assert.equal(out.pools[0].label, "UETH/HYPE", "fields refreshed");
   assert.deepEqual(
     out.pools[0].cashdrop,
     { cashdropDistributionHistory: [{ at: "2026-08-10" }] },
     "cashdrop preserved across re-run"
   );
+  assert.equal(out.pools[0].retiredStacks, undefined, "a re-run retires nothing");
+});
+
+test("upsert with a new vault resets cashdrop and records the retired stack", () => {
+  const withPool = {
+    ...LIVE_TOPLEVEL,
+    pools: [
+      {
+        ...NEW_ENTRY,
+        vault: "0xOldVault",
+        adapter: "0xOldAdapter",
+        airdrop: "0xOldAirdrop",
+        vaultDeployBlock: "100",
+        cashdrop: { vaultShareHolders: [{ address: "0xa", shares: "1" }] },
+      },
+    ],
+  };
+  const out = upsertPoolPreservingTopLevel(withPool, { ...NEW_ENTRY, vaultDeployBlock: "200" });
+  const pool = out.pools[0];
+  assert.equal(pool.vault, "0xVaultUeth");
+  assert.equal(pool.vaultDeployBlock, "200");
+  assert.deepEqual(pool.cashdrop, {}, "old stack's cashdrop must not follow the new vault");
+  assert.equal(pool.retiredStacks.length, 1);
+  assert.deepEqual(
+    { ...pool.retiredStacks[0], retiredAt: undefined },
+    { vault: "0xOldVault", adapter: "0xOldAdapter", airdrop: "0xOldAirdrop", vaultDeployBlock: "100", retiredAt: undefined }
+  );
+
+  const again = upsertPoolPreservingTopLevel(out, { ...NEW_ENTRY, vault: "0xThirdVault" });
+  assert.equal(again.pools[0].retiredStacks.length, 2, "retired stacks accumulate");
+  assert.equal(again.pools[0].retiredStacks[1].vault, "0xVaultUeth");
+  assert.equal(again.hyperpoolVault, "0xLiveVault", "top-level untouched");
 });
 
 test("upsert throws if entry.key is missing", () => {

@@ -307,6 +307,21 @@ async function readRangeStatus() {
   }
 }
 
+/** Adapter swap router, or null for adapters that predate swap-to-ratio rebalancing or have it unset. */
+async function readAdapterSwapRouter() {
+  if (!adapter) return null;
+  try {
+    const router = await publicClient.readContract({
+      address: adapter,
+      abi: adapterAbi,
+      functionName: "swapRouter",
+    });
+    return router && !/^0x0+$/.test(router) ? router : null;
+  } catch {
+    return null;
+  }
+}
+
 // Preflight the rebalance instead of discovering the revert from a write that has already
 // paid for a harvest tx. More importantly, HyperEVM returns no revert data, so this failure
 // used to surface as a bare "execution reverted" and crash the keeper every 6h — which is
@@ -329,22 +344,33 @@ try {
   } else {
     const range = await readRangeStatus();
     if (range && !range.inRange) {
+      const adapterRouter = await readAdapterSwapRouter();
       console.error(
         `REBALANCE BLOCKED — position is fully out of range (pool tick ${range.tick} outside [${range.tickLower}, ${range.tickUpper}]).`
       );
-      console.error(
-        "  adapter.rebalance() burns and re-mints WITHOUT swapping, so a 100% one-sided position"
-      );
-      console.error(
-        "  cannot be re-centred: the NPM mint computes zero liquidity and the pool reverts."
-      );
       console.error("  The vault is collecting NO fees until this is repaired.");
-      console.error(
-        "  Recovery: send a small seed of the missing token to the adapter, then re-run this keeper."
-      );
-      console.error(
-        "  See docs/update/2026-09-21-pool-cron-and-out-of-range.md for the exact amounts."
-      );
+      if (adapterRouter) {
+        console.error(
+          `  This adapter swaps to the new range ratio (router ${adapterRouter}), so the swap itself reverted:`
+        );
+        console.error(
+          "  most likely price impact beyond adapter.rebalanceSwapSlippageBps(). Check pool depth, then"
+        );
+        console.error("  raise it with adapter.setRebalanceSwapSlippageBps(bps) (owner, max 1000) and re-run.");
+      } else {
+        console.error(
+          "  This adapter burns and re-mints WITHOUT swapping, so a 100% one-sided position"
+        );
+        console.error(
+          "  cannot be re-centred: the NPM mint computes zero liquidity and the pool reverts."
+        );
+        console.error(
+          "  Recovery: send a small seed of the missing token to the adapter, then re-run this keeper,"
+        );
+        console.error(
+          "  or migrate to a swap-capable adapter (docs/本番運用/rebalance-swap-adapter-migration.md)."
+        );
+      }
       process.exit(3);
     }
     throw new Error(`rebalance preflight failed: ${reason}`);

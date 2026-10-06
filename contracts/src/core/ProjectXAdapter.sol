@@ -7,6 +7,7 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {IProjectXNPM} from "../interfaces/IProjectXNPM.sol";
+import {IProjectXSwapRouter} from "../interfaces/IProjectXSwapRouter.sol";
 import {IUniswapV3Pool} from "../interfaces/IUniswapV3Pool.sol";
 import {ProjectXConstants} from "../libraries/ProjectXConstants.sol";
 import {ProjectXPrice} from "../libraries/ProjectXPrice.sol";
@@ -48,6 +49,19 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
     uint256 public lowerRangeBps = ProjectXConstants.LOWER_RANGE_BPS;
     uint256 public slippageBps = 50; // 0.5% min on remint after rebalance
 
+    /// @notice Router used by rebalance() to swap the unwound balances into the new range's ratio.
+    ///         address(0) keeps the legacy behaviour (re-mint whatever the unwind returned), which
+    ///         cannot recover a position that drifted fully one-sided: the in-range mint then
+    ///         computes zero liquidity and reverts.
+    address public swapRouter;
+    /// @notice minOut tolerance for the rebalance swap, against the TWAP-checked spot price. Must
+    ///         cover the pool fee (0.3%) plus price impact, so it sits above the remint slippage.
+    uint256 public rebalanceSwapSlippageBps = 100;
+    uint256 public constant MAX_REBALANCE_SWAP_SLIPPAGE_BPS = 1000;
+    /// @dev Imbalances under 0.1% of position value are left for the mint's leftover path; swapping
+    ///      them would cost more in fees than the liquidity it adds.
+    uint256 internal constant REBALANCE_SWAP_MIN_BPS = 10;
+
     event PositionMinted(uint256 tokenId, int24 tickLower, int24 tickUpper, uint128 liquidity);
     event PositionIncreased(uint256 tokenId, uint128 liquidityAdded);
     event PositionRebalanced(uint256 tokenId, int24 tickLower, int24 tickUpper);
@@ -55,6 +69,9 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
     event LiquidityWithdrawn(uint256 amount0, uint256 amount1);
     event IdleForwardedToVault(uint256 amount0, uint256 amount1);
     event TokenRecovered(address indexed token, address indexed to, uint256 amount);
+    event SwapRouterUpdated(address indexed router);
+    event RebalanceSwapSlippageBpsUpdated(uint256 bps);
+    event RebalanceSwapped(address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 amountOut);
 
     modifier onlyVault() {
         require(msg.sender == vault, "ProjectXAdapter: NOT_VAULT");
@@ -173,6 +190,17 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
         lowerRangeBps = _lowerBps;
     }
 
+    function setSwapRouter(address _router) external onlyOwner {
+        swapRouter = _router;
+        emit SwapRouterUpdated(_router);
+    }
+
+    function setRebalanceSwapSlippageBps(uint256 bps) external onlyOwner {
+        require(bps <= MAX_REBALANCE_SWAP_SLIPPAGE_BPS, "ProjectXAdapter: INVALID_BPS");
+        rebalanceSwapSlippageBps = bps;
+        emit RebalanceSwapSlippageBpsUpdated(bps);
+    }
+
     /// @notice USDC-equivalent value of this adapter's Project X position plus idle token balances
     /// @dev Uses pool slot0 + position liquidity when `pool` is set; falls back to NPM balances for dedicated mock NPM
     function totalAssetsUsdc(uint256 priceUsdc6PerHype18) external view returns (uint256) {
@@ -228,8 +256,11 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
     /// @dev token0 = WHYPE when WHYPE sorts before USDC (mainnet). Used by the vault to avoid 50/50 swaps.
     function rangeDepositRatioBps() external view returns (uint256 token0Bps, uint256 token1Bps) {
         if (address(pool) == address(0)) return (5000, 5000);
-
         (int24 lower, int24 upper) = _depositTickRange();
+        return _ratioBpsForRange(lower, upper);
+    }
+
+    function _ratioBpsForRange(int24 lower, int24 upper) internal view returns (uint256 token0Bps, uint256 token1Bps) {
         if (lower >= upper) return (5000, 5000);
 
         (uint160 sqrtPriceX96,,,,,,) = pool.slot0();
@@ -406,6 +437,10 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
         tickLower = lower;
         tickUpper = upper;
 
+        if (swapRouter != address(0) && address(pool) != address(0)) {
+            _swapToRangeRatio(lower, upper);
+        }
+
         uint256 bal0 = token0.balanceOf(address(this));
         uint256 bal1 = token1.balanceOf(address(this));
         if (bal0 > 0) token0.forceApprove(address(npm), bal0);
@@ -561,6 +596,74 @@ contract ProjectXAdapter is Ownable, IERC721Receiver {
         );
         min0 = (expected0 * (ProjectXConstants.BPS - slippageBps)) / ProjectXConstants.BPS;
         min1 = (expected1 * (ProjectXConstants.BPS - slippageBps)) / ProjectXConstants.BPS;
+    }
+
+    /// @dev Swaps the surplus side of the adapter's idle balances so their value split matches what
+    ///      [lower, upper] holds at the live price. Selling x of the surplus side only delivers
+    ///      x * (1 - fee) to the other side, so the excess is grossed up by 1 / (1 - target * fee)
+    ///      to land on the target after fees. The spot used for pricing and minOut has already been
+    ///      bounded against the pool TWAP by the vault's rebalance entry guard.
+    function _swapToRangeRatio(int24 lower, int24 upper) internal {
+        uint256 bal0 = token0.balanceOf(address(this));
+        uint256 bal1 = token1.balanceOf(address(this));
+        if (bal0 == 0 && bal1 == 0) return;
+
+        uint256 price = currentPoolPriceUsdc6PerHype18();
+        if (price == 0) return;
+
+        uint256 val0 = _amountsToUsdc(bal0, 0, price);
+        uint256 val1 = _amountsToUsdc(0, bal1, price);
+        uint256 total = val0 + val1;
+        if (total == 0) return;
+
+        (uint256 target0Bps, uint256 target1Bps) = _ratioBpsForRange(lower, upper);
+        uint256 target0 = FullMath.mulDiv(total, target0Bps, ProjectXConstants.BPS);
+
+        bool sell0 = val0 > target0;
+        uint256 excess = sell0 ? val0 - target0 : val1 - (total - target0);
+        if (excess * ProjectXConstants.BPS < total * REBALANCE_SWAP_MIN_BPS) return;
+
+        // fee is in hundredths of a bip (3000 = 0.3%); targetBps * fee stays far below 1e10.
+        uint256 sellSideTargetBps = sell0 ? target0Bps : target1Bps;
+        excess = FullMath.mulDiv(excess, 1e10, 1e10 - sellSideTargetBps * uint256(fee));
+
+        uint256 sellVal = sell0 ? val0 : val1;
+        if (excess > sellVal) excess = sellVal;
+        uint256 amountIn = FullMath.mulDiv(sell0 ? bal0 : bal1, excess, sellVal);
+        if (amountIn == 0) return;
+
+        IERC20 tokenIn = sell0 ? token0 : token1;
+        IERC20 tokenOut = sell0 ? token1 : token0;
+        uint256 minOut = FullMath.mulDiv(
+            _quoteOut(address(tokenIn), amountIn, price),
+            ProjectXConstants.BPS - rebalanceSwapSlippageBps,
+            ProjectXConstants.BPS
+        );
+
+        tokenIn.forceApprove(swapRouter, amountIn);
+        uint256 amountOut = IProjectXSwapRouter(swapRouter).exactInputSingle(
+            IProjectXSwapRouter.ExactInputSingleParams({
+                tokenIn: address(tokenIn),
+                tokenOut: address(tokenOut),
+                fee: fee,
+                recipient: address(this),
+                deadline: block.timestamp,
+                amountIn: amountIn,
+                amountOutMinimum: minOut,
+                sqrtPriceLimitX96: 0
+            })
+        );
+        emit RebalanceSwapped(address(tokenIn), address(tokenOut), amountIn, amountOut);
+    }
+
+    /// @dev Fee-free expected output of selling `amountIn` of `tokenIn` at `priceQuotePerBase18`.
+    function _quoteOut(address tokenIn, uint256 amountIn, uint256 priceQuotePerBase18)
+        internal
+        view
+        returns (uint256)
+    {
+        if (tokenIn == address(baseToken)) return FullMath.mulDiv(amountIn, priceQuotePerBase18, priceDiv);
+        return FullMath.mulDiv(amountIn, priceDiv, priceQuotePerBase18);
     }
 
     function _toUint128(uint256 value) internal pure returns (uint128) {
