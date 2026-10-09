@@ -2648,8 +2648,8 @@
           }
         ],
         "cashdropWeightCheckpoint": {
-          "blockNumber": "47940424",
-          "timestamp": "1791411120",
+          "blockNumber": "48028264",
+          "timestamp": "1791497520",
           "balances": {
             "0x0196f2949fbce973d54d2047e3b8bfade06e8cec": "29000000000000000"
           }
@@ -2657,18 +2657,18 @@
         "airdropEntries": [
           {
             "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
-            "amount": "391423621197142",
+            "amount": "197578796970185",
             "minShares": "1"
           }
         ],
         "lastCashdropDistribution": {
-          "distributionId": "0x46097becb83479a30715b3f48267c1c0aed667282559a7c506319951f63a97b2",
-          "txHash": "0xc441462a0243b468a7a7c0123a5a5a6562d031163a9d32ae9533683cf98f0dea",
-          "amount": "391423621197142",
+          "distributionId": "0x3112b761398048f6cd83fb28a7ec3cfabbafd63cfd4d8a90d2da3bf4351badbb",
+          "txHash": "0x920b8f9b7b28e06c8cf623f7e8347dd0a12b839c2cb895ff452444066ca7317b",
+          "amount": "197578796970185",
           "entries": 1,
-          "executedAt": "2026-10-08T00:04:03.038Z",
-          "harvestBlock": "47940424",
-          "harvestTimestamp": "1791411120",
+          "executedAt": "2026-10-09T00:04:04.535Z",
+          "harvestBlock": "48028264",
+          "harvestTimestamp": "1791497520",
           "timeWeighted": false
         },
         "cashdropDistributionHistory": [
@@ -2702,6 +2702,17 @@
               {
                 "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
                 "amount": "391423621197142"
+              }
+            ]
+          },
+          {
+            "distributionId": "0x3112b761398048f6cd83fb28a7ec3cfabbafd63cfd4d8a90d2da3bf4351badbb",
+            "txHash": "0x920b8f9b7b28e06c8cf623f7e8347dd0a12b839c2cb895ff452444066ca7317b",
+            "executedAt": "2026-10-09T00:04:04.535Z",
+            "entries": [
+              {
+                "address": "0x0196f2949FbcE973d54d2047E3B8bfAde06e8ceC",
+                "amount": "197578796970185"
               }
             ]
           }
