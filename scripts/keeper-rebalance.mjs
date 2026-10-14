@@ -19,6 +19,7 @@
  *      MIN_IDLE_DEPLOY_USDC (skip deployIdle when the idle quote value is below this, in whole quote
  *        tokens: USDC for legacy, WHYPE for HYPE-quoted pools. Defaults per pool — 10 for legacy,
  *        pools[].minIdleDeployQuote (0.2) for HYPE-quoted. Env overrides both.)
+ *      GAS_BUFFER_PCT (default 30 — gas limit = estimate * (100 + pct) / 100)
  */
 import fs from "fs";
 import path from "path";
@@ -37,6 +38,7 @@ const MAX_DEVIATION_BPS = Number(process.env.MAX_REBALANCE_DEVIATION_BPS ?? "500
 // smaller WHYPE figure for HYPE-quoted pools, where 10 quote tokens would be hundreds of dollars).
 const MIN_IDLE_DEPLOY_ENV = process.env.MIN_IDLE_DEPLOY_USDC ? Number(process.env.MIN_IDLE_DEPLOY_USDC) : null;
 const SKIP_DEPLOY_IDLE = process.env.SKIP_DEPLOY_IDLE === "1";
+const GAS_BUFFER_PCT = BigInt(process.env.GAS_BUFFER_PCT ?? "30");
 
 const ERC20_BALANCE_ABI = [
   {
@@ -104,6 +106,26 @@ const vault = cfg.vault;
 const adapter = cfg.adapter;
 if (!vault) throw new Error("hyperpoolVault not in deployment JSON");
 console.log(`Keeper target: ${cfg.key ? `pool '${cfg.key}'` : "legacy HYPE/USDC"} vault=${vault}`);
+
+// viem uses the raw estimate as the gas limit; pool state shifting between estimate and
+// inclusion then runs the tx out of gas (ubtc-whype deployIdle 2026-10-14: limit 513753,
+// used 513753, reverted). A reverted tx also resolves waitForTransactionReceipt normally,
+// so the status must be checked or the log reports a failure as a tx hash.
+async function sendVaultTx(functionName, args = []) {
+  const estimate = await publicClient.estimateContractGas({ address: vault, abi: vaultAbi, functionName, args, account });
+  const hash = await walletClient.writeContract({
+    address: vault,
+    abi: vaultAbi,
+    functionName,
+    args,
+    gas: (estimate * (100n + GAS_BUFFER_PCT)) / 100n,
+  });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash });
+  if (receipt.status !== "success") {
+    throw new Error(`${functionName} tx ${hash} reverted on-chain (gasUsed ${receipt.gasUsed}/${estimate} est)`);
+  }
+  return receipt;
+}
 
 async function readVaultIdleUsdc() {
   const whype = cfg.baseToken;
@@ -184,13 +206,8 @@ async function maybeDeployIdle() {
   }
 
   try {
-    const hash = await walletClient.writeContract({
-      address: vault,
-      abi: vaultAbi,
-      functionName: "deployIdle",
-    });
-    const receipt = await publicClient.waitForTransactionReceipt({ hash });
-    console.log("deployIdle tx", receipt.transactionHash);
+    const receipt = await sendVaultTx("deployIdle");
+    console.log("deployIdle tx", receipt.transactionHash, "gasUsed", receipt.gasUsed.toString());
   } catch (err) {
     const msg = err?.shortMessage ?? err?.message ?? String(err);
     console.warn("deployIdle failed (rebalance already succeeded):", msg);
@@ -388,12 +405,7 @@ try {
     abi: vaultAbi,
     functionName: "pendingUserRewards",
   });
-  const harvestHash = await walletClient.writeContract({
-    address: vault,
-    abi: vaultAbi,
-    functionName: "harvestFees",
-  });
-  await publicClient.waitForTransactionReceipt({ hash: harvestHash });
+  const { transactionHash: harvestHash } = await sendVaultTx("harvestFees");
   const pendingAfter = await publicClient.readContract({
     address: vault,
     abi: vaultAbi,
@@ -407,13 +419,7 @@ try {
   console.warn("harvestFees before rebalance failed (continuing with rebalance):", msg);
 }
 
-const hash = await walletClient.writeContract({
-  address: vault,
-  abi: vaultAbi,
-  functionName: "rebalance",
-  args: [refPrice],
-});
-const receipt = await publicClient.waitForTransactionReceipt({ hash });
+const receipt = await sendVaultTx("rebalance", [refPrice]);
 console.log("rebalance tx", receipt.transactionHash);
 
 if (adapter) {
